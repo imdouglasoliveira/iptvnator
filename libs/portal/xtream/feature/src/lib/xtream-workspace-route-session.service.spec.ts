@@ -13,6 +13,7 @@ import {
 import { SourceActivityService } from '@iptvnator/services';
 import { XtreamStartupRefreshService } from '@iptvnator/services/xtream-startup-refresh';
 import { PlaylistMeta } from '@iptvnator/shared/interfaces';
+import { XtreamLiveRefreshOnUseService } from './xtream-live-refresh-on-use.service';
 import { XtreamWorkspaceRouteSession } from './xtream-workspace-route-session.service';
 
 const PLAYLIST_ID = 'playlist-1';
@@ -96,6 +97,7 @@ describe('XtreamWorkspaceRouteSession', () => {
     );
     const liveCategories = signal([{ id: 11, xtream_id: 7 }]);
     const matchesUpdate = jest.fn();
+    const ensureFresh = jest.fn();
     const wasLiveCategoryRemoved = jest.fn();
     const liveStreams = signal([
         { id: 101, xtream_id: 42, category_id: 11, type: 'live' },
@@ -301,6 +303,10 @@ describe('XtreamWorkspaceRouteSession', () => {
             providers: [
                 XtreamWorkspaceRouteSession,
                 {
+                    provide: XtreamLiveRefreshOnUseService,
+                    useValue: { ensureFresh },
+                },
+                {
                     provide: XtreamStartupRefreshService,
                     useValue: { matchesUpdate, wasLiveCategoryRemoved },
                 },
@@ -319,6 +325,13 @@ describe('XtreamWorkspaceRouteSession', () => {
                 },
             ],
         });
+    });
+
+    it('asks for a live refresh when an Xtream playlist route opens', async () => {
+        TestBed.inject(XtreamWorkspaceRouteSession);
+        await flushEffects();
+
+        expect(ensureFresh).toHaveBeenCalledWith(PLAYLIST_ID);
     });
 
     it('initializes content for active import-driven routes', async () => {

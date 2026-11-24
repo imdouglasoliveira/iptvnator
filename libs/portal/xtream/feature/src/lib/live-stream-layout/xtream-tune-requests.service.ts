@@ -1,4 +1,5 @@
 import { inject, Injectable } from '@angular/core';
+import { XtreamStore } from '@iptvnator/portal/xtream/data-access';
 import type { EpgProgram } from '@iptvnator/shared/interfaces';
 import {
     sameXtreamLiveOwner,
@@ -6,6 +7,7 @@ import {
     type XtreamLiveSource,
 } from './xtream-external-live-sessions.service';
 import type { XtreamEpgGuideSourceService } from './xtream-epg-guide-source.service';
+import { XtreamLiveRefreshOnUseService } from '../xtream-live-refresh-on-use.service';
 import { XtreamGuideExternalPlayback } from './xtream-guide-external-playback.service';
 import {
     sameXtreamChannelCopy,
@@ -37,6 +39,8 @@ interface GuideTuneView {
 @Injectable()
 export class XtreamTuneRequests {
     private readonly external = inject(XtreamGuideExternalPlayback);
+    private readonly liveRefresh = inject(XtreamLiveRefreshOnUseService);
+    private readonly xtreamStore = inject(XtreamStore);
     private generation = 0;
     private inlineConfirmation?: () => void;
 
@@ -102,6 +106,7 @@ export class XtreamTuneRequests {
 
     begin(): TuneRequest {
         this.invalidate();
+        this.liveRefresh.ensureFresh(this.xtreamStore.playlistId());
         return this.current();
     }
 

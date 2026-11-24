@@ -804,6 +804,7 @@ export interface ElectronBridgeApi {
     getAppVersion: () => Promise<string>;
     isMpegTsLiveReconnectDisabled?: () => boolean;
     isM3uActiveOnlyEpgDisabled?: () => boolean;
+    isXtreamLiveRefreshOnUseDisabled?: () => boolean;
     platform: string;
     getAppUpdateStatus: () => Promise<ElectronBridgeAppUpdateStatus>;
     checkForAppUpdate: () => Promise<ElectronBridgeAppUpdateStatus>;

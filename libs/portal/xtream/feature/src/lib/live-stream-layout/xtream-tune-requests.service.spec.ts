@@ -1,5 +1,7 @@
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
+import { XtreamStore } from '@iptvnator/portal/xtream/data-access';
+import { XtreamLiveRefreshOnUseService } from '../xtream-live-refresh-on-use.service';
 import { XtreamGuideExternalPlayback } from './xtream-guide-external-playback.service';
 import { XtreamTuneRequests } from './xtream-tune-requests.service';
 
@@ -15,12 +17,22 @@ describe('Xtream tune requests', () => {
         archive: null;
     } | null>(null);
     let requests: XtreamTuneRequests;
+    const ensureFresh = jest.fn();
 
     beforeEach(() => {
         confirmed.set(null);
+        ensureFresh.mockClear();
         TestBed.configureTestingModule({
             providers: [
                 XtreamTuneRequests,
+                {
+                    provide: XtreamStore,
+                    useValue: { playlistId: () => 'synthetic-playlist' },
+                },
+                {
+                    provide: XtreamLiveRefreshOnUseService,
+                    useValue: { ensureFresh },
+                },
                 {
                     provide: XtreamGuideExternalPlayback,
                     useValue: { owner, confirmed, isStopping: () => false },
@@ -28,6 +40,11 @@ describe('Xtream tune requests', () => {
             ],
         });
         requests = TestBed.inject(XtreamTuneRequests);
+    });
+
+    it('asks for a live refresh of the playing source on every tune without waiting', () => {
+        requests.begin();
+        expect(ensureFresh).toHaveBeenCalledWith('synthetic-playlist');
     });
 
     it.each(['new tune', 'Stop', 'owner edit'] as const)(

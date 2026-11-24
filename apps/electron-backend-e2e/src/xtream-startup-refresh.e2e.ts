@@ -29,7 +29,7 @@ async function liveTitles(page: Page, playlistId: string) {
     }, playlistId);
 }
 
-test('refreshes opted-in Xtream live channels on restart and keeps the saved catalog on provider failure', async ({
+test('refreshes opted-in Xtream live channels when the source is opened, not at startup, and keeps the saved catalog on provider failure', async ({
     dataDir,
 }) => {
     test.setTimeout(150000);
@@ -118,11 +118,14 @@ test('refreshes opted-in Xtream live channels on restart and keeps the saved cat
         provider.actions.length = 0;
         const releaseLiveResponse = provider.hold('get_live_streams');
         app = await restartElectronApp(app, dataDir);
+        await openSources(app.mainWindow);
+        await waitForSourceRowIdle(app.mainWindow, title);
+        // Acceptance counter: no Xtream refresh at startup.
+        expect(catalogActions(provider.actions)).toEqual([]);
+        await sourceRowByTitle(app.mainWindow, title).click();
         await expect
             .poll(() => catalogActions(provider.actions))
             .toEqual(liveRequests);
-        await openSources(app.mainWindow);
-        await sourceRowByTitle(app.mainWindow, title).click();
         await openWorkspaceSection(app.mainWindow, 'Live TV');
         await app.mainWindow.waitForURL(/\/live$/);
         const oldCategoryId = await app.mainWindow.evaluate(async (id) => {
@@ -199,23 +202,25 @@ test('refreshes opted-in Xtream live channels on restart and keeps the saved cat
         expect(catalogActions(provider.actions)).toEqual(liveRequests);
 
         provider.respond('get_live_streams', [{ category_id: '1002' }]);
+        provider.actions.length = 0;
         app = await restartElectronApp(app, dataDir);
-        await expect(
-            app.mainWindow.getByText(
-                'Couldn’t refresh one or more Xtream sources on startup.'
-            )
-        ).toBeVisible();
+        await openSources(app.mainWindow);
+        await sourceRowByTitle(app.mainWindow, title).click();
+        await expect
+            .poll(() => catalogActions(provider.actions))
+            .toEqual(liveRequests);
         expect(await liveTitles(app.mainWindow, playlistId)).toEqual(
             expect.arrayContaining([updatedChannel.name, renamedFavorite.name])
         );
 
         const allowLiveRequest = provider.fail('get_live_streams');
+        provider.actions.length = 0;
         app = await restartElectronApp(app, dataDir);
-        await expect(
-            app.mainWindow.getByText(
-                'Couldn’t refresh one or more Xtream sources on startup.'
-            )
-        ).toBeVisible();
+        await openSources(app.mainWindow);
+        await sourceRowByTitle(app.mainWindow, title).click();
+        await expect
+            .poll(() => catalogActions(provider.actions))
+            .toEqual(liveRequests);
         expect(await liveTitles(app.mainWindow, playlistId)).toContain(
             updatedChannel.name
         );
@@ -234,6 +239,9 @@ test('refreshes opted-in Xtream live channels on restart and keeps the saved cat
 
         provider.actions.length = 0;
         app = await restartElectronApp(app, dataDir);
+        await openSources(app.mainWindow);
+        await sourceRowByTitle(app.mainWindow, title).click();
+        await openWorkspaceSection(app.mainWindow, 'Live TV');
         await openSources(app.mainWindow);
         dialog = await openSourceEditor(app.mainWindow, title);
         await expect(

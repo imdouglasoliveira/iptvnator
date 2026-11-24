@@ -34,6 +34,7 @@ import {
     toXtreamPlaylistData,
     shouldBootstrapXtreamPlaylist,
 } from './xtream-route-playlist';
+import { XtreamLiveRefreshOnUseService } from './xtream-live-refresh-on-use.service';
 import {
     reloadStartupLiveSelection,
     replaceStartupLiveCategoryUrl,
@@ -225,6 +226,10 @@ export class XtreamWorkspaceRouteSession {
             routeContext.provider === 'xtreams'
                 ? routeContext.playlistId
                 : null;
+        if (playlistId)
+            this.injector
+                .get(XtreamLiveRefreshOnUseService)
+                .ensureFresh(playlistId);
         const routeSection =
             routeContext.provider === 'xtreams' ? routeContext.section : null;
         const routePlaylist =

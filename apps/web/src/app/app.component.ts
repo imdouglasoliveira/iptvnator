@@ -42,8 +42,6 @@ import {
     STORE_KEY,
     Theme,
     createDevLogger,
-    isXtreamAccountPlaylist,
-    normalizeXtreamContentTypes,
     normalizeAppLanguage,
 } from '@iptvnator/shared/interfaces';
 import { AppDateLocaleService } from './app-date-locales';
@@ -55,6 +53,7 @@ import { AppUpdateNotificationPanelComponent } from './app-update-notification-p
 import { AppStartupStatusComponent } from './app-startup-status.component';
 import { syncDocumentLanguage } from './services/document-language';
 import { SourceSyncStatusComponent } from './source-sync-status.component';
+import { selectXtreamStartupRefreshSources } from './services/xtream-startup-sources';
 
 const debugAppComponent = createDevLogger('AppComponent');
 
@@ -316,15 +315,15 @@ export class AppComponent implements OnInit {
                                 m3u
                             );
                         }
-                        if (!this.runtime.supportsXtreamSqliteDataSource)
-                            return;
-                        const xtream = optedIn.filter(
-                            (playlist) =>
-                                !playlist.portalUrl &&
-                                isXtreamAccountPlaylist(playlist) &&
-                                normalizeXtreamContentTypes(
-                                    playlist.xtreamContentTypes
-                                ).includes('live')
+                        const xtream = selectXtreamStartupRefreshSources(
+                            optedIn,
+                            {
+                                supportsSqlite:
+                                    this.runtime.supportsXtreamSqliteDataSource,
+                                onUseDisabled:
+                                    window.electron?.isXtreamLiveRefreshOnUseDisabled?.() ===
+                                    true,
+                            }
                         );
                         if (xtream.length)
                             void this.refreshXtreamOnStartup(xtream);

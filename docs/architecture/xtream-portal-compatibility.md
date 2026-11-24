@@ -383,10 +383,24 @@ and explicit refresh use the same durable persistence invariant.
 
 ## Desktop catalog selection
 
+### Live refresh runs on use, not at startup
+
+The opted-in live refresh no longer runs at launch. `XtreamLiveRefreshOnUseService`
+(`libs/portal/xtream/feature`) starts it in the background, without awaiting, when an
+Xtream workspace route opens (`XtreamWorkspaceRouteSession`) and when a live channel is
+tuned (`XtreamTuneRequests.begin`). It reuses `XtreamStartupRefreshService.refreshLive`
+and the same commit and publish path. Each source waits 15 minutes after a success and
+60 seconds after a failure; overlapping requests share one run and failures are silent.
+Acceptance counter: Xtream refreshes at startup = 0.
+Kill switch: `IPTVNATOR_DISABLE_XTREAM_LIVE_REFRESH_ON_USE=1` restores the startup refresh
+(`selectXtreamStartupRefreshSources`); the preload exposes it as
+`isXtreamLiveRefreshOnUseDisabled`. Remove the switch within two releases.
+
 ### Refresh live channels on startup
 
 The desktop source editor reuses the per-source `autoRefresh` preference for
-Xtream Live TV. On launch, the renderer runs opted-in live refreshes in sequence.
+Xtream Live TV. With the kill switch above set, the renderer runs opted-in live
+refreshes in sequence on launch; otherwise the same refresh runs on use.
 The app can read the saved catalog while the provider responds. Empty replies
 and replies with missing or invalid live stream IDs leave the cache in place.
 Before replacing live rows, the selected-catalog service waits for source
