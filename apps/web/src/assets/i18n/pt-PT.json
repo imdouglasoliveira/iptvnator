@@ -177,6 +177,7 @@
                 "SOURCE_LOAD_FAILED": "A nova fonte foi guardada, mas não foi possível carregar os seus canais, por isso a playlist ainda mostra os canais da fonte anterior. Verifica a fonte e guarda novamente para tentar outra vez.",
                 "AUTO_UPDATE": "Atualização automática",
                 "AUTO_UPDATE_DESCRIPTION": "Se a atualização automática estiver ativada, a playlist será atualizada sempre que iniciares a aplicação.",
+                "XTREAM_REFRESH_LIVE_ON_STARTUP": "Atualizar canais em direto ao iniciar",
                 "CUSTOM_USER_AGENT": "Alguns fornecedores de IPTV exigem um User-Agent específico para reproduzir a playlist.",
                 "EXPORT_PLAYLIST": "Exportar playlist como m3u",
                 "SERVER_URL": "URL do servidor",
@@ -234,6 +235,7 @@
             "AUTO_REFRESH_UPDATE_PARTIAL": "Atualização automática incompleta: {{updated}} de {{total}} playlists atualizadas, {{failed}} falharam.",
             "AUTO_REFRESH_UPDATE_PARTIAL_WITH_SKIPPED": "Atualização automática incompleta: {{updated}} de {{total}} playlists atualizadas, {{failed}} falharam, {{skipped}} ignoradas (sem URL ou caminho de ficheiro).",
             "AUTO_REFRESH_UPDATE_FAILED": "Falha na atualização automática das playlists. Nenhuma das {{total}} playlists pôde ser atualizada.",
+            "XTREAM_STARTUP_REFRESH_FAILED": "Não foi possível atualizar uma ou mais fontes Xtream ao iniciar.",
             "AUTO_REFRESH_UPDATE_SKIPPED": "Atualização automática de playlists: {{updated}} de {{total}} atualizadas, {{skipped}} ignoradas (sem URL ou caminho de ficheiro).",
             "AUTO_REFRESH_ENABLED": "Atualização automática ativada"
         },
@@ -808,6 +810,8 @@
         "EMBEDDED_MPV_AUTO_RECONNECT_DESCRIPTION": "Quando uma transmissão em reprodução é interrompida, o leitor integrado volta a carregá-la com intervalos crescentes, até 6 tentativas. Se a transmissão nunca chegou a iniciar, é necessário utilizar Tentar novamente manualmente.",
         "VOD_AUTO_FAILOVER": "Trocar de fonte automaticamente ao falhar a reprodução",
         "VOD_AUTO_FAILOVER_DESCRIPTION": "Quando um filme falha na reprodução e existe noutra playlist, muda automaticamente para essa fonte e mantém a posição. Desativado por predefinição. A mudança é sempre anunciada porque a outra fonte pode ter uma dobragem diferente.",
+        "M3U_CATALOG_TABS": "Secções de filmes e séries",
+        "M3U_CATALOG_TABS_DESCRIPTION": "Mostra secções separadas de Filmes e Séries para playlists que contêm filmes ou episódios, em vez de listar cada entrada como um canal em direto.",
         "NAV_PARENTAL": "Controlo parental",
         "PARENTAL_LOCK": {
             "TITLE": "Controlo parental",
@@ -1195,6 +1199,13 @@
             "SEARCH_PLACEHOLDER": "Pesquisar grupos…",
             "NO_RESULTS": "Nenhum grupo correspondente encontrado",
             "SAVE": "Guardar"
+        },
+        "CATALOG": {
+            "NO_MOVIES": "Nenhum filme nesta playlist",
+            "NO_SERIES": "Nenhuma série nesta playlist",
+            "EMPTY_HINT": "Esta playlist contém apenas canais em direto.",
+            "EMPTY_HINT_MOVIES": "Os filmes desta playlist estão em Filmes.",
+            "EMPTY_HINT_SERIES": "As séries desta playlist estão em Séries."
         }
     },
     "TOP_MENU": {
@@ -1756,6 +1767,8 @@
             "AGE_RATING_COUNTRY_FALLBACK": "Sem classificação para {{country}}; a mostrar {{fallback}}.",
             "AGE_RATING_MULTIPLE": "As classificações variam entre versões."
         },
+        "SEASON_COUNT_ONE": "1 temporada",
+        "SEASON_COUNT_OTHER": "{{count}} temporadas",
         "SCROLL_LEFT": "Deslocar para a esquerda",
         "SCROLL_RIGHT": "Deslocar para a direita",
         "EPISODE_NAVIGATION": "Navegação de episódios",

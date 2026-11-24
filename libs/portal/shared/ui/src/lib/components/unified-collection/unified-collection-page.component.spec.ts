@@ -77,6 +77,8 @@ class StubUnifiedGridTabComponent {
     readonly mode = input<'favorites' | 'recent'>('favorites');
     readonly contentType = input<'movie' | 'series'>('movie');
     readonly searchTerm = input('');
+    readonly favoriteUids = input<ReadonlySet<string>>(new Set<string>());
+    readonly favoriteToggled = output<UnifiedCollectionItem>();
 
     readonly itemSelected = output<UnifiedCollectionItem>();
     readonly removeItem = output<UnifiedCollectionItem>();

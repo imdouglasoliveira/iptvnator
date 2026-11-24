@@ -9,6 +9,7 @@
 
 import { sql } from 'drizzle-orm';
 import {
+    foreignKey,
     index,
     integer,
     primaryKey,
@@ -82,6 +83,7 @@ export const categories = sqliteTable(
         // DB_SET_CATEGORY_LOCKS. While the lock is active every content read
         // in the worker filters on it — see parental-lock-state.ts.
         locked: integer('locked', { mode: 'boolean' }).default(false),
+        providerOrder: integer('provider_order'),
     },
     (table) => ({
         playlistIdx: index('idx_categories_playlist').on(table.playlistId),
@@ -246,6 +248,30 @@ export const epgChannelSources = sqliteTable(
     (table) => [
         primaryKey({ columns: [table.channelId, table.sourceUrl] }),
         index('idx_epg_channel_sources_source').on(table.sourceUrl),
+    ]
+);
+
+/** Every XMLTV display-name, scoped to the source that declared the alias. */
+export const epgChannelNames = sqliteTable(
+    'epg_channel_names',
+    {
+        channelId: text('channel_id').notNull(),
+        sourceUrl: text('source_url').notNull(),
+        displayName: text('display_name').notNull(),
+    },
+    (table) => [
+        primaryKey({
+            columns: [table.channelId, table.sourceUrl, table.displayName],
+        }),
+        foreignKey({
+            columns: [table.channelId, table.sourceUrl],
+            foreignColumns: [
+                epgChannelSources.channelId,
+                epgChannelSources.sourceUrl,
+            ],
+        }).onDelete('cascade'),
+        index('idx_epg_channel_names_source').on(table.sourceUrl),
+        index('idx_epg_channel_names_display_name').on(table.displayName),
     ]
 );
 

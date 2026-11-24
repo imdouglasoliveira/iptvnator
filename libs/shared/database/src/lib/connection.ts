@@ -158,6 +158,7 @@ const CREATE_TABLE_STATEMENTS = [
       xtream_id INTEGER NOT NULL,
       hidden INTEGER DEFAULT 0,
       locked INTEGER DEFAULT 0,
+      provider_order INTEGER,
       UNIQUE(playlist_id, type, xtream_id),
       FOREIGN KEY (playlist_id) REFERENCES playlists (id) ON DELETE CASCADE
   )`,
@@ -236,6 +237,16 @@ const CREATE_TABLE_STATEMENTS = [
       FOREIGN KEY (channel_id) REFERENCES epg_channels(id) ON DELETE CASCADE
   )`,
     `CREATE INDEX IF NOT EXISTS idx_epg_channel_sources_source ON epg_channel_sources(source_url)`,
+    `CREATE TABLE IF NOT EXISTS epg_channel_names (
+      channel_id TEXT NOT NULL,
+      source_url TEXT NOT NULL,
+      display_name TEXT NOT NULL,
+      PRIMARY KEY (channel_id, source_url, display_name),
+      FOREIGN KEY (channel_id, source_url)
+        REFERENCES epg_channel_sources(channel_id, source_url) ON DELETE CASCADE
+  )`,
+    `CREATE INDEX IF NOT EXISTS idx_epg_channel_names_source ON epg_channel_names(source_url)`,
+    `CREATE INDEX IF NOT EXISTS idx_epg_channel_names_display_name ON epg_channel_names(display_name)`,
     `CREATE TABLE IF NOT EXISTS epg_programs (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       channel_id TEXT NOT NULL,
@@ -340,6 +351,7 @@ const COLUMN_MIGRATION_STATEMENTS = [
     `ALTER TABLE categories ADD COLUMN hidden INTEGER DEFAULT 0`,
     // Parental lock: per-category lock index (issue #285)
     `ALTER TABLE categories ADD COLUMN locked INTEGER DEFAULT 0`,
+    `ALTER TABLE categories ADD COLUMN provider_order INTEGER`,
     // v1.1.0 -> v1.2.0: Add playlist metadata/payload columns for M3U + unified playlist persistence
     `ALTER TABLE playlists ADD COLUMN portal_url TEXT`,
     `ALTER TABLE playlists ADD COLUMN count INTEGER`,

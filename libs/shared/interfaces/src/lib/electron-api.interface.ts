@@ -1164,7 +1164,8 @@ export interface ElectronBridgeApi {
         categories: XtreamCategory[],
         type: string,
         hiddenCategoryXtreamIds?: number[],
-        lockedCategoryXtreamIds?: number[]
+        lockedCategoryXtreamIds?: number[],
+        retainedCategoryIds?: [number, number][]
     ) => Promise<ElectronBridgeResult>;
     dbGetAllCategories: (
         playlistId: string,
@@ -1268,7 +1269,8 @@ export interface ElectronBridgeApi {
         contentType?: ElectronBridgePortalContentType,
         identity?: ContentMetadataPatch,
         categoryId?: number,
-        excludeLocked?: boolean
+        excludeLocked?: boolean,
+        fallbackToUniqueCategory?: boolean
     ) => Promise<ElectronBridgeXtreamContent | null>;
     dbSetContentMetadataIfMissing: (
         contentId: number,
@@ -1410,6 +1412,8 @@ export interface ElectronBridgeApi {
         sessionId: string,
         exact?: boolean
     ) => Promise<ExternalPlayerSession | null>;
+    /** Sessions still open in the main process, e.g. after a page reload. */
+    listExternalPlayerSessions?: () => Promise<ExternalPlayerSession[]>;
     getEmbeddedMpvSupport: () => Promise<EmbeddedMpvSupport>;
     prepareEmbeddedMpv?: () => Promise<EmbeddedMpvSupport>;
     createEmbeddedMpvSession: (

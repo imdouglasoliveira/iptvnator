@@ -15,6 +15,7 @@ import {
     DatabaseService,
     PlaylistsService,
     RuntimeCapabilitiesService,
+    SourceActivityService,
     USER_DATA_STORAGE,
 } from '@iptvnator/services';
 import {
@@ -42,6 +43,7 @@ import {
     XTREAM_DATA_SOURCE,
     XtreamFavoriteItem,
 } from '@iptvnator/portal/xtream/data-access';
+import { m3uCollectionContentType } from '@iptvnator/shared/m3u-utils/catalog';
 
 const GLOBAL_FAVORITES_ORDER_KEY = 'global-favorites-channel-order-v1';
 
@@ -63,6 +65,7 @@ export class UnifiedFavoritesDataService {
     private readonly playlistsService = inject(PlaylistsService);
     private readonly translate = inject(TranslateService);
     private readonly runtime = inject(RuntimeCapabilitiesService);
+    private readonly activity = inject(SourceActivityService);
     private readonly xtreamDataSource = inject(XTREAM_DATA_SOURCE);
     private readonly userDataStorage = inject(USER_DATA_STORAGE);
 
@@ -83,7 +86,9 @@ export class UnifiedFavoritesDataService {
                 await this.addM3uFavorite(item);
                 break;
             case 'xtream':
-                await this.addXtreamFavorite(item);
+                await this.writeXtreamFavorite(item, () =>
+                    this.addXtreamFavorite(item)
+                );
                 break;
             case 'stalker':
                 await this.addStalkerFavorite(item);
@@ -124,36 +129,11 @@ export class UnifiedFavoritesDataService {
                 );
                 break;
             }
-            case 'xtream': {
-                const electron = await this.xtreamFavoritesBridge(
-                    item.playlistId
-                );
-                if (electron) {
-                    const target =
-                        item.favoriteId != null
-                            ? { favoriteId: item.favoriteId }
-                            : item.contentId;
-                    if (target != null)
-                        await electron.dbRemoveFavorite(
-                            target,
-                            item.playlistId
-                        );
-                    return;
-                }
-                if (item.contentId == null && item.xtreamId == null) return;
-                await this.xtreamDataSource.removeFavorite(
-                    {
-                        id: item.contentId ?? item.xtreamId!,
-                        providerId: item.xtreamId,
-                        type: item.contentType,
-                        ...(item.xtreamIdentity
-                            ? { identity: item.xtreamIdentity }
-                            : {}),
-                    },
-                    item.playlistId
+            case 'xtream':
+                await this.writeXtreamFavorite(item, () =>
+                    this.removeXtreamFavorite(item)
                 );
                 break;
-            }
             case 'stalker': {
                 const sourceItemId = item.stalkerId ?? item.uid.split('::')[2];
                 await firstValueFrom(
@@ -179,15 +159,60 @@ export class UnifiedFavoritesDataService {
         );
     }
 
+    private isSqliteLive(item: UnifiedCollectionItem): boolean {
+        return (
+            item.contentType === 'live' &&
+            this.runtime.supportsXtreamSqliteDataSource
+        );
+    }
+
+    private writeXtreamFavorite(
+        item: UnifiedCollectionItem,
+        write: () => Promise<void>
+    ): Promise<void> {
+        return this.isSqliteLive(item)
+            ? this.activity.runWhenIdle(item.playlistId, write)
+            : write();
+    }
+
+    private async removeXtreamFavorite(
+        item: UnifiedCollectionItem
+    ): Promise<void> {
+        const electron = await this.xtreamFavoritesBridge(item.playlistId);
+        if (electron) {
+            const target =
+                item.favoriteId != null
+                    ? { favoriteId: item.favoriteId }
+                    : await this.xtreamFavoriteContentId(item);
+            if (target != null)
+                await electron.dbRemoveFavorite(target, item.playlistId);
+            return;
+        }
+        if (item.contentId == null && item.xtreamId == null) return;
+        await this.xtreamDataSource.removeFavorite(
+            {
+                id: item.contentId ?? item.xtreamId!,
+                providerId: item.xtreamId,
+                type: item.contentType,
+                ...(item.xtreamIdentity
+                    ? { identity: item.xtreamIdentity }
+                    : {}),
+            },
+            item.playlistId
+        );
+    }
+
+    private async xtreamFavoriteContentId(item: UnifiedCollectionItem) {
+        // Collection rows can still contain their pre-refresh SQLite ID.
+        if (this.isSqliteLive(item) && item.xtreamId != null)
+            return this.resolveXtreamContentId(item);
+        return item.contentId ?? this.resolveXtreamContentId(item);
+    }
+
     private async addXtreamFavorite(
         item: UnifiedCollectionItem
     ): Promise<void> {
-        const contentId =
-            item.contentId ??
-            (item.xtreamId != null
-                ? await this.resolveXtreamContentId(item)
-                : null);
-
+        const contentId = await this.xtreamFavoriteContentId(item);
         if (contentId == null) {
             throw new Error('Favorite could not be saved');
         }
@@ -545,14 +570,23 @@ export class UnifiedFavoritesDataService {
                     return null;
                 }
 
+                const contentType = m3uCollectionContentType(channel);
+                const artwork = channel.tvg?.logo ?? null;
+
                 return {
                     uid: buildCollectionUid('m3u', meta._id, sourceItemId),
                     name: channel.name,
-                    contentType: 'live' as const,
+                    contentType,
                     sourceType: 'm3u' as const,
                     playlistId: meta._id,
                     playlistName: meta.title || meta.filename || 'M3U',
-                    logo: channel.tvg?.logo ?? null,
+                    logo: artwork,
+                    // The live tab reads `logo`, the movie and series tabs
+                    // read `posterUrl`. An M3U row has one artwork field,
+                    // so now that these rows can be typed as films or
+                    // episodes it has to reach both — otherwise a
+                    // favourited film renders as missing artwork.
+                    posterUrl: contentType === 'live' ? null : artwork,
                     streamUrl: channel.url,
                     channelId: channel.id,
                     radio: channel.radio,
@@ -642,25 +676,36 @@ export class UnifiedFavoritesDataService {
             return null;
         }
 
-        if (!(await this.xtreamFavoritesBridge(item.playlistId))) {
-            const content = await this.xtreamDataSource.getContentByXtreamId(
-                item.xtreamId,
-                item.playlistId,
-                item.contentType
-            );
-            return content?.id ?? item.xtreamId;
-        }
-
-        const content = await this.dbService.getContentByXtreamId(
+        const args: Parameters<DatabaseService['getContentByXtreamId']> = [
             item.xtreamId,
             item.playlistId,
             item.contentType,
-            ...(item.xtreamIdentity?.tmdbId != null ||
-            item.xtreamIdentity?.releaseYear != null
-                ? [item.xtreamIdentity]
-                : [])
-        );
+        ];
+        if (this.isSqliteLive(item) && typeof item.categoryId === 'number') {
+            args[4] = item.categoryId;
+            args[6] = true;
+        }
+        if (!(await this.xtreamFavoritesBridge(item.playlistId))) {
+            const content = await this.xtreamDataSource.getContentByXtreamId(
+                ...args
+            );
+            if (content) return content.id;
+            if (
+                args[6] &&
+                !(await this.xtreamDataSource.supportsPortableFavorites?.(
+                    item.playlistId
+                ))
+            )
+                return null;
+            return item.xtreamId;
+        }
 
+        if (
+            item.xtreamIdentity?.tmdbId != null ||
+            item.xtreamIdentity?.releaseYear != null
+        )
+            args[3] = item.xtreamIdentity;
+        const content = await this.dbService.getContentByXtreamId(...args);
         return content?.id ?? null;
     }
 

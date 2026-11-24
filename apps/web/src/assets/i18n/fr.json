@@ -177,6 +177,7 @@
                 "SOURCE_LOAD_FAILED": "La nouvelle source est enregistrée, mais ses chaînes n'ont pas pu être chargées : la liste de lecture affiche toujours les chaînes de la source précédente. Vérifiez la source et enregistrez à nouveau pour réessayer.",
                 "AUTO_UPDATE": "Mise à jour automatique",
                 "AUTO_UPDATE_DESCRIPTION": "Si la fonction de mise à jour automatique est activée, la liste de lecture sera mise à jour automatiquement à chaque fois que l'app est lancée.",
+                "XTREAM_REFRESH_LIVE_ON_STARTUP": "Actualiser les chaînes en direct au démarrage",
                 "CUSTOM_USER_AGENT": "Certains fournisseurs d'IPTV requièrent un agent utilisateur spécifique afin de lire leur liste de lecture.",
                 "EXPORT_PLAYLIST": "Exporter la liste de lecture en m3u",
                 "SERVER_URL": "URL du serveur",
@@ -234,6 +235,7 @@
             "AUTO_REFRESH_UPDATE_PARTIAL": "Actualisation automatique incomplète : {{updated}} listes de lecture sur {{total}} mises à jour, {{failed}} en échec.",
             "AUTO_REFRESH_UPDATE_PARTIAL_WITH_SKIPPED": "Actualisation automatique incomplète : {{updated}} listes de lecture sur {{total}} mises à jour, {{failed}} en échec, {{skipped}} ignorées (aucune URL ni chemin de fichier).",
             "AUTO_REFRESH_UPDATE_FAILED": "Échec de l'actualisation automatique. Aucune des {{total}} listes de lecture n'a pu être mise à jour.",
+            "XTREAM_STARTUP_REFRESH_FAILED": "Impossible d’actualiser une ou plusieurs sources Xtream au démarrage.",
             "AUTO_REFRESH_UPDATE_SKIPPED": "Actualisation automatique des listes de lecture : {{updated}} sur {{total}} mises à jour, {{skipped}} ignorées (aucune URL ni chemin de fichier).",
             "AUTO_REFRESH_ENABLED": "Actualisation automatique activée"
         },
@@ -808,6 +810,8 @@
         "EMBEDDED_MPV_AUTO_RECONNECT_DESCRIPTION": "Lorsqu'un flux en cours de lecture est interrompu, le lecteur intégré le recharge avec des délais croissants, jusqu'à 6 tentatives, avant d'abandonner. Un flux qui n'a jamais démarré doit toujours être relancé manuellement avec « Réessayer ».",
         "VOD_AUTO_FAILOVER": "Changer de source automatiquement en cas d'erreur de lecture",
         "VOD_AUTO_FAILOVER_DESCRIPTION": "Lorsqu'un film ne parvient pas à démarrer et que le même film existe dans une autre liste de lecture, bascule automatiquement vers celle-ci en conservant la position de lecture. Désactivé par défaut ; le changement est toujours annoncé, car une autre source peut proposer un doublage différent.",
+        "M3U_CATALOG_TABS": "Sections Films et Séries",
+        "M3U_CATALOG_TABS_DESCRIPTION": "Affiche des sections Films et Séries distinctes pour les playlists contenant des films ou des épisodes, au lieu de lister chaque entrée comme une chaîne en direct.",
         "NAV_PARENTAL": "Contrôle parental",
         "PARENTAL_LOCK": {
             "TITLE": "Contrôle parental",
@@ -1195,6 +1199,13 @@
             "SEARCH_PLACEHOLDER": "Rechercher des groupes…",
             "NO_RESULTS": "Aucun groupe correspondant trouvé",
             "SAVE": "Enregistrer"
+        },
+        "CATALOG": {
+            "NO_MOVIES": "Aucun film dans cette playlist",
+            "NO_SERIES": "Aucune série dans cette playlist",
+            "EMPTY_HINT": "Cette playlist ne contient que des chaînes en direct.",
+            "EMPTY_HINT_MOVIES": "Les films de cette playlist se trouvent dans Films.",
+            "EMPTY_HINT_SERIES": "Les séries de cette playlist se trouvent dans Séries."
         }
     },
     "TOP_MENU": {
@@ -1756,6 +1767,8 @@
             "AGE_RATING_COUNTRY_FALLBACK": "Aucune classification pour {{country}} ; données affichées : {{fallback}}.",
             "AGE_RATING_MULTIPLE": "Les classifications diffèrent selon les versions."
         },
+        "SEASON_COUNT_ONE": "1 saison",
+        "SEASON_COUNT_OTHER": "{{count}} saisons",
         "SCROLL_LEFT": "Faire défiler vers la gauche",
         "SCROLL_RIGHT": "Faire défiler vers la droite",
         "EPISODE_NAVIGATION": "Navigation entre les épisodes",
