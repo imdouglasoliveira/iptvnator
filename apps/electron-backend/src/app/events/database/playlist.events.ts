@@ -4,7 +4,10 @@
  */
 
 import { ipcMain } from 'electron';
-import { XTREAM_HISTORY_RECOVERY_PREFIX } from '@iptvnator/shared/interfaces';
+import {
+    JSON_PLAYLIST_READ_KILL_SWITCH_ENV,
+    XTREAM_HISTORY_RECOVERY_PREFIX,
+} from '@iptvnator/shared/interfaces';
 import type { XtreamCatalogStateCondition } from '@iptvnator/shared/interfaces';
 import { recoverLegacyProfile } from '../../services/legacy-profile-recovery';
 import { databaseWorkerClient } from '../../services/database-worker-client';
@@ -33,9 +36,16 @@ handleWorkerRequest(
 handleWorkerRequest('DB_GET_APP_PLAYLISTS', () => ({}));
 handleWorkerRequest('DB_GET_STANDALONE_SOURCES', () => ({}));
 handleWorkerRequest('DB_GET_APP_PLAYLIST_METAS', () => ({}));
-handleWorkerRequest('DB_GET_APP_PLAYLIST', (playlistId: string) => ({
-    playlistId,
-}));
+handleWorkerRequest(
+    'DB_GET_APP_PLAYLIST',
+    (playlistId: string, options?: { format?: 'json' }) => ({
+        playlistId,
+        ...(options?.format === 'json' &&
+        process.env[JSON_PLAYLIST_READ_KILL_SWITCH_ENV] !== '1'
+            ? { format: 'json' as const }
+            : {}),
+    })
+);
 handleWorkerRequest(
     'DB_GET_APP_PLAYLIST_FAVORITE_CHANNELS',
     (playlistId: string) => ({

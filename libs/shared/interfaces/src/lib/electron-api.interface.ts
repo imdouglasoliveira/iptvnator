@@ -1110,6 +1110,11 @@ export interface ElectronBridgeApi {
          */
         operationId?: string
     ) => Promise<Playlist | null>;
+    // JSON text crosses IPC and the context bridge in one copy; the object is per property.
+    dbGetAppPlaylistJson?: (
+        playlistId: string,
+        operationId?: string
+    ) => Promise<string | Playlist | null>;
     dbGetAppPlaylistFavoriteChannels: (
         playlistId: string
     ) => Promise<M3uFavoriteChannel[]>;

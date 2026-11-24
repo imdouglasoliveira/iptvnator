@@ -897,6 +897,10 @@ const electronApi: ElectronBridgeApi = {
         ipcRenderer.invoke('DB_GET_APP_PLAYLIST_METAS'),
     dbGetAppPlaylist: (playlistId: string, _operationId?: string) =>
         ipcRenderer.invoke('DB_GET_APP_PLAYLIST', playlistId),
+    dbGetAppPlaylistJson: (playlistId: string, _operationId?: string) =>
+        ipcRenderer.invoke('DB_GET_APP_PLAYLIST', playlistId, {
+            format: 'json',
+        }),
     dbGetAppPlaylistFavoriteChannels: (playlistId: string) =>
         ipcRenderer.invoke('DB_GET_APP_PLAYLIST_FAVORITE_CHANNELS', playlistId),
     dbUpdatePlaylist: (
