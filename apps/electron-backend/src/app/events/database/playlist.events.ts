@@ -30,6 +30,14 @@ handleWorkerRequest(
     (playlist: Record<string, unknown>) => playlist
 );
 handleWorkerRequest(
+    'DB_UPSERT_APP_PLAYLIST_KEEP_ACTIVITY',
+    (playlist: Record<string, unknown>) => playlist
+);
+handleWorkerRequest(
+    'DB_MUTATE_M3U_ACTIVITY',
+    (request: Record<string, unknown>) => request
+);
+handleWorkerRequest(
     'DB_UPSERT_APP_PLAYLISTS',
     (playlists: Record<string, unknown>[]) => playlists
 );

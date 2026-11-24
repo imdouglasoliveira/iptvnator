@@ -113,6 +113,12 @@ export const dbPreloadCases: PreloadInvokeCase[] = [
         forwardedArgs: [playlist],
     },
     {
+        method: 'dbUpsertAppPlaylistKeepingActivity',
+        args: [playlist],
+        channel: 'DB_UPSERT_APP_PLAYLIST_KEEP_ACTIVITY',
+        forwardedArgs: [playlist],
+    },
+    {
         method: 'dbRecoverLegacyPlaylists',
         args: [],
         channel: 'DB_RECOVER_LEGACY_PLAYLISTS',
@@ -173,6 +179,12 @@ export const dbPreloadCases: PreloadInvokeCase[] = [
             { serverUrl: 'http://panel.example', username: 'u', password: 'p' },
             'Europe/London',
         ],
+    },
+    {
+        method: 'dbMutateM3uActivity',
+        args: [{ playlistId, command: { kind: 'history.clear' } }],
+        channel: 'DB_MUTATE_M3U_ACTIVITY',
+        forwardedArgs: [{ playlistId, command: { kind: 'history.clear' } }],
     },
     {
         method: 'dbDeletePlaylist',

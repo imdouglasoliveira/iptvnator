@@ -8,6 +8,7 @@ import { createAppMenuListener } from './app-menu-listener';
 import type {
     ElectronBridgeFavoriteReorderUpdate,
     XtreamFavoriteRemovalRef,
+    M3uActivityMutationRequest,
     XtreamBackupFavoriteItem,
     XtreamCatalogStateCondition,
 } from '@iptvnator/shared/interfaces';
@@ -888,6 +889,10 @@ const electronApi: ElectronBridgeApi = {
         ),
     dbUpsertAppPlaylist: (playlist: Playlist, _operationId?: string) =>
         ipcRenderer.invoke('DB_UPSERT_APP_PLAYLIST', playlist),
+    dbUpsertAppPlaylistKeepingActivity: (playlist: Playlist) =>
+        ipcRenderer.invoke('DB_UPSERT_APP_PLAYLIST_KEEP_ACTIVITY', playlist),
+    dbMutateM3uActivity: (request: M3uActivityMutationRequest) =>
+        ipcRenderer.invoke('DB_MUTATE_M3U_ACTIVITY', request),
     dbMigrateAppPlaylists: (playlists: Playlist[]) =>
         ipcRenderer.invoke('DB_MIGRATE_APP_PLAYLISTS', playlists),
     dbRecoverLegacyPlaylists: () =>
