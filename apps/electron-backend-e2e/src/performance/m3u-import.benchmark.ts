@@ -20,6 +20,8 @@ import {
 import {
     assertSyntheticM3uImportUrl,
     createM3uImportIterationDefinitions,
+    createM3uImportScenarioFixture,
+    isM3uImportCatalogRun,
     listM3uImportScenarios,
     type M3uImportIterationDefinition,
     type M3uImportScenario,
@@ -48,16 +50,19 @@ import {
     type SyntheticM3uServer,
 } from './synthetic-m3u-server';
 import {
-    createSyntheticM3uFixture,
     SYNTHETIC_M3U_SEED,
     type SyntheticM3uFixture,
 } from './synthetic-m3u';
 
 export async function runM3uImportBenchmark(): Promise<void> {
     const config = await resolveM3uImportBenchmarkConfiguration();
-    const definitions = createM3uImportIterationDefinitions(config.smoke);
+    const scenarioOptions = { catalog: isM3uImportCatalogRun() };
+    const definitions = createM3uImportIterationDefinitions(
+        config.smoke,
+        scenarioOptions
+    );
 
-    for (const scenario of listM3uImportScenarios()) {
+    for (const scenario of listM3uImportScenarios(scenarioOptions)) {
         await runScenario(
             config,
             scenario,
@@ -73,7 +78,7 @@ async function runScenario(
     scenario: M3uImportScenario,
     definitions: readonly M3uImportIterationDefinition[]
 ): Promise<void> {
-    const fixture = createSyntheticM3uFixture(scenario.channelCount);
+    const fixture = createM3uImportScenarioFixture(scenario);
     const server = await startSyntheticM3uServer(fixture);
     const scenarioDirectory = join(config.variantDirectory, scenario.id);
     const iterations: M3uImportIterationResult[] = [];
@@ -194,7 +199,7 @@ async function runIteration(
                     process.env['IPTVNATOR_TRACE_RENDERER_CONSOLE'] ?? '0',
             },
         });
-        app.mainWindow.setDefaultTimeout(120_000);
+        app.mainWindow.setDefaultTimeout(definition.settleTimeoutMs);
         await assertRendererCdpTarget(app.mainWindow, config.rendererCdpPort);
         await installMainCapture(app.electronApp);
         const rendererWindowIdentity = await resolveRendererWindowIdentity(app);
@@ -215,7 +220,7 @@ async function runIteration(
         });
         await renderer.triggerImport();
         await renderer.waitForTerminal();
-        await waitForDatabaseSettlement(app);
+        await waitForDatabaseSettlement(app, definition.settleTimeoutMs);
         assertM3uImportRequestDelta(requestsBefore, server.requestCount());
 
         const [rendererMetrics, mainMetrics] = await Promise.all([
@@ -262,7 +267,8 @@ async function runIteration(
 }
 
 async function waitForDatabaseSettlement(
-    app: LaunchedElectronApp
+    app: LaunchedElectronApp,
+    timeout: number
 ): Promise<void> {
     await expect
         .poll(
@@ -276,7 +282,7 @@ async function waitForDatabaseSettlement(
                     status.preloadSuccessMarkers === 2
                 );
             },
-            { timeout: 120_000 }
+            { timeout }
         )
         .toBe(true);
 }

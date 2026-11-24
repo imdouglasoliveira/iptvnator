@@ -327,6 +327,14 @@ link in any existing output-path component before creating artifacts. Headline
 distributions contain only the five measured runs: warm-up and diagnostic
 profiles are never mixed into them.
 
+`IPTVNATOR_PERF_M3U_CATALOG=1` replaces the three formal scenarios with one
+provider-shaped catalog (`m3u-import-catalog-380k`): 380,000 entries with
+`tvg-id`, `tvg-name` and `tvg-logo`, mostly series episodes, about 90 MB, still
+served only from the loopback server. Its settle window is 15 minutes instead
+of 2. It is a diagnostic for very large provider exports, not a baseline: run
+it with `IPTVNATOR_PERF_SMOKE=1` first and use a formal run only once the smoke
+completes.
+
 The benchmark attributes these non-additive intervals:
 
 | Field                              | Boundary                                                                                               |

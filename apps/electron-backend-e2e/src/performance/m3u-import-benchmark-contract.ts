@@ -3,55 +3,101 @@ import {
     type PerformanceIterationKind,
 } from './m3u-refresh-cancellation-contract';
 import { SYNTHETIC_M3U_RESOURCE_PATH } from './synthetic-m3u-server';
-import type { SyntheticM3uChannelCount } from './synthetic-m3u';
+import {
+    createSyntheticM3uCatalogFixture,
+    SYNTHETIC_M3U_CATALOG_ENTRY_COUNT,
+} from './synthetic-m3u-catalog';
+import {
+    createSyntheticM3uFixture,
+    type SyntheticM3uFixture,
+} from './synthetic-m3u';
 
 export const M3U_IMPORT_SCENARIO_ID = {
     IMPORT_10K: 'm3u-import-10k',
     IMPORT_50K: 'm3u-import-50k',
     IMPORT_100K: 'm3u-import-100k',
+    IMPORT_CATALOG_380K: 'm3u-import-catalog-380k',
 } as const;
 
 export type M3uImportScenarioId =
     (typeof M3U_IMPORT_SCENARIO_ID)[keyof typeof M3U_IMPORT_SCENARIO_ID];
 
 export interface M3uImportScenario {
-    readonly channelCount: SyntheticM3uChannelCount;
+    readonly channelCount: number;
     readonly id: M3uImportScenarioId;
+    readonly settleTimeoutMs: number;
 }
 
 export interface M3uImportIterationDefinition {
-    readonly channelCount: SyntheticM3uChannelCount;
+    readonly channelCount: number;
     readonly kind: PerformanceIterationKind;
     readonly runId: string;
     readonly scenarioId: M3uImportScenarioId;
+    readonly settleTimeoutMs: number;
 }
+
+export interface M3uImportScenarioOptions {
+    /** Run only the provider-shaped 380k catalog (`IPTVNATOR_PERF_M3U_CATALOG=1`). */
+    readonly catalog?: boolean;
+}
+
+const DEFAULT_SETTLE_TIMEOUT_MS = 120_000;
+const CATALOG_SETTLE_TIMEOUT_MS = 900_000;
 
 const SCENARIOS: readonly M3uImportScenario[] = Object.freeze([
     Object.freeze({
         channelCount: 10_000,
         id: M3U_IMPORT_SCENARIO_ID.IMPORT_10K,
+        settleTimeoutMs: DEFAULT_SETTLE_TIMEOUT_MS,
     }),
     Object.freeze({
         channelCount: 50_000,
         id: M3U_IMPORT_SCENARIO_ID.IMPORT_50K,
+        settleTimeoutMs: DEFAULT_SETTLE_TIMEOUT_MS,
     }),
     Object.freeze({
         channelCount: 100_000,
         id: M3U_IMPORT_SCENARIO_ID.IMPORT_100K,
+        settleTimeoutMs: DEFAULT_SETTLE_TIMEOUT_MS,
     }),
 ]);
 
-export function listM3uImportScenarios(): readonly M3uImportScenario[] {
-    return SCENARIOS;
+const CATALOG_SCENARIOS: readonly M3uImportScenario[] = Object.freeze([
+    Object.freeze({
+        channelCount: SYNTHETIC_M3U_CATALOG_ENTRY_COUNT,
+        id: M3U_IMPORT_SCENARIO_ID.IMPORT_CATALOG_380K,
+        settleTimeoutMs: CATALOG_SETTLE_TIMEOUT_MS,
+    }),
+]);
+
+export function isM3uImportCatalogRun(
+    env: Readonly<Record<string, string | undefined>> = process.env
+): boolean {
+    return env['IPTVNATOR_PERF_M3U_CATALOG'] === '1';
+}
+
+export function listM3uImportScenarios(
+    options: M3uImportScenarioOptions = {}
+): readonly M3uImportScenario[] {
+    return options.catalog ? CATALOG_SCENARIOS : SCENARIOS;
+}
+
+export function createM3uImportScenarioFixture(
+    scenario: M3uImportScenario
+): SyntheticM3uFixture {
+    return scenario.id === M3U_IMPORT_SCENARIO_ID.IMPORT_CATALOG_380K
+        ? createSyntheticM3uCatalogFixture()
+        : createSyntheticM3uFixture(scenario.channelCount);
 }
 
 export function createM3uImportIterationDefinitions(
-    smoke: boolean
+    smoke: boolean,
+    options: M3uImportScenarioOptions = {}
 ): readonly M3uImportIterationDefinition[] {
     const measuredRuns = smoke ? 1 : 5;
     const definitions: M3uImportIterationDefinition[] = [];
 
-    for (const scenario of SCENARIOS) {
+    for (const scenario of listM3uImportScenarios(options)) {
         definitions.push(
             iteration(scenario, PERFORMANCE_ITERATION_KIND.WARMUP, 'warmup-01')
         );
@@ -108,6 +154,7 @@ function iteration(
         kind,
         runId,
         scenarioId: scenario.id,
+        settleTimeoutMs: scenario.settleTimeoutMs,
     });
 }
 

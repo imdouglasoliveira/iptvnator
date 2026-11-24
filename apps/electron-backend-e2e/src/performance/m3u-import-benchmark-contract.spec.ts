@@ -15,14 +15,17 @@ describe('formal M3U import benchmark contract', () => {
             {
                 channelCount: 10_000,
                 id: M3U_IMPORT_SCENARIO_ID.IMPORT_10K,
+                settleTimeoutMs: 120_000,
             },
             {
                 channelCount: 50_000,
                 id: M3U_IMPORT_SCENARIO_ID.IMPORT_50K,
+                settleTimeoutMs: 120_000,
             },
             {
                 channelCount: 100_000,
                 id: M3U_IMPORT_SCENARIO_ID.IMPORT_100K,
+                settleTimeoutMs: 120_000,
             },
         ]);
     });
