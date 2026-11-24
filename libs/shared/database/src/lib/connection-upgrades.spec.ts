@@ -16,6 +16,7 @@ describe('database initialization across skipped releases (#1580)', () => {
         '0.19.0-duplicates',
         '0.19.0-orphans',
         '0.24.0-orphans',
+        '0.24.0-epg-alias-preserve',
         'fresh',
         'rollback',
     ])(
@@ -31,7 +32,7 @@ describe('database initialization across skipped releases (#1580)', () => {
                     : resolve(
                           __dirname,
                           'testing/fixtures',
-                          `v${version.replace(/-(duplicates|orphans)$/, '')}-schema.sql`
+                          `v${version.replace(/-(duplicates|orphans|epg-alias-preserve)$/, '')}-schema.sql`
                       );
             try {
                 const output = execFileSync(
@@ -45,7 +46,9 @@ describe('database initialization across skipped releases (#1580)', () => {
                             ? 'deduplicate'
                             : version.endsWith('-orphans')
                               ? 'orphans'
-                              : '',
+                              : version.endsWith('-epg-alias-preserve')
+                                ? 'epg-alias-preserve'
+                                : '',
                     ],
                     {
                         cwd: process.cwd(),
