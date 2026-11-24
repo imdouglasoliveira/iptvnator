@@ -35,6 +35,10 @@ import {
     GlobalSearchResultSource,
 } from './global-search-result.interface';
 import { M3uFavoriteChannel } from './m3u-favorite-channel.interface';
+import type {
+    M3uActivityMutationRequest,
+    M3uActivityMutationResult,
+} from './m3u-activity-mutation';
 import {
     RecordingProgramSnapshot,
     RecordingSourceType,
@@ -1088,6 +1092,14 @@ export interface ElectronBridgeApi {
          */
         operationId?: string
     ) => Promise<ElectronBridgeResult>;
+    /** A refresh upsert: the stored recent history wins over the snapshot's. */
+    dbUpsertAppPlaylistKeepingActivity?: (
+        playlist: Playlist
+    ) => Promise<ElectronBridgeResult>;
+    /** One activity command on the small column, never the catalog. */
+    dbMutateM3uActivity?: (
+        request: M3uActivityMutationRequest
+    ) => Promise<M3uActivityMutationResult>;
     dbMigrateAppPlaylists: (
         playlists: Playlist[]
     ) => Promise<{ success: boolean; count: number }>;

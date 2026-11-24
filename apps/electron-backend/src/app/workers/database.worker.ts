@@ -9,6 +9,7 @@ import { startContentTitleFtsBuild } from './content-title-fts-build';
 import type {
     ElectronBridgeFavoriteReorderUpdate,
     XtreamFavoriteRemovalRef,
+    M3uActivityMutationRequest,
 } from '@iptvnator/shared/interfaces';
 import { migrateAppPlaylists } from '../database/operations/playlist-migration.operations';
 import { readStandaloneSources } from '../database/operations/standalone-sources.operations';
@@ -95,6 +96,10 @@ import {
     upsertAppPlaylists,
 } from '../database/operations/playlist.operations';
 import { setPlaylistServerTimezone } from '../database/operations/playlist-server-timezone.operations';
+import {
+    mutateM3uActivity,
+    upsertAppPlaylistKeepingActivity,
+} from '../database/operations/m3u-activity.operations';
 import { checkXtreamCatalogConnection } from '../database/operations/xtream-catalog-state';
 import type {
     XtreamCatalogStateCondition,
@@ -832,6 +837,18 @@ async function executeRequest(
                 payload.serverTimezone
             );
         }
+
+        case 'DB_MUTATE_M3U_ACTIVITY':
+            return mutateM3uActivity(
+                db,
+                message.payload as M3uActivityMutationRequest
+            );
+
+        case 'DB_UPSERT_APP_PLAYLIST_KEEP_ACTIVITY':
+            return upsertAppPlaylistKeepingActivity(
+                db,
+                message.payload as Record<string, unknown>
+            );
 
         case 'DB_UPDATE_PLAYLIST': {
             const payload = message.payload as {

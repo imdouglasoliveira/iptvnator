@@ -387,7 +387,11 @@ export class PlaylistsService {
         }
     }
 
-    private upsertSqlitePlaylist(playlist: Playlist, operationId?: string) {
+    private upsertSqlitePlaylist(
+        playlist: Playlist,
+        operationId?: string,
+        keepActivity = false
+    ) {
         return this.runOnSqlite(async () => {
             const store = this.documentStore;
             if (!store) {
@@ -398,7 +402,16 @@ export class PlaylistsService {
             let saved: Awaited<
                 ReturnType<PlaylistDocumentStore['dbUpsertAppPlaylist']>
             >;
-            if (operationId === undefined) {
+            if (
+                keepActivity &&
+                operationId === undefined &&
+                this.storageBackend.kind() === 'electron' &&
+                store.dbUpsertAppPlaylistKeepingActivity
+            ) {
+                // A refresh snapshot must not bring back history a tap replaced.
+                saved =
+                    await store.dbUpsertAppPlaylistKeepingActivity(playlist);
+            } else if (operationId === undefined) {
                 saved = await store.dbUpsertAppPlaylist(playlist);
             } else {
                 saved = await store.dbUpsertAppPlaylist(playlist, operationId);
@@ -469,11 +482,16 @@ export class PlaylistsService {
 
     private persistPlaylistMutation(
         nextPlaylist: Playlist,
-        operationId?: string
+        operationId?: string,
+        keepActivity = false
     ) {
         if (this.usesDocumentStore) {
             return firstValueFrom(
-                this.upsertSqlitePlaylist(nextPlaylist, operationId)
+                this.upsertSqlitePlaylist(
+                    nextPlaylist,
+                    operationId,
+                    keepActivity
+                )
             );
         }
 
@@ -738,7 +756,8 @@ export class PlaylistsService {
 
             return (await this.persistPlaylistMutation(
                 mergedPlaylist,
-                operationId
+                operationId,
+                true
             )) as Playlist;
         });
     }
@@ -1137,8 +1156,11 @@ export class PlaylistsService {
                         playlist._id
                     );
 
-                    const saved =
-                        await this.persistPlaylistMutation(nextPlaylist);
+                    const saved = await this.persistPlaylistMutation(
+                        nextPlaylist,
+                        undefined,
+                        true
+                    );
                     return (
                         this.usesDocumentStore ? saved : nextPlaylist
                     ) as Playlist;
@@ -1393,6 +1415,20 @@ export class PlaylistsService {
 
     private historyMutation(playlistId: string, action: HistoryPlaylistAction) {
         return this.serializePlaylistWrite(playlistId, async () => {
+            // A synced profile or server store keeps its bookkeeping in the document path.
+            if (
+                this.storageBackend.kind() === 'electron' &&
+                !this.historySync.active()
+            ) {
+                const { tryPartialHistoryMutation } =
+                    await import('./m3u-activity-mutation');
+                const partial = await tryPartialHistoryMutation(
+                    this.documentStore,
+                    playlistId,
+                    action
+                );
+                if (partial) return partial;
+            }
             const { mutatePlaylistHistory } =
                 await import('./playlist-history');
             return mutatePlaylistHistory(
