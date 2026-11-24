@@ -797,6 +797,7 @@ export interface ElectronBridgeApi {
         callback: (data: PlaylistRefreshEvent) => void
     ) => () => void;
     getAppVersion: () => Promise<string>;
+    isM3uActiveOnlyEpgDisabled?: () => boolean;
     platform: string;
     getAppUpdateStatus: () => Promise<ElectronBridgeAppUpdateStatus>;
     checkForAppUpdate: () => Promise<ElectronBridgeAppUpdateStatus>;

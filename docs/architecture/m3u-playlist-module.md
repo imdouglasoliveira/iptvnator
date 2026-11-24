@@ -2481,6 +2481,24 @@ started only if its source still belongs to the reconciled configuration; its
 completion observer is installed after settings initialization. Provider EPG
 continues through its existing APIs. Playlist refresh is not EPG cache cleanup.
 
+## Automatic EPG of the channel list
+
+The M3U channel list looks up the guide for the **active channel only**.
+`M3uActiveChannelEpgService` (`libs/ui/components/src/lib/channel-list-container/`)
+is the single owner: both list instances (sidebar and fullscreen) read its
+projection, so one batch is at most one key (`tvg-id`, then `tvg-name`, then
+the channel name), however large the catalogue. Rows other than the active one
+keep their height and show no programme, progress or XMLTV logo, and no "no
+programme info" placeholder. Channel metadata is requested only when the
+active channel has no `tvg-logo`. The 60 s revalidation covers the active
+channel's programme alone; a changed channel, EPG scope or display offset
+invalidates the request and a late response of another channel is dropped.
+
+Kill switch: `IPTVNATOR_DISABLE_M3U_ACTIVE_ONLY_EPG=1` restores the previous
+whole-list lookups. The renderer reads it through the preload
+(`isM3uActiveOnlyEpgDisabled`) on every call; the web runtime has no bridge, so
+it always uses the active-only path.
+
 ## Desktop source health
 
 The source switcher and Sources rows share `SourceHealthService` in portal

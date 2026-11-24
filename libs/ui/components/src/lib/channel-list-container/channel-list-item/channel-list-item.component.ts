@@ -15,6 +15,7 @@ import { MatIcon } from '@angular/material/icon';
 import { MatTooltip } from '@angular/material/tooltip';
 import { TranslatePipe } from '@ngx-translate/core';
 import { EpgProgrammeDialogService, getProgramTimeMs } from '@iptvnator/ui/epg';
+import { M3U_EPG_PLACEHOLDER_POLICY } from '../m3u-active-channel-epg.service';
 import { EpgProgram } from '@iptvnator/shared/interfaces';
 import { SettingsStore } from '@iptvnator/services';
 import { applyChannelNameStrip } from '@iptvnator/shared/m3u-utils/name-strip';
@@ -37,6 +38,9 @@ import { favoriteIcon } from '../../app-icons/app-icons';
 })
 export class ChannelListItemComponent {
     private readonly programmeDialog = inject(EpgProgrammeDialogService);
+    private readonly placeholderPolicy = inject(M3U_EPG_PLACEHOLDER_POLICY, {
+        optional: true,
+    });
     private readonly logoFailed = signal(false);
     private readonly settingsStore = inject(SettingsStore);
     readonly epgOffsetMinutes = this.settingsStore.resolvedEpgOffsetMinutes;
@@ -74,6 +78,9 @@ export class ChannelListItemComponent {
             : 'CHANNELS.CATCHUP_AVAILABLE'
     );
     readonly epgProgram = input<EpgProgram | null | undefined>();
+    readonly showEpgPlaceholder = computed(
+        () => this.placeholderPolicy?.(this.selected()) ?? true
+    );
     /** Progress percentage pre-computed by parent for performance */
     readonly progressPercentage = input(0);
     readonly auxActionIcon = input('delete');

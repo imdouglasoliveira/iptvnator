@@ -80,6 +80,16 @@ describe('ChannelListContainerComponent', () => {
     let runtimeCapabilities: { supportsEpg: boolean };
     let globalEpgUrls: WritableSignal<string[]>;
 
+    const useLegacyEpg = () => {
+        (globalThis as { electron?: unknown }).electron = {
+            isM3uActiveOnlyEpgDisabled: () => true,
+        };
+    };
+
+    afterEach(() => {
+        delete (globalThis as { electron?: unknown }).electron;
+    });
+
     beforeEach(async () => {
         const routerEvents$ = new Subject<NavigationEnd>();
         dispatch = jest.fn();
@@ -358,6 +368,7 @@ describe('ChannelListContainerComponent', () => {
     });
 
     it('enables EPG rows and scopes lookups when the active M3U playlist has detected EPG URLs', () => {
+        useLegacyEpg();
         runtimeCapabilities.supportsEpg = true;
         activePlaylistSignal.set({
             _id: 'playlist-1',
@@ -383,7 +394,28 @@ describe('ChannelListContainerComponent', () => {
         );
     });
 
+    it('does not query EPG for the catalogue when no channel is active', () => {
+        activePlaylistSignal.set({
+            _id: 'playlist-1',
+            title: 'Playlist One',
+            count: 3,
+            importDate: '2026-04-11T00:00:00.000Z',
+            epgUrls: ['https://playlist.example.com/guide.xml'],
+        } as PlaylistMeta);
+
+        fixture.detectChanges();
+        fixture.componentInstance.channelList = [
+            createChannel('a', 'https://example.com/a.m3u8'),
+            createChannel('b', 'https://example.com/b.m3u8'),
+            createChannel('c', 'https://example.com/c.m3u8'),
+        ];
+
+        expect(epgService.getCurrentProgramsForChannels).not.toHaveBeenCalled();
+        expect(epgService.getChannelMetadataForChannels).not.toHaveBeenCalled();
+    });
+
     it('drops a superseded EPG refresh that completes after the newer one', () => {
+        useLegacyEpg();
         runtimeCapabilities.supportsEpg = true;
         globalEpgUrls.set(['https://example.test/epg.xml']);
         const first = new Subject<Map<string, EpgProgram | null>>();
@@ -422,6 +454,7 @@ describe('ChannelListContainerComponent', () => {
     });
 
     it('refreshes visible channel EPG when playlist EPG URLs arrive after channels', () => {
+        useLegacyEpg();
         runtimeCapabilities.supportsEpg = true;
 
         fixture.detectChanges();
@@ -455,6 +488,7 @@ describe('ChannelListContainerComponent', () => {
     });
 
     it('debounces visible channel EPG row refreshes after EPG imports complete', () => {
+        useLegacyEpg();
         jest.useFakeTimers();
         try {
             runtimeCapabilities.supportsEpg = true;

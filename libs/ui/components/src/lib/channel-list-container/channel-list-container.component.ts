@@ -58,6 +58,11 @@ import {
     PlaylistRecentlyViewedItem,
 } from '@iptvnator/shared/interfaces';
 import { normalizeEpgUrls } from '@iptvnator/shared/m3u-utils';
+import {
+    isM3uActiveOnlyEpgEnabled,
+    M3U_EPG_PLACEHOLDER_POLICY,
+    M3uActiveChannelEpgService,
+} from './m3u-active-channel-epg.service';
 import { AllChannelsViewComponent } from './all-channels-view/all-channels-view.component';
 import { FavoritesViewComponent } from './favorites-view/favorites-view.component';
 import { GroupsViewComponent } from './groups-view/groups-view.component';
@@ -111,6 +116,14 @@ const EPG_AVAILABILITY_REFRESH_DEBOUNCE_MS = 2000;
         RecentViewComponent,
         TranslatePipe,
     ],
+    providers: [
+        {
+            provide: M3U_EPG_PLACEHOLDER_POLICY,
+            // Rows that were not queried must not claim "no programme info".
+            useValue: (selected: boolean) =>
+                selected || !isM3uActiveOnlyEpgEnabled(),
+        },
+    ],
 })
 export class ChannelListContainerComponent implements OnInit, OnDestroy {
     private readonly epgService = inject(EpgService);
@@ -129,9 +142,25 @@ export class ChannelListContainerComponent implements OnInit, OnDestroy {
         this.playlistContext.resolvedPlaylistId;
     protected readonly activePlaylist = this.playlistContext.activePlaylist;
 
+    private readonly activeChannelEpg = inject(M3uActiveChannelEpgService);
+    private releaseActiveEpgTimer?: () => void;
+    /** Whole-list maps, used only when the active-only EPG kill switch is on. */
+    private readonly legacyEpgMap = signal(
+        new Map<string, EpgProgram | null>()
+    );
+    private readonly legacyIconMap = signal(new Map<string, string>());
+
     /** Map of channel ID to current EPG program */
-    readonly channelEpgMap = signal(new Map<string, EpgProgram | null>());
-    readonly channelIconMap = signal(new Map<string, string>());
+    readonly channelEpgMap = computed(() =>
+        isM3uActiveOnlyEpgEnabled()
+            ? this.activeChannelEpg.programs()
+            : this.legacyEpgMap()
+    );
+    readonly channelIconMap = computed(() =>
+        isM3uActiveOnlyEpgEnabled()
+            ? this.activeChannelEpg.icons()
+            : this.legacyIconMap()
+    );
 
     /** Interval for refreshing EPG data */
     private epgRefreshInterval?: number;
@@ -284,6 +313,14 @@ export class ChannelListContainerComponent implements OnInit, OnDestroy {
 
         untracked(() => {
             this.fetchEpgForChannels(this._channelList);
+        });
+    });
+    private readonly activeChannelEpgEffect = effect(() => {
+        this.activeChannel();
+        untracked(() => {
+            if (isM3uActiveOnlyEpgEnabled()) {
+                this.fetchEpgForChannels(this._channelList);
+            }
         });
     });
     private appliedEpgOffsetMinutes: number | null = null;
@@ -505,13 +542,17 @@ export class ChannelListContainerComponent implements OnInit, OnDestroy {
                 debounceTime(EPG_AVAILABILITY_REFRESH_DEBOUNCE_MS)
             )
             .subscribe(() => {
-                this.fetchEpgForChannels(this._channelList);
+                this.fetchEpgForChannels(this._channelList, true);
             });
 
-        // Set up EPG refresh interval (every 60 seconds)
-        this.epgRefreshInterval = window.setInterval(() => {
-            this.fetchEpgForChannels(this._channelList);
-        }, 60000);
+        // The 60 s revalidation belongs to the shared owner (active channel only).
+        if (isM3uActiveOnlyEpgEnabled()) {
+            this.releaseActiveEpgTimer = this.activeChannelEpg.acquire();
+        } else {
+            this.epgRefreshInterval = window.setInterval(() => {
+                this.fetchEpgForChannels(this._channelList);
+            }, 60000);
+        }
 
         // Set up global progress update interval (every 30 seconds)
         this.progressInterval = window.setInterval(() => {
@@ -527,6 +568,7 @@ export class ChannelListContainerComponent implements OnInit, OnDestroy {
         if (this.epgRefreshInterval) {
             clearInterval(this.epgRefreshInterval);
         }
+        this.releaseActiveEpgTimer?.();
 
         if (this.progressInterval) {
             clearInterval(this.progressInterval);
@@ -540,13 +582,17 @@ export class ChannelListContainerComponent implements OnInit, OnDestroy {
     /**
      * Fetches EPG data for all channels
      */
-    private fetchEpgForChannels(channels: Channel[]): void {
+    private fetchEpgForChannels(channels: Channel[], force = false): void {
+        if (isM3uActiveOnlyEpgEnabled()) {
+            this.activeChannelEpg.refresh(this.playlistEpgUrls(), force);
+            return;
+        }
         // A fetch started for a previous channel list, EPG scope or display
         // offset must not install its map after this one: cancel it first.
         this.epgFetchSubscription?.unsubscribe();
         if (!channels || channels.length === 0) {
-            this.channelEpgMap.set(new Map());
-            this.channelIconMap.set(new Map());
+            this.legacyEpgMap.set(new Map());
+            this.legacyIconMap.set(new Map());
             return;
         }
 
@@ -570,8 +616,8 @@ export class ChannelListContainerComponent implements OnInit, OnDestroy {
                 epgLookupOptions
             ),
         }).subscribe(({ epgMap, metadataMap }) => {
-            this.channelEpgMap.set(epgMap);
-            this.channelIconMap.set(
+            this.legacyEpgMap.set(epgMap);
+            this.legacyIconMap.set(
                 new Map(
                     Array.from(
                         metadataMap.entries(),
