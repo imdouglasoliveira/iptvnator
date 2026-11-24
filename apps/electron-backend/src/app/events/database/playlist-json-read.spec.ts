@@ -8,6 +8,7 @@ jest.mock('electron', () => ({
         handle: jest.fn((channel: string, handler: IpcHandler) => {
             mockRegisteredHandlers.set(channel, handler);
         }),
+        on: jest.fn(),
     },
 }));
 

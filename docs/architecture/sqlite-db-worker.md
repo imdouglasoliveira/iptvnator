@@ -1020,6 +1020,18 @@ A running Electron app keeps using the worker bundle it already loaded at
 startup. This is a common reason a worker fix appears "not working" in manual
 verification even when the source patch is correct.
 
+### Whole-playlist write as JSON text
+
+`dbUpsertAppPlaylistJson` sends the playlist as one JSON string. The renderer
+calls `writeDocumentPlaylist` (`playlist-storage-backend.ts`), which runs
+`JSON.stringify` before `window.electron`. `DB_UPSERT_APP_PLAYLIST` receives
+`{ format: 'json', json }`, and the worker decodes it with
+`decodeAppPlaylistWritePayload` (`app-playlist-json-write.ts`). Plain objects
+still pass through unchanged. Kill switch: `IPTVNATOR_DISABLE_JSON_PLAYLIST_WRITE=1`.
+The renderer reads it per call through `isJsonPlaylistWriteEnabled`, a sync
+channel, so it serializes only while the switch is off. Bulk writes
+(`dbUpsertAppPlaylists`) still send objects.
+
 ## Gotchas
 
 ### Prepared-statement writes inside a transaction must use `.run()`, not `.execute()`

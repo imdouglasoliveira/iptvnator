@@ -55,6 +55,7 @@ import {
     PlaylistStorageBackend,
     PlaylistWriteConflict,
     readDocumentPlaylist,
+    writeDocumentPlaylist,
 } from './playlist-storage-backend';
 
 const SQLITE_PLAYLIST_MIGRATION_FLAG = 'm3u-playlists-indexeddb-to-sqlite-v1';
@@ -321,7 +322,7 @@ export class PlaylistsService {
                         ? this.collectStalkerMetadataMigrationUpdates([fresh])
                         : [];
                     if (update) {
-                        await store.dbUpsertAppPlaylist(update);
+                        await writeDocumentPlaylist(store, update);
                     }
                 }
             } else if (updates.length > 0) {
@@ -396,14 +397,11 @@ export class PlaylistsService {
             }
 
             this.startupMetas = null;
-            let saved: Awaited<
-                ReturnType<PlaylistDocumentStore['dbUpsertAppPlaylist']>
-            >;
-            if (operationId === undefined) {
-                saved = await store.dbUpsertAppPlaylist(playlist);
-            } else {
-                saved = await store.dbUpsertAppPlaylist(playlist, operationId);
-            }
+            const saved = await writeDocumentPlaylist(
+                store,
+                playlist,
+                operationId
+            );
             this.healthEvidence?.connections.next({
                 id: playlist._id,
                 playlist,
@@ -1103,8 +1101,10 @@ export class PlaylistsService {
                 await firstValueFrom(this.getPlaylistById(playlistId))
             );
             this.startupMetas = null;
-            const saved =
-                await this.documentStore?.dbUpsertAppPlaylist(playlist);
+            const store = this.documentStore;
+            const saved = store
+                ? await writeDocumentPlaylist(store, playlist)
+                : undefined;
             if (!saved?.success)
                 throw new Error('Stalker category visibility write failed');
             return saved.playlist ?? playlist;

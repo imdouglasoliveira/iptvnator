@@ -6,6 +6,7 @@
 import { ipcMain } from 'electron';
 import {
     JSON_PLAYLIST_READ_KILL_SWITCH_ENV,
+    JSON_PLAYLIST_WRITE_KILL_SWITCH_ENV,
     XTREAM_HISTORY_RECOVERY_PREFIX,
 } from '@iptvnator/shared/interfaces';
 import type { XtreamCatalogStateCondition } from '@iptvnator/shared/interfaces';
@@ -25,9 +26,15 @@ handleWorkerRequest(
     'DB_CREATE_PLAYLIST',
     (playlist: Record<string, unknown>) => playlist
 );
+// Read per call so the renderer serializes only while the switch is off.
+ipcMain.on('JSON_PLAYLIST_WRITE_ENABLED', (event) => {
+    event.returnValue =
+        process.env[JSON_PLAYLIST_WRITE_KILL_SWITCH_ENV] !== '1';
+});
 handleWorkerRequest(
     'DB_UPSERT_APP_PLAYLIST',
-    (playlist: Record<string, unknown>) => playlist
+    (playlist: Record<string, unknown> | { format: 'json'; json: string }) =>
+        playlist
 );
 handleWorkerRequest(
     'DB_UPSERT_APP_PLAYLISTS',
