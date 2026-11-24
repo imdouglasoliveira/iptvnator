@@ -838,11 +838,12 @@ state before that restore pass runs.
 
 Tapping a channel of a very large M3U source must not move the whole playlist
 document across the bridge. `DB_MUTATE_M3U_ACTIVITY` applies one explicit
-command (`history.touch`, `history.remove`, `history.clear`; favorites join the
-same union) to `playlists.recently_viewed` only, in one synchronous
-transaction with a compare-and-swap on the value read. `playlists.payload` is
-never read or rewritten, and the answer carries only the changed
-`recentlyViewed` list. No callback crosses IPC.
+command (`history.touch`, `history.remove`, `history.clear`,
+`favorites.setMembership`, `favorites.reorder`) to `playlists.recently_viewed`
+or `playlists.favorites` only, in one synchronous transaction with a
+compare-and-swap on the value read. `playlists.payload` is never read or
+rewritten, and the answer carries only the changed `recentlyViewed` or
+`favorites` list. No callback crosses IPC.
 
 - Owner: `apps/electron-backend/src/app/database/operations/m3u-activity.operations.ts`;
   contract in `libs/shared/interfaces/src/lib/m3u-activity-mutation.ts`.
@@ -852,16 +853,23 @@ never read or rewritten, and the answer carries only the changed
   `unavailable` (kill switch, non-M3U source, missing row), when the bridge
   lacks the method, in the PWA and for server profiles. The synced-history
   sidecar (`history_local_records`) therefore stays on the old path.
+- Favorites: `PlaylistsService.favoriteMutation` receives the explicit command
+  next to the transform (used by the M3U toggle, reorder and global-favorites
+  removal) and takes the same path when no favorites-sync bridge is active;
+  Xtream/Stalker favorites keep the document path. Add moves the URL to the
+  end, reorder keeps unknown stored entries after the ordered ones, as the
+  transform did.
 - Reads prefer the column: `parseAppPlaylist` takes `recentlyViewed` from
   `recently_viewed`, so a stale copy inside `payload` is never shown.
 - Refresh protection: `PlaylistsService.updatePlaylist` and
   `updateManyPlaylists` write through `DB_UPSERT_APP_PLAYLIST_KEEP_ACTIVITY`,
-  whose conflict update keeps the stored `recently_viewed`, so a refresh built
-  before a tap cannot bring older history back.
+  whose conflict update keeps the stored `recently_viewed` and `favorites`, so a refresh built
+  before a tap cannot bring older history or favorites back.
 - Kill switch: `IPTVNATOR_DISABLE_M3U_ACTIVITY_PARTIAL_WRITE=1` makes the
   command answer `unavailable` and the refresh upsert replace history as before.
 - Tests: `m3u-activity.sqlite.spec.ts` (real SQLite) and
-  `playlists.service.m3u-activity.spec.ts` (zero whole-document calls per tap).
+  `playlists.service.m3u-activity.spec.ts` (zero whole-document calls per tap
+  and per favorite toggle/reorder).
 
 ## SQLite Concurrency Rules
 

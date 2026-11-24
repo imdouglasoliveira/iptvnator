@@ -6,6 +6,7 @@ import {
     FAVORITES_PLAYLIST_BRIDGE,
     mutateFavoritePlaylist,
 } from '../favorites-events';
+import type { FavoritesIntent } from './m3u-activity-mutation';
 import {
     DatabaseService,
     type DbOperationOptions,
@@ -1029,9 +1030,25 @@ export class PlaylistsService {
         id: string,
         transform: (
             current: NonNullable<Playlist['favorites']>
-        ) => NonNullable<Playlist['favorites']>
+        ) => NonNullable<Playlist['favorites']>,
+        m3uCommand?: FavoritesIntent
     ): Observable<Playlist> {
         return this.serializePlaylistWrite(id, async () => {
+            // Synced favorites keep their bookkeeping in the document path.
+            if (
+                m3uCommand &&
+                this.storageBackend.kind() === 'electron' &&
+                !this.favoriteSync.active()
+            ) {
+                const { tryPartialFavoritesMutation } =
+                    await import('./m3u-activity-mutation');
+                const partial = await tryPartialFavoritesMutation(
+                    this.documentStore,
+                    id,
+                    m3uCommand
+                );
+                if (partial) return partial;
+            }
             return mutateFavoritePlaylist(
                 await firstValueFrom(this.getPlaylistById(id)),
                 transform,
@@ -1046,10 +1063,11 @@ export class PlaylistsService {
         playlistId: string,
         transform: (
             current: NonNullable<Playlist['favorites']>
-        ) => NonNullable<Playlist['favorites']>
+        ) => NonNullable<Playlist['favorites']>,
+        m3uCommand?: FavoritesIntent
     ): Observable<Playlist> {
         if (!playlistId) throw new Error('Playlist ID is required');
-        return this.favoriteMutation(playlistId, transform);
+        return this.favoriteMutation(playlistId, transform, m3uCommand);
     }
 
     /**

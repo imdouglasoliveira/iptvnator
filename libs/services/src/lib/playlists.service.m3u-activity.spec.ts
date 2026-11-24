@@ -29,6 +29,7 @@ describe('PlaylistsService M3U activity partial write', () => {
             request: M3uActivityMutationRequest
         ) => Promise<M3uActivityMutationResult>;
         historyActive?: boolean;
+        favoritesActive?: boolean;
     }) {
         const document = {
             _id: 'm3u',
@@ -57,7 +58,7 @@ describe('PlaylistsService M3U activity partial write', () => {
                 mutate: async () => null,
             },
             favoriteSync: {
-                active: () => false,
+                active: () => options.favoritesActive ?? false,
                 project: async <T>(row: T) => row,
                 mutate: async () => null,
             },
@@ -154,5 +155,95 @@ describe('PlaylistsService M3U activity partial write', () => {
             electron.dbUpsertAppPlaylistKeepingActivity
         ).toHaveBeenCalledTimes(1);
         expect(electron.dbUpsertAppPlaylist).not.toHaveBeenCalled();
+    });
+
+    describe('favorites', () => {
+        const toggle = (
+            service: PlaylistsService,
+            url: string,
+            present: boolean
+        ) =>
+            service.transformPlaylistFavorites('m3u', (c) => c, {
+                kind: 'favorites.setMembership',
+                url,
+                present,
+            });
+
+        it('adds, removes and reorders with zero whole-document calls', async () => {
+            const { electron, service, wholeDocumentCalls } = setup({
+                activity: async () => ({
+                    status: 'applied',
+                    favorites: ['http://a.example.test/1'],
+                }),
+            });
+
+            const added = await firstValueFrom(
+                toggle(service, 'http://a.example.test/1', true)
+            );
+            await firstValueFrom(
+                toggle(service, 'http://a.example.test/1', false)
+            );
+            await firstValueFrom(
+                service.transformPlaylistFavorites('m3u', (c) => c, {
+                    kind: 'favorites.reorder',
+                    channelIds: ['http://a.example.test/1'],
+                })
+            );
+
+            expect(added.favorites).toEqual(['http://a.example.test/1']);
+            expect(
+                electron.dbMutateM3uActivity.mock.calls.map(
+                    ([request]) => request.command.kind
+                )
+            ).toEqual([
+                'favorites.setMembership',
+                'favorites.setMembership',
+                'favorites.reorder',
+            ]);
+            expect(wholeDocumentCalls()).toBe(0);
+        });
+
+        it.each([
+            [
+                'the worker declines (kill switch or non-M3U source)',
+                {
+                    activity: async () =>
+                        ({
+                            status: 'unavailable',
+                            reason: 'disabled',
+                        }) as const,
+                },
+            ],
+            ['the bridge lacks the command', {}],
+            [
+                'synced favorites are active',
+                {
+                    activity: async () =>
+                        ({ status: 'applied', favorites: [] }) as const,
+                    favoritesActive: true,
+                },
+            ],
+        ])('falls back to the document path when %s', async (_n, options) => {
+            const { service, electron, wholeDocumentCalls } = setup(options);
+
+            await firstValueFrom(
+                service.transformPlaylistFavorites(
+                    'm3u',
+                    (current) => [...current, 'http://a.example.test/2'],
+                    {
+                        kind: 'favorites.setMembership',
+                        url: 'http://a.example.test/2',
+                        present: true,
+                    }
+                )
+            );
+
+            expect(wholeDocumentCalls()).toBeGreaterThan(0);
+            expect(electron.dbUpsertAppPlaylist).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    favorites: ['http://a.example.test/2'],
+                })
+            );
+        });
     });
 });

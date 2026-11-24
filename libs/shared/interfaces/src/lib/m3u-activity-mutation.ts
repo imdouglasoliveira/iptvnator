@@ -14,8 +14,12 @@ export type M3uHistoryCommand =
     | { kind: 'history.remove'; identities: PlaylistRecentIdentity[] }
     | { kind: 'history.clear' };
 
-/** The favorites commands of the next task join this union. */
-export type M3uActivityCommand = M3uHistoryCommand;
+/** Explicit favorites commands, applied to the favorites stored at write time. */
+export type M3uFavoritesCommand =
+    | { kind: 'favorites.setMembership'; url: string; present: boolean }
+    | { kind: 'favorites.reorder'; channelIds: string[] };
+
+export type M3uActivityCommand = M3uHistoryCommand | M3uFavoritesCommand;
 
 export interface M3uActivityMutationRequest {
     playlistId: string;
@@ -24,7 +28,11 @@ export interface M3uActivityMutationRequest {
 
 /** Only the changed activity comes back; `unavailable` means use the document path. */
 export type M3uActivityMutationResult =
-    | { status: 'applied'; recentlyViewed: PlaylistRecentlyViewedItem[] }
+    | {
+          status: 'applied';
+          recentlyViewed?: PlaylistRecentlyViewedItem[];
+          favorites?: string[];
+      }
     | {
           status: 'unavailable';
           reason: 'disabled' | 'missing' | 'not-m3u' | 'unreadable';
@@ -34,4 +42,6 @@ export const M3U_ACTIVITY_COMMAND_KINDS: ReadonlySet<string> = new Set([
     'history.touch',
     'history.remove',
     'history.clear',
+    'favorites.setMembership',
+    'favorites.reorder',
 ]);

@@ -56,6 +56,22 @@ function run(killSwitch: boolean) {
         out.notM3u = mutateM3uActivity(db, { playlistId: 'xtream', command: { kind: 'history.clear' } });
         out.missing = mutateM3uActivity(db, { playlistId: 'nope', command: { kind: 'history.clear' } });
         out.invalid = mutateM3uActivity(db, { playlistId: 'm3u', command: { kind: 'history.touch', item: { url: '' } } });
+        const fav = (command, id = 'm3u') => mutateM3uActivity(db, { playlistId: id, command });
+        const favPayload = payloadOf('m3u');
+        out.favAdd1 = fav({ kind: 'favorites.setMembership', url: base + '1', present: true });
+        out.favAdd2 = fav({ kind: 'favorites.setMembership', url: base + '2', present: true });
+        out.favAdd3 = fav({ kind: 'favorites.setMembership', url: base + '3', present: true });
+        out.favReAdd1 = fav({ kind: 'favorites.setMembership', url: base + '1', present: true });
+        out.favReorder = fav({ kind: 'favorites.reorder', channelIds: [base + '3', base + 'ghost', base + '2'] });
+        out.favRemove = fav({ kind: 'favorites.setMembership', url: base + '2', present: false });
+        out.favPayloadUntouched = payloadOf('m3u') === favPayload;
+        out.favNotM3u = fav({ kind: 'favorites.setMembership', url: base + '1', present: true }, 'xtream');
+        out.favInvalid = fav({ kind: 'favorites.setMembership', url: '', present: true });
+        const stale2 = JSON.parse(initialPayload);
+        stale2.favorites = [base + 'old'];
+        stale2.playlist = { items: items.slice(0, 5) };
+        upsertAppPlaylistKeepingActivity(db, stale2);
+        out.favAfterRefresh = readDoc('m3u').favorites;
         out.xtreamHistoryKept = readDoc('xtream').recentlyViewed.length;
         console.log(JSON.stringify(out));
         sqlite.close();
@@ -133,6 +149,44 @@ describe('M3U activity partial write on SQLite', () => {
         expect(out.xtreamHistoryKept).toBe(1);
     });
 
+    it('adds, removes and reorders favorites without touching the payload', () => {
+        const out = run(false);
+        const favorites = (r: { favorites: string[] }) => r.favorites;
+
+        expect(favorites(out.favAdd1)).toEqual([base + '1']);
+        expect(favorites(out.favAdd3)).toEqual([
+            base + '1',
+            base + '2',
+            base + '3',
+        ]);
+        expect(favorites(out.favReAdd1)).toEqual([
+            base + '2',
+            base + '3',
+            base + '1',
+        ]);
+        expect(favorites(out.favReorder)).toEqual([
+            base + '3',
+            base + '2',
+            base + '1',
+        ]);
+        expect(favorites(out.favRemove)).toEqual([base + '3', base + '1']);
+        expect(out.favPayloadUntouched).toBe(true);
+        expect(out.favNotM3u).toEqual({
+            status: 'unavailable',
+            reason: 'not-m3u',
+        });
+        expect(out.favInvalid).toEqual({
+            status: 'unavailable',
+            reason: 'unreadable',
+        });
+    });
+
+    it('keeps the stored favorites when a stale refresh snapshot is upserted', () => {
+        const out = run(false);
+
+        expect(out.favAfterRefresh).toEqual([base + '3', base + '1']);
+    });
+
     it('declines every command and lets a refresh replace history under the kill switch', () => {
         const out = run(true);
 
@@ -141,5 +195,10 @@ describe('M3U activity partial write on SQLite', () => {
             reason: 'disabled',
         });
         expect(out.afterRefresh).toEqual([base + '1']);
+        expect(out.favAdd1).toEqual({
+            status: 'unavailable',
+            reason: 'disabled',
+        });
+        expect(out.favAfterRefresh).toEqual([base + 'old']);
     });
 });

@@ -105,6 +105,11 @@ export class PlaylistEffects {
                                 (favorite) => favorite !== channel.url
                             );
                             return added ? [...others, channel.url] : others;
+                        },
+                        {
+                            kind: 'favorites.setMembership',
+                            url: channel.url,
+                            present: added,
                         }
                     );
                 }),
@@ -128,7 +133,11 @@ export class PlaylistEffects {
                     this.playlistsService.transformPlaylistFavorites(
                         playlistId,
                         (current) =>
-                            reorderFavorites(current, action.channelIds)
+                            reorderFavorites(current, action.channelIds),
+                        {
+                            kind: 'favorites.reorder',
+                            channelIds: action.channelIds,
+                        }
                     )
                 )
             );

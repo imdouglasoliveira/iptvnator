@@ -37,6 +37,24 @@ export async function tryPartialHistoryMutation(
     if (result.status !== 'applied') return null;
     return {
         _id: playlistId,
-        recentlyViewed: result.recentlyViewed,
+        recentlyViewed: result.recentlyViewed ?? [],
     } as Playlist;
+}
+
+export type FavoritesIntent = Extract<
+    M3uActivityCommand,
+    { kind: `favorites.${string}` }
+>;
+
+// Resolves null when the whole-document path must run (no bridge, kill switch, non-M3U).
+export async function tryPartialFavoritesMutation(
+    store: ActivityStore | null | undefined,
+    playlistId: string,
+    command: FavoritesIntent
+): Promise<Playlist | null> {
+    const mutate = store?.dbMutateM3uActivity;
+    if (!mutate) return null;
+    const result = await mutate.call(store, { playlistId, command });
+    if (result.status !== 'applied' || !result.favorites) return null;
+    return { _id: playlistId, favorites: result.favorites } as Playlist;
 }

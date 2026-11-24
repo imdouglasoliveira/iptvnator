@@ -92,7 +92,12 @@ export class GlobalFavoritesService {
                     this.playlistsService.transformPlaylistFavorites(
                         channel.playlistId,
                         (current) =>
-                            current.filter((f) => f !== channel.streamUrl)
+                            current.filter((f) => f !== channel.streamUrl),
+                        {
+                            kind: 'favorites.setMembership',
+                            url: channel.streamUrl,
+                            present: false,
+                        }
                     )
                 );
                 break;
