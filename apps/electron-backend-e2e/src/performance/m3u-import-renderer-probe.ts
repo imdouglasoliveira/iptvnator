@@ -280,7 +280,10 @@ export async function recordM3uImportHeartbeat(
     );
 }
 
-export async function waitForM3uImportTerminal(page: Page): Promise<void> {
+export async function waitForM3uImportTerminal(
+    page: Page,
+    timeout = 120_000
+): Promise<void> {
     await page
         .waitForFunction(
             (stateKey) => {
@@ -290,7 +293,7 @@ export async function waitForM3uImportTerminal(page: Page): Promise<void> {
                 return typeof state?.terminalEpochMs === 'number';
             },
             M3U_IMPORT_RENDERER_STATE_KEY,
-            { timeout: 120_000 }
+            { timeout }
         )
         .then(() => undefined);
 }

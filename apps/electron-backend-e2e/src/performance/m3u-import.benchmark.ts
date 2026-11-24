@@ -23,6 +23,7 @@ import {
     createM3uImportScenarioFixture,
     isM3uImportCatalogRun,
     listM3uImportScenarios,
+    m3uImportWorkerSampleDeadlineMs,
     type M3uImportIterationDefinition,
     type M3uImportScenario,
 } from './m3u-import-benchmark-contract';
@@ -201,7 +202,10 @@ async function runIteration(
         });
         app.mainWindow.setDefaultTimeout(definition.settleTimeoutMs);
         await assertRendererCdpTarget(app.mainWindow, config.rendererCdpPort);
-        await installMainCapture(app.electronApp);
+        await installMainCapture(
+            app.electronApp,
+            m3uImportWorkerSampleDeadlineMs(definition)
+        );
         const rendererWindowIdentity = await resolveRendererWindowIdentity(app);
         const requestsBefore = server.requestCount();
         const diagnostic =
@@ -211,6 +215,7 @@ async function runIteration(
             outputDirectory: iterationDirectory,
             playlistTitle: `Synthetic M3U import ${definition.channelCount}`,
             playlistUrl: server.resourceUrl,
+            terminalTimeoutMs: definition.settleTimeoutMs,
         });
 
         await startMainCapture(app.electronApp, {

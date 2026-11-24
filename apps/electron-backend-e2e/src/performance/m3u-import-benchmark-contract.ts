@@ -70,6 +70,19 @@ const CATALOG_SCENARIOS: readonly M3uImportScenario[] = Object.freeze([
     }),
 ]);
 
+/**
+ * Database-worker sample deadline for the main capture. A 380k import keeps the
+ * worker busy for minutes, so the catalog waits as long as its settle window;
+ * the formal scenarios keep the shared 5 s deadline.
+ */
+export function m3uImportWorkerSampleDeadlineMs(
+    definition: M3uImportIterationDefinition
+): number {
+    return definition.scenarioId === M3U_IMPORT_SCENARIO_ID.IMPORT_CATALOG_380K
+        ? CATALOG_SETTLE_TIMEOUT_MS
+        : 5_000;
+}
+
 export function isM3uImportCatalogRun(
     env: Readonly<Record<string, string | undefined>> = process.env
 ): boolean {

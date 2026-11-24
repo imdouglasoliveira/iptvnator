@@ -29,6 +29,8 @@ export interface M3uImportRendererCaptureStartOptions {
     readonly outputDirectory: string;
     readonly playlistTitle: string;
     readonly playlistUrl: string;
+    /** Wait for the import to reach its terminal state; defaults to 120 s. */
+    readonly terminalTimeoutMs?: number;
 }
 
 export interface M3uImportRendererPhaseTimestamps {
@@ -322,7 +324,8 @@ export async function startM3uImportRendererCapture(
             scheduleHeartbeat();
             return operationStartEpochMs;
         },
-        waitForTerminal: () => waitForM3uImportTerminal(page),
+        waitForTerminal: () =>
+            waitForM3uImportTerminal(page, options.terminalTimeoutMs),
     });
 }
 

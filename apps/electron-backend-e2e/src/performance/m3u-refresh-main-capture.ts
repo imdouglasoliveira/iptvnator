@@ -209,7 +209,8 @@ type MainCaptureWorkerTransport =
     MainCaptureGenerationTransport['workers'][number];
 
 export async function installMainCapture(
-    electronApp: ElectronApplication
+    electronApp: ElectronApplication,
+    workerSampleDeadlineMs = 5_000
 ): Promise<void> {
     await installDatabaseRequestIdentityCapture(electronApp);
     const captureStateKeys = {
@@ -239,7 +240,7 @@ export async function installMainCapture(
         stateKey: MAIN_CAPTURE_STATE_KEY,
         workerSampleDeadlineApiFactorySource:
             createWorkerSampleDeadlineApi.toString(),
-        workerSampleDeadlineMs: 5_000,
+        workerSampleDeadlineMs,
         workerTerminationGenerationApiFactorySource:
             createWorkerTerminationGenerationApi.toString(),
         xtreamIpcMarkerCaptureFactorySource:
