@@ -146,7 +146,7 @@ describe('mpegts.js playback evidence', () => {
         ['NetworkError', 'HttpStatusCodeInvalid', 'network-error'],
         ['NetworkError', 'ConnectingTimeout', 'network-error'],
         ['NetworkError', 'Exception', 'network-error'],
-        ['NetworkError', 'UnrecoverableEarlyEof', 'media-decode-error'],
+        ['NetworkError', 'UnrecoverableEarlyEof', 'connection-interrupted'],
         ['MediaError', 'FormatError', 'media-decode-error'],
         ['MediaError', 'FormatUnsupported', 'unsupported-container'],
         ['MediaError', 'CodecUnsupported', 'unsupported-codec'],

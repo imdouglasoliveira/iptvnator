@@ -1012,6 +1012,7 @@
         "ACTION_TRY_BUILT_IN_PLAYER": "Beépített lejátszó kipróbálása",
         "ACTION_RETURN_TO_WEB_PLAYER": "Vissza a webes lejátszóhoz",
         "HLS_WAIT": "Az adatfolyamból még nem érkeztek adatok. Várhat tovább, vagy újrapróbálkozhat.",
+        "RECONNECTING": "A kapcsolat megszakadt. Újracsatlakozás...",
         "STAGE_LOADER": "Adatfolyam betöltése",
         "STAGE_DEMUX": "Konténer elemzése",
         "DETAIL_STAGE": "A hiba fellépésének szakasza",
@@ -1033,6 +1034,10 @@
         "MEDIA_DECODE_ERROR": {
             "TITLE": "A böngészős lejátszó nem tudta dekódolni ezt az adatfolyamot",
             "DESCRIPTION": "A lejátszás elindult, de a dekódolási folyamat hibába ütközött. Elképzelhető, hogy egy külső lejátszó megfelelően kezeli az adatfolyamot."
+        },
+        "CONNECTION_INTERRUPTED": {
+            "TITLE": "A kapcsolat megszakadt",
+            "DESCRIPTION": "A adatfolyam kapcsolata megszakadt, mielőtt a lejátszás folytatódhatott volna. A csatorna lehet, hogy továbbra is működik. Próbálja újra, vagy nyissa meg külső lejátszóban."
         },
         "NETWORK_ERROR": {
             "TITLE": "Nem sikerült betölteni az adatfolyamot",

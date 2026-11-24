@@ -1012,6 +1012,7 @@
         "ACTION_TRY_BUILT_IN_PLAYER": "試用內建播放器",
         "ACTION_RETURN_TO_WEB_PLAYER": "返回網頁播放器",
         "HLS_WAIT": "仍在等待串流資料。您可以繼續等待或重試。",
+        "RECONNECTING": "連線已中斷，正在重新連線...",
         "STAGE_LOADER": "載入串流",
         "STAGE_DEMUX": "解析容器",
         "DETAIL_STAGE": "失敗階段",
@@ -1033,6 +1034,10 @@
         "MEDIA_DECODE_ERROR": {
             "TITLE": "瀏覽器播放器無法解碼此串流",
             "DESCRIPTION": "播放已開始，但媒體管線在解碼時失敗。外部播放器可能能更好地處理此串流。"
+        },
+        "CONNECTION_INTERRUPTED": {
+            "TITLE": "連線已中斷",
+            "DESCRIPTION": "在播放繼續之前，串流連線已斷開。此頻道可能仍可使用。請重試，或在外部播放器中開啟。"
         },
         "NETWORK_ERROR": {
             "TITLE": "無法載入此串流",

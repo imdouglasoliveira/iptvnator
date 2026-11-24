@@ -1,4 +1,5 @@
 import {
+    isMpegTsLiveReconnectDisabled,
     HOSTED_SERVER_ACCESS_CODE,
     HOSTED_SERVER_CONTROL,
     HOSTED_CLOUDFLARE_CONTROL,
@@ -469,6 +470,8 @@ const electronApi: ElectronBridgeApi = {
         dbSaveContentProgressListeners.clear();
     },
     getAppVersion: () => ipcRenderer.invoke('get-app-version'),
+    isMpegTsLiveReconnectDisabled: () =>
+        isMpegTsLiveReconnectDisabled(process.env),
     platform: process.platform,
     getAppUpdateStatus: () => ipcRenderer.invoke(APP_UPDATE_GET_STATUS),
     checkForAppUpdate: () => ipcRenderer.invoke(APP_UPDATE_CHECK),

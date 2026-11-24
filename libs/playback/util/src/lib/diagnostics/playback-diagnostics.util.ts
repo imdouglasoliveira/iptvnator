@@ -262,6 +262,7 @@ function getMpegTsPlaybackDiagnosticCode(
         case MpegTsPlaybackFailure.Network:
             return DiagnosticCode.NetworkError;
         case MpegTsPlaybackFailure.TruncatedStream:
+            return DiagnosticCode.ConnectionInterrupted;
         case MpegTsPlaybackFailure.MediaSource:
             return DiagnosticCode.MediaDecodeError;
         case MpegTsPlaybackFailure.Codec:

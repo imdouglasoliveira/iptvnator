@@ -9,7 +9,12 @@
             data-setup='{"liveui": true, "muted": false}'
         ></video>
 
-        @if (hlsWait.visible() && interactionEnabled()) {
+        @if (mpegTsSession.reconnecting() && interactionEnabled()) {
+            <div class="vjs-hls-wait" role="status" aria-live="polite">
+                <mat-icon aria-hidden="true">sync</mat-icon>
+                <p>{{ 'PLAYBACK_DIAGNOSTICS.RECONNECTING' | translate }}</p>
+            </div>
+        } @else if (hlsWait.visible() && interactionEnabled()) {
             <div class="vjs-hls-wait" role="status" aria-live="polite">
                 <mat-icon aria-hidden="true">sync</mat-icon>
                 <p>{{ 'PLAYBACK_DIAGNOSTICS.HLS_WAIT' | translate }}</p>

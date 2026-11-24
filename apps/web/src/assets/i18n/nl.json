@@ -1012,6 +1012,7 @@
         "ACTION_TRY_BUILT_IN_PLAYER": "Ingebouwde speler proberen",
         "ACTION_RETURN_TO_WEB_PLAYER": "Terug naar de webspeler",
         "HLS_WAIT": "Er wordt nog op streamgegevens gewacht. Je kunt blijven wachten of het opnieuw proberen.",
+        "RECONNECTING": "Verbinding verloren. Opnieuw verbinden...",
         "STAGE_LOADER": "Stream laden",
         "STAGE_DEMUX": "Container verwerken",
         "DETAIL_STAGE": "Foutfase",
@@ -1033,6 +1034,10 @@
         "MEDIA_DECODE_ERROR": {
             "TITLE": "De browserspeler kon deze stream niet decoderen",
             "DESCRIPTION": "Het afspelen is gestart, maar de mediapijplijn is mislukt tijdens het decoderen. Een externe speler kan deze stream mogelijk beter verwerken."
+        },
+        "CONNECTION_INTERRUPTED": {
+            "TITLE": "Verbinding verbroken",
+            "DESCRIPTION": "De verbinding met de stream viel weg voordat het afspelen kon doorgaan. Het kanaal werkt mogelijk nog. Probeer het opnieuw of open het in een externe speler."
         },
         "NETWORK_ERROR": {
             "TITLE": "De stream kon niet worden geladen",

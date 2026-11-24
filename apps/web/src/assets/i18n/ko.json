@@ -1012,6 +1012,7 @@
         "ACTION_TRY_BUILT_IN_PLAYER": "내장 플레이어 사용해 보기",
         "ACTION_RETURN_TO_WEB_PLAYER": "웹 플레이어로 돌아가기",
         "HLS_WAIT": "스트림 데이터를 기다리고 있습니다. 계속 기다리거나 다시 시도할 수 있습니다.",
+        "RECONNECTING": "연결이 끊어졌습니다. 다시 연결하는 중...",
         "STAGE_LOADER": "스트림 로드",
         "STAGE_DEMUX": "컨테이너 분석",
         "DETAIL_STAGE": "오류 발생 단계",
@@ -1033,6 +1034,10 @@
         "MEDIA_DECODE_ERROR": {
             "TITLE": "브라우저 플레이어가 이 스트림을 디코딩하지 못했습니다",
             "DESCRIPTION": "재생은 시작되었지만 디코딩 중 미디어 파이프라인에서 오류가 발생했습니다. 외부 플레이어가 이 스트림을 더 잘 처리할 수 있습니다."
+        },
+        "CONNECTION_INTERRUPTED": {
+            "TITLE": "연결이 끊어졌습니다",
+            "DESCRIPTION": "재생을 이어가기 전에 스트림 연결이 끊어졌습니다. 채널은 여전히 작동할 수 있습니다. 다시 시도하거나 외부 플레이어로 여세요."
         },
         "NETWORK_ERROR": {
             "TITLE": "스트림을 불러올 수 없습니다",

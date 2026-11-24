@@ -1012,6 +1012,7 @@
         "ACTION_TRY_BUILT_IN_PLAYER": "Try built-in player",
         "ACTION_RETURN_TO_WEB_PLAYER": "Return to web player",
         "HLS_WAIT": "Still waiting for stream data. You can keep waiting or retry.",
+        "RECONNECTING": "Connection lost. Reconnecting...",
         "STAGE_LOADER": "Stream loading",
         "STAGE_DEMUX": "Container parsing",
         "DETAIL_STAGE": "Failure stage",
@@ -1033,6 +1034,10 @@
         "MEDIA_DECODE_ERROR": {
             "TITLE": "The browser player could not decode this stream",
             "DESCRIPTION": "Playback started but the media pipeline failed while decoding. An external player may handle this stream better."
+        },
+        "CONNECTION_INTERRUPTED": {
+            "TITLE": "Connection interrupted",
+            "DESCRIPTION": "The stream connection dropped before playback could continue. The channel may still work. Try again, or open it in an external player."
         },
         "NETWORK_ERROR": {
             "TITLE": "The stream could not be loaded",

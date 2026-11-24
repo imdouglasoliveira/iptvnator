@@ -1012,6 +1012,7 @@
         "ACTION_TRY_BUILT_IN_PLAYER": "Wypróbuj wbudowany odtwarzacz",
         "ACTION_RETURN_TO_WEB_PLAYER": "Wróć do odtwarzacza internetowego",
         "HLS_WAIT": "Nadal czekamy na dane strumienia. Możesz poczekać lub spróbować ponownie.",
+        "RECONNECTING": "Utracono połączenie. Ponowne łączenie...",
         "STAGE_LOADER": "Ładowanie strumienia",
         "STAGE_DEMUX": "Analiza kontenera",
         "DETAIL_STAGE": "Etap błędu",
@@ -1033,6 +1034,10 @@
         "MEDIA_DECODE_ERROR": {
             "TITLE": "Odtwarzacz przeglądarkowy nie mógł zdekodować tego strumienia",
             "DESCRIPTION": "Odtwarzanie rozpoczęło się, ale potok multimediów zakończył się błędem podczas dekodowania. Zewnętrzny odtwarzacz może lepiej obsłużyć ten strumień."
+        },
+        "CONNECTION_INTERRUPTED": {
+            "TITLE": "Połączenie przerwane",
+            "DESCRIPTION": "Połączenie ze strumieniem zostało przerwane, zanim odtwarzanie mogło być kontynuowane. Kanał może nadal działać. Spróbuj ponownie lub otwórz go w zewnętrznym odtwarzaczu."
         },
         "NETWORK_ERROR": {
             "TITLE": "Nie można załadować strumienia",
