@@ -1,6 +1,7 @@
 import { mkdir, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { MAIN_PLAYLIST_IMPORT_KILL_SWITCH_ENV } from '@iptvnator/shared/interfaces';
 
 import {
     closeElectronApp,
@@ -195,6 +196,9 @@ async function runIteration(
             env: {
                 IPTVNATOR_DB_WORKER_BATCH_DELAY_MS: '0',
                 IPTVNATOR_PERF_CAPTURE: '1',
+                ...(process.env[MAIN_PLAYLIST_IMPORT_KILL_SWITCH_ENV] === '1'
+                    ? { [MAIN_PLAYLIST_IMPORT_KILL_SWITCH_ENV]: '1' }
+                    : {}),
                 IPTVNATOR_PERF_WORKER_PROFILING: '1',
                 IPTVNATOR_TRACE_RENDERER_CONSOLE:
                     process.env['IPTVNATOR_TRACE_RENDERER_CONSOLE'] ?? '0',
@@ -279,6 +283,16 @@ async function waitForDatabaseSettlement(
         .poll(
             async () => {
                 const status = await readMainCaptureStatus(app.electronApp);
+                const rendererPersists =
+                    process.env[MAIN_PLAYLIST_IMPORT_KILL_SWITCH_ENV] === '1';
+                if (!rendererPersists) {
+                    return (
+                        status.databaseRequests === 1 &&
+                        status.databaseGetsCompleted === 1 &&
+                        status.databasePending === 0 &&
+                        status.preloadSuccessMarkers === 1
+                    );
+                }
                 return (
                     status.databaseRequests === 2 &&
                     status.databaseUpsertsCompleted === 1 &&
