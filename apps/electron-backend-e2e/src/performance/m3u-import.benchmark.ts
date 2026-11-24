@@ -283,22 +283,15 @@ async function waitForDatabaseSettlement(
         .poll(
             async () => {
                 const status = await readMainCaptureStatus(app.electronApp);
+                // Only the renderer path sends the upsert through the preload.
                 const rendererPersists =
                     process.env[MAIN_PLAYLIST_IMPORT_KILL_SWITCH_ENV] === '1';
-                if (!rendererPersists) {
-                    return (
-                        status.databaseRequests === 1 &&
-                        status.databaseGetsCompleted === 1 &&
-                        status.databasePending === 0 &&
-                        status.preloadSuccessMarkers === 1
-                    );
-                }
                 return (
                     status.databaseRequests === 2 &&
                     status.databaseUpsertsCompleted === 1 &&
                     status.databaseGetsCompleted === 1 &&
                     status.databasePending === 0 &&
-                    status.preloadSuccessMarkers === 2
+                    status.preloadSuccessMarkers === (rendererPersists ? 2 : 1)
                 );
             },
             { timeout }
