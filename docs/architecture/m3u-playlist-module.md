@@ -302,6 +302,16 @@ renderer and back for the write cost about three minutes. Kill switch:
 renderer persists it as before. `fetch-playlist-by-url` is unchanged for
 source sync and auto-update.
 
+Reading a stored playlist back goes through `dbGetAppPlaylistJson` when the
+bridge has it: `DB_GET_APP_PLAYLIST` with `{ format: 'json' }` makes the worker
+return one JSON string, and `readDocumentPlaylist`
+(`playlist-storage-backend.ts`) parses it in the renderer. A 380k-entry
+playlist as an object graph took about 107 s to cross IPC and the context
+bridge while the worker read it in about 4 s. Kill switch:
+`IPTVNATOR_DISABLE_JSON_PLAYLIST_READ=1` makes the main process ask for the
+object, and the renderer accepts either form. Stores without the method (the
+self-hosted server) keep `dbGetAppPlaylist`.
+
 ## Initial URL Import Performance Benchmark (Electron)
 
 The Electron E2E project has a deterministic initial-import benchmark for

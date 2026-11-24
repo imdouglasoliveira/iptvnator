@@ -1111,6 +1111,13 @@ export interface ElectronBridgeApi {
         playlists: Playlist[]
     ) => Promise<{ success: boolean; count: number }>;
     dbRecoverLegacyPlaylists: () => Promise<void>;
+    // JSON text crosses IPC and the context bridge in one copy; the object is per property.
+    dbUpsertAppPlaylistJson?: (
+        json: string,
+        operationId?: string
+    ) => Promise<ElectronBridgeResult>;
+    /** Read per call from the kill switch; false keeps the object write. */
+    isJsonPlaylistWriteEnabled?: () => boolean;
     dbUpsertAppPlaylists: (
         playlists: Playlist[]
     ) => Promise<ElectronBridgeCountResult>;

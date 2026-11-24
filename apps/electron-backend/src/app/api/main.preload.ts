@@ -899,6 +899,10 @@ const electronApi: ElectronBridgeApi = {
         ipcRenderer.invoke('DB_UPSERT_APP_PLAYLIST_KEEP_ACTIVITY', playlist),
     dbMutateM3uActivity: (request: M3uActivityMutationRequest) =>
         ipcRenderer.invoke('DB_MUTATE_M3U_ACTIVITY', request),
+    dbUpsertAppPlaylistJson: (json: string, _operationId?: string) =>
+        ipcRenderer.invoke('DB_UPSERT_APP_PLAYLIST', { format: 'json', json }),
+    isJsonPlaylistWriteEnabled: () =>
+        ipcRenderer.sendSync('JSON_PLAYLIST_WRITE_ENABLED') === true,
     dbMigrateAppPlaylists: (playlists: Playlist[]) =>
         ipcRenderer.invoke('DB_MIGRATE_APP_PLAYLISTS', playlists),
     dbRecoverLegacyPlaylists: () =>

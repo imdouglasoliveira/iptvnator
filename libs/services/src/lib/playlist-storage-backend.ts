@@ -56,6 +56,8 @@ export type PlaylistDocumentStore = Pick<
             | 'dbGetAppPlaylistMetas'
             | 'dbMigrateAppPlaylists'
             | 'dbRecoverLegacyPlaylists'
+            | 'dbUpsertAppPlaylistJson'
+            | 'isJsonPlaylistWriteEnabled'
         >
     >;
 
@@ -148,4 +150,25 @@ export async function readDocumentPlaylist(
     return typeof value === 'string'
         ? (JSON.parse(value) as Playlist)
         : (value ?? null);
+}
+
+/** Writes one whole playlist, as JSON text when the store and kill switch allow it. */
+export async function writeDocumentPlaylist(
+    store: PlaylistDocumentStore,
+    playlist: Playlist,
+    operationId?: string
+): Promise<ElectronBridgeResult & { playlist?: Playlist }> {
+    if (
+        store.dbUpsertAppPlaylistJson &&
+        store.isJsonPlaylistWriteEnabled?.() !== false
+    ) {
+        // Serialize before the bridge call so the context bridge copies one string.
+        return store.dbUpsertAppPlaylistJson(
+            JSON.stringify(playlist),
+            operationId
+        );
+    }
+    return operationId === undefined
+        ? store.dbUpsertAppPlaylist(playlist)
+        : store.dbUpsertAppPlaylist(playlist, operationId);
 }

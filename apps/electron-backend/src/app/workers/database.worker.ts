@@ -12,6 +12,7 @@ import type {
     M3uActivityMutationRequest,
 } from '@iptvnator/shared/interfaces';
 import { migrateAppPlaylists } from '../database/operations/playlist-migration.operations';
+import { decodeAppPlaylistWritePayload } from '../database/operations/app-playlist-json-write';
 import { readStandaloneSources } from '../database/operations/standalone-sources.operations';
 import {
     Database,
@@ -757,7 +758,7 @@ async function executeRequest(
                     : undefined;
             return upsertAppPlaylist(
                 db,
-                message.payload as Record<string, unknown>,
+                decodeAppPlaylistWritePayload(message.payload),
                 capturePhase
             );
         }
