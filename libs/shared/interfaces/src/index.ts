@@ -141,3 +141,4 @@ export type {
     AgeRatingDisplay,
 } from './lib/content-certification';
 export * from './lib/playlist-url-import';
+export * from './lib/mpegts-live-reconnect';

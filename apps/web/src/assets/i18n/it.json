@@ -1012,6 +1012,7 @@
         "ACTION_TRY_BUILT_IN_PLAYER": "Prova il lettore integrato",
         "ACTION_RETURN_TO_WEB_PLAYER": "Torna al lettore web",
         "HLS_WAIT": "In attesa dei dati del flusso. Puoi continuare ad aspettare o riprovare.",
+        "RECONNECTING": "Connessione persa. Riconnessione in corso...",
         "STAGE_LOADER": "Caricamento del flusso",
         "STAGE_DEMUX": "Analisi del contenitore",
         "DETAIL_STAGE": "Fase dell’errore",
@@ -1033,6 +1034,10 @@
         "MEDIA_DECODE_ERROR": {
             "TITLE": "Il player del browser non è riuscito a decodificare questo stream",
             "DESCRIPTION": "La riproduzione è iniziata, ma la pipeline multimediale non è riuscita a decodificare. Un player esterno potrebbe gestire meglio questo stream."
+        },
+        "CONNECTION_INTERRUPTED": {
+            "TITLE": "Connessione interrotta",
+            "DESCRIPTION": "La connessione allo stream si è interrotta prima che la riproduzione potesse continuare. Il canale potrebbe funzionare ancora. Riprova o aprilo in un lettore esterno."
         },
         "NETWORK_ERROR": {
             "TITLE": "Impossibile caricare lo stream",

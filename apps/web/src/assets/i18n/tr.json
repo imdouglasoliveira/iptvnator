@@ -1012,6 +1012,7 @@
         "ACTION_TRY_BUILT_IN_PLAYER": "Yerleşik oynatıcıyı dene",
         "ACTION_RETURN_TO_WEB_PLAYER": "Web oynatıcısına dön",
         "HLS_WAIT": "Yayın verileri hâlâ bekleniyor. Beklemeye devam edebilir veya yeniden deneyebilirsiniz.",
+        "RECONNECTING": "Bağlantı koptu. Yeniden bağlanılıyor...",
         "STAGE_LOADER": "Akış yükleme",
         "STAGE_DEMUX": "Kapsayıcı ayrıştırma",
         "DETAIL_STAGE": "Hata aşaması",
@@ -1033,6 +1034,10 @@
         "MEDIA_DECODE_ERROR": {
             "TITLE": "Tarayıcı oynatıcısı bu akışın kodunu çözemedi",
             "DESCRIPTION": "Oynatma başladı, ancak medya işlem hattı kod çözme sırasında başarısız oldu. Harici bir oynatıcı bu akışı daha iyi işleyebilir."
+        },
+        "CONNECTION_INTERRUPTED": {
+            "TITLE": "Bağlantı kesildi",
+            "DESCRIPTION": "Oynatma devam edemeden yayın bağlantısı koptu. Kanal hâlâ çalışıyor olabilir. Tekrar deneyin veya harici bir oynatıcıda açın."
         },
         "NETWORK_ERROR": {
             "TITLE": "Akış yüklenemedi",

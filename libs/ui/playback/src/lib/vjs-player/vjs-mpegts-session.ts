@@ -1,6 +1,8 @@
+import { signal } from '@angular/core';
 import mpegts from 'mpegts.js';
 import {
     InlinePlaybackPlayer,
+    type MpegTsPlaybackEvidence,
     type PlaybackDiagnostic,
     classifyMpegTsPlaybackIssue,
     collectPlaybackCodecs,
@@ -8,6 +10,8 @@ import {
     createPlaybackSourceMetadata,
     getPlaybackMediaExtensionFromUrl,
 } from '@iptvnator/playback/util';
+import { type MpegTsLiveReconnectPolicy } from './mpegts-live-reconnect-policy';
+import { VjsMpegTsLiveRecovery } from './vjs-mpegts-live-recovery';
 
 interface VjsDurationPlayer {
     duration(value?: number): unknown;
@@ -17,6 +21,9 @@ export interface VjsMpegTsSessionConfig {
     player: () => VjsDurationPlayer;
     isLive: () => boolean;
     emitPlaybackIssue: (issue: PlaybackDiagnostic) => void;
+    /** Overrides the preload kill switch; used by tests. */
+    isReconnectEnabled?: () => boolean;
+    reconnectPolicy?: MpegTsLiveReconnectPolicy;
 }
 
 const VOD_DURATION_EVENTS = [
@@ -31,8 +38,24 @@ export class VjsMpegTsSession {
     private engine: mpegts.Player | null = null;
     private video: HTMLVideoElement | null = null;
     private errorListener: ((...args: unknown[]) => void) | null = null;
+    private url: string | null = null;
+    readonly reconnecting = signal(false);
+    private readonly recovery: VjsMpegTsLiveRecovery;
 
-    constructor(private readonly config: VjsMpegTsSessionConfig) {}
+    constructor(private readonly config: VjsMpegTsSessionConfig) {
+        this.recovery = new VjsMpegTsLiveRecovery(
+            {
+                isEnabled: () =>
+                    config.isReconnectEnabled?.() ??
+                    !window.electron?.isMpegTsLiveReconnectDisabled?.(),
+                isLive: () => config.isLive(),
+                recreateEngine: () => this.recreateEngine(),
+                setReconnecting: (value) => this.reconnecting.set(value),
+                fail: (evidence) => this.emitIssue(evidence),
+            },
+            config.reconnectPolicy
+        );
+    }
 
     isSupportedSource(url?: string): boolean {
         if (!url) {
@@ -45,6 +68,33 @@ export class VjsMpegTsSession {
 
     start(url: string, video: HTMLVideoElement): void {
         this.destroy();
+        this.startEngine(url, video);
+    }
+
+    private recreateEngine(): void {
+        const { url, video } = this;
+        if (!url || !video) {
+            return;
+        }
+        this.teardownEngine();
+        this.startEngine(url, video);
+    }
+
+    private emitIssue(evidence: MpegTsPlaybackEvidence): void {
+        this.config.emitPlaybackIssue(
+            classifyMpegTsPlaybackIssue(
+                evidence,
+                createPlaybackSourceMetadata({
+                    ...collectPlaybackCodecs([this.engine?.mediaInfo ?? {}]),
+                    url: this.url ?? '',
+                    mimeType: 'video/mp2t',
+                    player: InlinePlaybackPlayer.VideoJs,
+                })
+            )
+        );
+    }
+
+    private startEngine(url: string, video: HTMLVideoElement): void {
         const isLive = this.config.isLive();
         const engine = mpegts.createPlayer({
             type: 'mpegts',
@@ -53,28 +103,24 @@ export class VjsMpegTsSession {
         });
         this.engine = engine;
         this.video = video;
+        this.url = url;
         this.errorListener = (
             type: unknown,
             details: unknown,
             info: unknown
         ) => {
             this.syncDuration();
-            this.config.emitPlaybackIssue(
-                classifyMpegTsPlaybackIssue(
-                    createMpegTsPlaybackEvidence(type, details, info),
-                    createPlaybackSourceMetadata({
-                        ...collectPlaybackCodecs([engine.mediaInfo ?? {}]),
-                        url,
-                        mimeType: 'video/mp2t',
-                        player: InlinePlaybackPlayer.VideoJs,
-                    })
-                )
-            );
+            const evidence = createMpegTsPlaybackEvidence(type, details, info);
+            if (!this.recovery.handleError(evidence)) {
+                this.emitIssue(evidence);
+            }
         };
 
         engine.attachMediaElement(video);
         if (!isLive) {
             this.bindDurationEvents(video);
+        } else {
+            video.addEventListener('playing', this.handlePlaying);
         }
         engine.on(mpegts.Events.ERROR, this.errorListener);
         engine.load();
@@ -103,13 +149,20 @@ export class VjsMpegTsSession {
     }
 
     destroy(): void {
+        this.recovery.reset();
+        this.teardownEngine();
+        this.video = null;
+        this.url = null;
+    }
+
+    private teardownEngine(): void {
         const video = this.video;
         if (video) {
             for (const eventName of VOD_DURATION_EVENTS) {
                 video.removeEventListener(eventName, this.scheduleDurationSync);
             }
+            video.removeEventListener('playing', this.handlePlaying);
         }
-        this.video = null;
 
         const engine = this.engine;
         if (!engine) {
@@ -127,6 +180,8 @@ export class VjsMpegTsSession {
         engine.destroy();
         this.engine = null;
     }
+
+    private readonly handlePlaying = () => this.recovery.notifyPlaying();
 
     private readonly scheduleDurationSync = () => {
         this.syncDuration();

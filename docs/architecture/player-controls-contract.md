@@ -1968,6 +1968,8 @@ The guarded Video.js integration lives in:
 libs/ui/playback/src/lib/vjs-player/
 ├── vjs-audio-tracks.ts
 ├── vjs-legacy-tracks.ts
+├── mpegts-live-reconnect-policy.ts
+├── vjs-mpegts-live-recovery.ts
 ├── vjs-mpegts-session.ts
 ├── vjs-quality-levels.ts
 ├── vjs-player-controls.bridge.ts
@@ -1986,6 +1988,27 @@ identity, caption preference/override projection, and exact listener cleanup.
 `VjsPlayerResetCoordinator` owns pause/coalesced-reset ordering and volume
 preservation, while `VjsVideoElementSession` owns native Tech-element
 playback/ended events.
+
+#### Live MPEG-TS reconnect
+
+When the mpegts.js loader drops a live stream (`UnrecoverableEarlyEof`, a
+network exception, a connect timeout or a 408/425/429/5xx), `VjsMpegTsSession`
+does not report a terminal issue straight away. `VjsMpegTsLiveRecovery`
+recreates the engine on the same channel (pause, unload, detach, destroy, then
+a new instance on the same Tech element) up to three times, waiting 1, 2 and
+4 s, with a 10 s timeout per attempt. The budget resets after 30 s of stable
+playback. Only one recovery runs at a time, a duplicate error while waiting is
+ignored, and `start`, `destroy`, a channel change or a manual fallback
+invalidate the generation so a stale timer never resumes the old channel.
+Reconnecting creates no history entry and no new playback intent. While it
+runs, the player shows `PLAYBACK_DIAGNOSTICS.RECONNECTING`; the terminal
+diagnostic appears only when the budget is spent. VOD, 401/403/404, and
+decode/MSE/format/codec errors are never retried. An early EOF is classified
+as `connection-interrupted` (not `media-decode-error`).
+
+Kill switch: `IPTVNATOR_DISABLE_MPEGTS_LIVE_RECONNECT=1` (exposed to the
+renderer through the preload `isMpegTsLiveReconnectDisabled()`); with it set,
+the first loader error is terminal as before.
 
 The guarded ArtPlayer integration lives in:
 

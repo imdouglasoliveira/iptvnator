@@ -1012,6 +1012,7 @@
         "ACTION_TRY_BUILT_IN_PLAYER": "Integrierten Player ausprobieren",
         "ACTION_RETURN_TO_WEB_PLAYER": "Zum Webplayer zurückkehren",
         "HLS_WAIT": "Warte weiter auf Stream-Daten. Du kannst warten oder die Wiedergabe erneut versuchen.",
+        "RECONNECTING": "Verbindung verloren. Verbindung wird wiederhergestellt ...",
         "STAGE_LOADER": "Stream laden",
         "STAGE_DEMUX": "Container verarbeiten",
         "DETAIL_STAGE": "Fehlerphase",
@@ -1033,6 +1034,10 @@
         "MEDIA_DECODE_ERROR": {
             "TITLE": "Der Browser-Player konnte diesen Stream nicht dekodieren",
             "DESCRIPTION": "Die Wiedergabe wurde gestartet, aber die Medien-Pipeline ist beim Dekodieren fehlgeschlagen. Ein externer Player kann diesen Stream möglicherweise besser verarbeiten."
+        },
+        "CONNECTION_INTERRUPTED": {
+            "TITLE": "Verbindung unterbrochen",
+            "DESCRIPTION": "Die Verbindung zum Stream ist abgebrochen, bevor die Wiedergabe fortgesetzt werden konnte. Der Kanal funktioniert möglicherweise weiterhin. Versuche es erneut oder öffne ihn in einem externen Player."
         },
         "NETWORK_ERROR": {
             "TITLE": "Der Stream konnte nicht geladen werden",

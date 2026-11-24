@@ -1012,6 +1012,7 @@
         "ACTION_TRY_BUILT_IN_PLAYER": "Essayer le lecteur intégré",
         "ACTION_RETURN_TO_WEB_PLAYER": "Revenir au lecteur web",
         "HLS_WAIT": "En attente des données du flux. Vous pouvez patienter ou réessayer.",
+        "RECONNECTING": "Connexion perdue. Reconnexion en cours...",
         "STAGE_LOADER": "Chargement du flux",
         "STAGE_DEMUX": "Analyse du conteneur",
         "DETAIL_STAGE": "Étape de l’échec",
@@ -1033,6 +1034,10 @@
         "MEDIA_DECODE_ERROR": {
             "TITLE": "Le lecteur du navigateur n’a pas pu décoder ce flux",
             "DESCRIPTION": "La lecture a commencé, mais le pipeline multimédia a échoué pendant le décodage. Un lecteur externe peut mieux gérer ce flux."
+        },
+        "CONNECTION_INTERRUPTED": {
+            "TITLE": "Connexion interrompue",
+            "DESCRIPTION": "La connexion au flux a été coupée avant que la lecture puisse continuer. La chaîne fonctionne peut-être encore. Réessayez ou ouvrez-la dans un lecteur externe."
         },
         "NETWORK_ERROR": {
             "TITLE": "Impossible de charger le flux",

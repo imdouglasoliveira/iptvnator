@@ -1012,6 +1012,7 @@
         "ACTION_TRY_BUILT_IN_PLAYER": "Experimentar o player integrado",
         "ACTION_RETURN_TO_WEB_PLAYER": "Voltar ao player web",
         "HLS_WAIT": "Ainda aguardando os dados da transmissão. Você pode continuar aguardando ou tentar novamente.",
+        "RECONNECTING": "Conexão perdida. Reconectando...",
         "STAGE_LOADER": "Carregamento do fluxo",
         "STAGE_DEMUX": "Análise do contêiner",
         "DETAIL_STAGE": "Etapa da falha",
@@ -1033,6 +1034,10 @@
         "MEDIA_DECODE_ERROR": {
             "TITLE": "O reprodutor do navegador não conseguiu decodificar este stream",
             "DESCRIPTION": "A reprodução começou, mas o pipeline de mídia falhou durante a decodificação. Um reprodutor externo pode lidar melhor com este stream."
+        },
+        "CONNECTION_INTERRUPTED": {
+            "TITLE": "Conexão interrompida",
+            "DESCRIPTION": "A conexão com a transmissão caiu antes que a reprodução pudesse continuar. O canal pode continuar funcionando. Tente novamente ou abra-o em um reprodutor externo."
         },
         "NETWORK_ERROR": {
             "TITLE": "Não foi possível carregar o stream",

@@ -122,7 +122,9 @@ describe('VjsMpegTsSession', () => {
         });
         createPlayerMock.mockReturnValue(mpegTsPlayer);
         const video = document.createElement('video');
-        const { session, emitPlaybackIssue } = createSession();
+        const { session, emitPlaybackIssue } = createSession({
+            reconnect: false,
+        });
         const secret = 'vjs-mpegts-secret';
 
         session.start('https://example.test/live/stream.ts', video);
@@ -161,7 +163,9 @@ describe('VjsMpegTsSession', () => {
         const mpegTsPlayer = createMpegTsPlayer();
         createPlayerMock.mockReturnValue(mpegTsPlayer);
         const video = document.createElement('video');
-        const { session, emitPlaybackIssue } = createSession();
+        const { session, emitPlaybackIssue } = createSession({
+            reconnect: false,
+        });
 
         session.start('https://example.test/live/stream.ts', video);
         mpegTsPlayer.emit('error', 'NetworkError', 'Exception', {
@@ -197,7 +201,7 @@ describe('VjsMpegTsSession', () => {
         session.start('https://example.test/archive/one.ts', firstVideo);
         session.start('https://example.test/archive/two.ts', secondVideo);
 
-        expect(removeEventListener).toHaveBeenCalledTimes(5);
+        expect(removeEventListener).toHaveBeenCalledTimes(6);
         expect(firstPlayer.off).toHaveBeenCalledWith(
             'error',
             expect.any(Function)
@@ -240,7 +244,9 @@ describe('VjsMpegTsSession', () => {
     });
 });
 
-function createSession(options: { isLive?: boolean } = {}) {
+function createSession(
+    options: { isLive?: boolean; reconnect?: boolean } = {}
+) {
     let currentDuration = Number.POSITIVE_INFINITY;
     const duration = jest.fn((value?: number) => {
         if (value !== undefined) {
@@ -253,6 +259,7 @@ function createSession(options: { isLive?: boolean } = {}) {
         player: () => ({ duration }),
         isLive: () => options.isLive ?? true,
         emitPlaybackIssue,
+        isReconnectEnabled: () => options.reconnect ?? true,
     });
 
     return { duration, emitPlaybackIssue, session };

@@ -114,7 +114,7 @@ export class VjsPlayerComponent implements OnInit, OnChanges, OnDestroy {
         emitPlaybackEnded: () => this.playbackEnded.emit(),
         emitPlaybackStarted: () => this.playbackStarted.emit(),
     });
-    private readonly mpegTsSession = new VjsMpegTsSession({
+    readonly mpegTsSession = new VjsMpegTsSession({
         player: () => this.player,
         isLive: () => this.options().isLive !== false,
         emitPlaybackIssue: (issue) => this.playbackIssue.emit(issue),

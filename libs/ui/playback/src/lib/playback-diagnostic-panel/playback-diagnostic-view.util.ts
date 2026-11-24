@@ -197,6 +197,8 @@ function getDiagnosticTranslationBase(issue: PlaybackDiagnostic): string {
             return 'PLAYBACK_DIAGNOSTICS.MEDIA_DECODE_ERROR';
         case PlaybackDiagnosticCode.NetworkError:
             return 'PLAYBACK_DIAGNOSTICS.NETWORK_ERROR';
+        case PlaybackDiagnosticCode.ConnectionInterrupted:
+            return 'PLAYBACK_DIAGNOSTICS.CONNECTION_INTERRUPTED';
         case PlaybackDiagnosticCode.BrowserAccessError:
             return 'PLAYBACK_DIAGNOSTICS.BROWSER_ACCESS_ERROR';
         case PlaybackDiagnosticCode.DrmOrEncryption:

@@ -105,6 +105,7 @@ function buildCandidates(
 
     switch (context.diagnostic.code) {
         case PlaybackDiagnosticCode.NetworkError:
+        case PlaybackDiagnosticCode.ConnectionInterrupted:
             return [retryTransient(), alternative(context)];
         case PlaybackDiagnosticCode.BrowserAccessError:
             return [

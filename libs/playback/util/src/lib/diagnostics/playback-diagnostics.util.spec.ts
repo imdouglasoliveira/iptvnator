@@ -616,7 +616,7 @@ describe('playback diagnostics', () => {
         expect(JSON.stringify(issue)).not.toContain(secret);
     });
 
-    it('classifies mpegts early EOF failures as fallback-actionable media errors', () => {
+    it('classifies mpegts early EOF failures as an interrupted connection', () => {
         const issue = classifyMpegTsPlaybackIssue(
             createMpegTsPlaybackEvidence(
                 'NetworkError',
@@ -630,7 +630,7 @@ describe('playback diagnostics', () => {
             })
         );
 
-        expect(issue.code).toBe(PlaybackDiagnosticCode.MediaDecodeError);
+        expect(issue.code).toBe(PlaybackDiagnosticCode.ConnectionInterrupted);
         expect(issue.mpegTs?.failure).toBe('truncated-stream');
         expect(issue.details).toBeUndefined();
     });
