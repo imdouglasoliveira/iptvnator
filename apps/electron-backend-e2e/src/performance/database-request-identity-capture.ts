@@ -66,6 +66,7 @@ export function installDatabaseRequestIdentityCaptureInMain(
     const markerChannel = 'IPTVNATOR_PERF_CAPTURE_MARKER';
     const markerMethodToOperation: Readonly<Record<string, string>> = {
         dbGetAppPlaylist: 'DB_GET_APP_PLAYLIST',
+        dbGetAppPlaylistJson: 'DB_GET_APP_PLAYLIST',
         dbUpsertAppPlaylist: 'DB_UPSERT_APP_PLAYLIST',
     };
     let active = false;

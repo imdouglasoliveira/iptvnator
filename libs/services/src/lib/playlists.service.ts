@@ -54,6 +54,7 @@ import {
     PlaylistDocumentStore,
     PlaylistStorageBackend,
     PlaylistWriteConflict,
+    readDocumentPlaylist,
 } from './playlist-storage-backend';
 
 const SQLITE_PLAYLIST_MIGRATION_FLAG = 'm3u-playlists-indexeddb-to-sqlite-v1';
@@ -749,10 +750,11 @@ export class PlaylistsService {
                 const store = this.documentStore;
                 let playlist: Playlist | null = null;
                 if (store) {
-                    playlist =
-                        operationId === undefined
-                            ? await store.dbGetAppPlaylist(id)
-                            : await store.dbGetAppPlaylist(id, operationId);
+                    playlist = await readDocumentPlaylist(
+                        store,
+                        id,
+                        operationId
+                    );
                 }
                 return this.prepareHistory(
                     playlist
