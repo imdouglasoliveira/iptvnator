@@ -1,0 +1,11 @@
+# gerado por: git grep -l -e SyntheticM3uFixture -e m3u-import-benchmark-contract -- apps/electron-backend-e2e/src (commit 525adb045)
+apps/electron-backend-e2e/src/performance/charset-parse-workloads.ts
+apps/electron-backend-e2e/src/performance/m3u-import-benchmark-contract.spec.ts
+apps/electron-backend-e2e/src/performance/m3u-import-summary-contract.ts
+apps/electron-backend-e2e/src/performance/m3u-import-summary.ts
+apps/electron-backend-e2e/src/performance/m3u-import.benchmark.ts
+apps/electron-backend-e2e/src/performance/m3u-refresh-cancellation.benchmark.ts
+apps/electron-backend-e2e/src/performance/synthetic-m3u-server.spec.ts
+apps/electron-backend-e2e/src/performance/synthetic-m3u-server.ts
+apps/electron-backend-e2e/src/performance/synthetic-m3u.spec.ts
+apps/electron-backend-e2e/src/performance/synthetic-m3u.ts

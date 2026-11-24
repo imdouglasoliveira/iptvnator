@@ -1,0 +1,6 @@
+# gerado por: git grep -l -e PLAYLIST_FETCH_TIMEOUT_MS -e PROVIDER_REQUEST_TIMEOUT_MS (commit 525adb045)
+apps/electron-backend/src/app/events/playlist-source.ts
+apps/electron-backend/src/app/workers/playlist-refresh.worker.ts
+apps/web-backend/src/app/host-guard.ts
+apps/web-backend/src/app/web-backend-app.ts
+docs/architecture/m3u-playlist-module.md

@@ -1,0 +1,20 @@
+{
+  "schema": "a8z-autorizacao-v1",
+  "plan_id": "PLAN-002-m3u-large-playlist-benchmark",
+  "autorizado_em": "2026-11-24T02:07:22.402Z",
+  "pedido_literal": "Não, vamos subir o PR. Inicie o plano 2 via codex",
+  "executor": "codex",
+  "modelo": null,
+  "ambiente": "local",
+  "worktree": true,
+  "worktree_path": "E:/Github/monorepo-others/worktrees/iptvnator/plan-002",
+  "tasks": "todas",
+  "inicio": "automatico",
+  "handoff_base": "525adb045",
+  "revisao": {
+    "estado": "atual",
+    "docs_sha256": "22c8d2cea240b16dd38fde11e0420759cfb93de0be819f0770ae39117837b845"
+  },
+  "nota_handoff": "pasta do plano fica local (excluida do git por decisao do usuario); handoff_base e o commit de base da worktree",
+  "historico": []
+}

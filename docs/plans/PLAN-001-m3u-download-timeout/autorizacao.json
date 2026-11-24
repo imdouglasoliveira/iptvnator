@@ -1,0 +1,20 @@
+{
+  "schema": "a8z-autorizacao-v1",
+  "plan_id": "PLAN-001-m3u-download-timeout",
+  "autorizado_em": "2026-11-24T01:32:08.416Z",
+  "pedido_literal": "Eu autorizo a validação. Se não foi feito o review deles, ser executado. Caso tenha sido feito, abrem o codex e peça para ele executar o primeiro plano.",
+  "executor": "codex",
+  "modelo": null,
+  "ambiente": "local",
+  "worktree": true,
+  "worktree_path": "E:/Github/monorepo-others/worktrees/iptvnator/plan-001",
+  "tasks": "todas",
+  "inicio": "automatico",
+  "handoff_base": "525adb045",
+  "revisao": {
+    "estado": "atual",
+    "docs_sha256": "d0477f18a0db48dc362d89fa86a4d604d3cc4cdb934a56bc480eea149d21c193"
+  },
+  "nota_handoff": "pasta do plano fica local (excluida do git por decisao do usuario); handoff_base e o commit de base da worktree, nao um commit do plano",
+  "historico": []
+}

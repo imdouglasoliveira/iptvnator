@@ -1,0 +1,20 @@
+# gerado por: git grep -l -e fetchPlaylistDefinition -e fetchPlaylistByUrl -e handleAddingPlaylistByUrl -- apps libs (commit 525adb045)
+apps/electron-backend/src/app/api/main.preload.ts
+apps/web/src/app/services/electron.service.performance.spec.ts
+apps/web/src/app/services/electron.service.spec.ts
+apps/web/src/app/services/electron.service.ts
+apps/web/src/app/services/pwa.service.ts
+libs/m3u-state/src/lib/add-playlist.effect.spec.ts
+libs/m3u-state/src/lib/effects.ts
+libs/m3u-state/src/lib/reducers/playlist.reducers.spec.ts
+libs/m3u-state/src/lib/reducers/playlist.reducers.ts
+libs/playlist/import/feature/src/lib/add-playlist-dialog/add-playlist-dialog.component.spec.ts
+libs/playlist/import/feature/src/lib/add-playlist-dialog/url-playlist-import.spec.ts
+libs/playlist/import/feature/src/lib/add-playlist-dialog/url-playlist-import.ts
+libs/services/src/lib/data.service.ts
+libs/services/src/lib/playlists.service.source-refresh.spec.ts
+libs/services/src/lib/source-sync/source-materializer.spec.ts
+libs/services/src/lib/source-sync/source-materializer.ts
+libs/services/src/lib/source-sync/source-sync.service.spec.ts
+libs/services/src/lib/source-sync/synced-playlist-store.spec.ts
+libs/shared/interfaces/src/lib/electron-api.interface.ts

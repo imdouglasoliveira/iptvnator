@@ -1,0 +1,20 @@
+{
+  "schema": "a8z-autorizacao-v1",
+  "plan_id": "PLAN-003-m3u-main-process-import",
+  "autorizado_em": "2026-11-24T03:56:39.150Z",
+  "pedido_literal": "*execute-plan PLAN-003 executor=codex ambiente=local worktree=sim tasks=todas inicio=automatico",
+  "executor": "codex",
+  "modelo": null,
+  "ambiente": "local",
+  "worktree": true,
+  "worktree_path": "E:/Github/monorepo-others/worktrees/iptvnator/plan-003",
+  "tasks": "todas",
+  "inicio": "automatico",
+  "handoff_base": "0d9986607",
+  "revisao": {
+    "estado": "atual",
+    "docs_sha256": "3e08f00062bf2daf6ebde4772b3ca51062d6e2e2f4f08d01575919afc3c4ba9e"
+  },
+  "nota_handoff": "pasta do plano fica local (excluida do git por decisao do usuario); handoff_base e o commit de base da worktree (branch test/m3u-catalog-benchmark)",
+  "historico": []
+}
