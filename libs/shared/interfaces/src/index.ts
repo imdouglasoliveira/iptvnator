@@ -136,6 +136,7 @@ export * from './lib/hosted-server.interface';
 
 export { sourceIdentity } from './lib/playlist-source-identity.util';
 
+export * from './lib/m3u-active-only-epg';
 export type {
     ContentCertification,
     AgeRatingDisplay,

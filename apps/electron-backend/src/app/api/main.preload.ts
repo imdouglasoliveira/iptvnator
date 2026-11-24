@@ -1,5 +1,6 @@
 import {
     isMpegTsLiveReconnectDisabled,
+    isM3uActiveOnlyEpgDisabled,
     HOSTED_SERVER_ACCESS_CODE,
     HOSTED_SERVER_CONTROL,
     HOSTED_CLOUDFLARE_CONTROL,
@@ -474,6 +475,8 @@ const electronApi: ElectronBridgeApi = {
     getAppVersion: () => ipcRenderer.invoke('get-app-version'),
     isMpegTsLiveReconnectDisabled: () =>
         isMpegTsLiveReconnectDisabled(process.env),
+    isM3uActiveOnlyEpgDisabled: () =>
+        isM3uActiveOnlyEpgDisabled(process.env),
     platform: process.platform,
     getAppUpdateStatus: () => ipcRenderer.invoke(APP_UPDATE_GET_STATUS),
     checkForAppUpdate: () => ipcRenderer.invoke(APP_UPDATE_CHECK),

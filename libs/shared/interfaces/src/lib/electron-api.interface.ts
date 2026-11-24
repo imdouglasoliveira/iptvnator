@@ -803,6 +803,7 @@ export interface ElectronBridgeApi {
     ) => () => void;
     getAppVersion: () => Promise<string>;
     isMpegTsLiveReconnectDisabled?: () => boolean;
+    isM3uActiveOnlyEpgDisabled?: () => boolean;
     platform: string;
     getAppUpdateStatus: () => Promise<ElectronBridgeAppUpdateStatus>;
     checkForAppUpdate: () => Promise<ElectronBridgeAppUpdateStatus>;
