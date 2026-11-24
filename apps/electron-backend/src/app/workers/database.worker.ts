@@ -489,6 +489,7 @@ async function executeRequest(
                 type: 'live' | 'movies' | 'series';
                 hiddenCategoryXtreamIds?: number[];
                 lockedCategoryXtreamIds?: number[];
+                retainedCategoryIds?: [number, number][];
             };
             const capturePhase =
                 createWorkerPerformancePhaseAdapter(performanceCapture);
@@ -499,7 +500,8 @@ async function executeRequest(
                 payload.type,
                 payload.hiddenCategoryXtreamIds,
                 payload.lockedCategoryXtreamIds,
-                capturePhase
+                capturePhase,
+                payload.retainedCategoryIds
             );
         }
 
@@ -646,6 +648,7 @@ async function executeRequest(
                 identity?: ContentMetadataPatch;
                 categoryId?: number;
                 excludeLocked?: boolean;
+                fallbackToUniqueCategory?: boolean;
             };
             return getContentByXtreamId(
                 db,
@@ -654,7 +657,8 @@ async function executeRequest(
                 payload.contentType,
                 payload.identity,
                 payload.categoryId,
-                payload.excludeLocked === true
+                payload.excludeLocked === true,
+                payload.fallbackToUniqueCategory === true
             );
         }
 
@@ -838,6 +842,7 @@ async function executeRequest(
                     password?: string;
                     serverUrl?: string;
                     lastUpdated?: string;
+                    autoRefresh?: boolean;
                 };
             };
             return updatePlaylist(db, payload.playlistId, payload.updates);

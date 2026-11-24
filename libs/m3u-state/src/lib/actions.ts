@@ -31,6 +31,10 @@ export const PlaylistActions = createActionGroup({
                 Playlist['hiddenStalkerCategories']
             >;
         }>(),
+        'Xtream Startup Refresh Committed': props<{
+            playlistId: string;
+            updateDate: number;
+        }>(),
         'Update Playlist Meta': props<{
             playlist: PlaylistMetaUpdate;
             /**

@@ -434,6 +434,7 @@ export async function updatePlaylist(
         userAgent?: string;
         serverUrl?: string;
         lastUpdated?: string;
+        autoRefresh?: boolean;
         xtreamContentTypes?: XtreamContentType[];
     }
 ): Promise<{ success: boolean }> {
