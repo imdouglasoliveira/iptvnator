@@ -53,6 +53,7 @@ import {
     PlaylistRefreshPayload,
 } from './playlist-refresh.interface';
 import { Playlist } from './playlist.interface';
+import type { PlaylistUrlImportOptions, PlaylistUrlImportResult } from './playlist-url-import';
 import {
     PlayerContentInfo,
     ResolvedPortalPlayback,
@@ -886,6 +887,10 @@ export interface ElectronBridgeApi {
         title?: string,
         options?: ElectronBridgePlaylistFetchOptions
     ) => Promise<Playlist>;
+    importPlaylistByUrl: (
+        url: string,
+        options?: PlaylistUrlImportOptions
+    ) => Promise<PlaylistUrlImportResult>;
     updatePlaylistFromFilePath: (
         filePath: string,
         title: string

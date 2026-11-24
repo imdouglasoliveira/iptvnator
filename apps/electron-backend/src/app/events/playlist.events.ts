@@ -17,6 +17,7 @@ import {
     ElectronBridgeTrustOptions,
     ElectronBridgePlaylistFetchOptions,
     Playlist,
+    PlaylistUrlImportOptions,
     PlaylistRefreshCancelledResult,
     PlaylistRefreshEvent,
     PlaylistRefreshPayload,
@@ -36,6 +37,7 @@ import {
 import { PlaylistWriteAuthorizer } from './playlist-write-authorization';
 import { createM3uImportPerformanceCapture } from './playlist-import-performance';
 import { isPerformanceCaptureEnabled } from '../services/debug-trace';
+import { importPlaylistFromUrl } from './playlist-url-import';
 
 export default class PlaylistEvents {
     static bootstrapPlaylistEvents(): Electron.IpcMain {
@@ -110,6 +112,24 @@ ipcMain.handle(
         } catch (error) {
             console.error(
                 'Error fetching playlist:',
+                redactSensitiveData(error)
+            );
+            throw error;
+        }
+    }
+);
+
+ipcMain.handle(
+    'import-playlist-by-url',
+    async (event, url: string, options?: PlaylistUrlImportOptions) => {
+        try {
+            const performanceCapture = createM3uImportPerformanceCapture({
+                enabled: isPerformanceCaptureEnabled(),
+            });
+            return await importPlaylistFromUrl(url, options, performanceCapture);
+        } catch (error) {
+            console.error(
+                'Error importing playlist:',
                 redactSensitiveData(error)
             );
             throw error;

@@ -12,6 +12,7 @@ import type {
     XtreamCatalogStateCondition,
 } from '@iptvnator/shared/interfaces';
 import type { SourceProbeContext } from '@iptvnator/shared/interfaces';
+import type { PlaylistUrlImportOptions } from '@iptvnator/shared/interfaces';
 import { contextBridge, ipcRenderer, webFrame, webUtils } from 'electron';
 import {
     APP_MENU_OPEN,
@@ -543,6 +544,8 @@ const electronApi: ElectronBridgeApi = {
         title?: string,
         options?: ElectronBridgePlaylistFetchOptions
     ) => ipcRenderer.invoke('fetch-playlist-by-url', url, title, options),
+    importPlaylistByUrl: (url: string, options?: PlaylistUrlImportOptions) =>
+        ipcRenderer.invoke('import-playlist-by-url', url, options),
     updatePlaylistFromFilePath: (filePath: string, title: string) =>
         ipcRenderer.invoke('update-playlist-from-file-path', filePath, title),
     openPlaylistFromFile: () => ipcRenderer.invoke('open-playlist-from-file'),
