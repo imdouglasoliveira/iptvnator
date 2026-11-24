@@ -1400,6 +1400,8 @@ export interface ElectronBridgeApi {
         sessionId: string,
         exact?: boolean
     ) => Promise<ExternalPlayerSession | null>;
+    /** Sessions still open in the main process, e.g. after a page reload. */
+    listExternalPlayerSessions?: () => Promise<ExternalPlayerSession[]>;
     getEmbeddedMpvSupport: () => Promise<EmbeddedMpvSupport>;
     prepareEmbeddedMpv?: () => Promise<EmbeddedMpvSupport>;
     createEmbeddedMpvSession: (
