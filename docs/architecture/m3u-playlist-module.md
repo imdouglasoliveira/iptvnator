@@ -289,6 +289,19 @@ Regression coverage uses synthetic UA-gated HTTP endpoints in
 `playlist-auto-refresh.e2e.ts` (Electron) and `self-hosted.e2e.ts` (PWA), plus
 form, renderer, download, proxy, and refresh-action unit tests.
 
+### Main-process persistence (Electron)
+
+The Electron dialog imports through `import-playlist-by-url`
+(`playlist-url-import.ts`): the main process downloads, applies the title and
+the EPG choice, writes the playlist through the database worker and returns
+only the meta (`PlaylistUrlImportResult`). The renderer registers the source
+with `playlistImportedInMain`, fetches its EPG and opens it; the channels come
+back through the normal playlist read. Cloning a 380k-entry playlist to the
+renderer and back for the write cost about three minutes. Kill switch:
+`IPTVNATOR_DISABLE_MAIN_PLAYLIST_IMPORT=1` returns the parsed playlist and the
+renderer persists it as before. `fetch-playlist-by-url` is unchanged for
+source sync and auto-update.
+
 ## Initial URL Import Performance Benchmark (Electron)
 
 The Electron E2E project has a deterministic initial-import benchmark for
