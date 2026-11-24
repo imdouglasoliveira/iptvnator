@@ -27,6 +27,8 @@ import {
     parseSecurityPolicyError,
     PlayerContentInfo,
     Playlist,
+    PlaylistUrlImportOptions,
+    PlaylistUrlImportResult,
     PLAYLIST_PARSE_BY_URL,
     PLAYLIST_UPDATE,
     readExternalPlayerErrorCode,
@@ -153,6 +155,16 @@ export class ElectronService extends DataService {
         return window.electron.fetchPlaylistByUrl(url, undefined, {
             ...this.settingsStore.getTrustOptions(),
             userAgent,
+        });
+    }
+
+    override importPlaylistByUrl(
+        url: string,
+        options: PlaylistUrlImportOptions = {}
+    ): Promise<PlaylistUrlImportResult> {
+        return window.electron.importPlaylistByUrl(url, {
+            ...this.settingsStore.getTrustOptions(),
+            ...options,
         });
     }
 

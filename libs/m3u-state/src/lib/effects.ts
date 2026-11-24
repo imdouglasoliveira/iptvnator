@@ -34,6 +34,7 @@ import {
     PlaylistsService,
     SettingsStore,
     RuntimeCapabilitiesService,
+    SourceHealthEvidenceService,
 } from '@iptvnator/services';
 import {
     getXtreamContentRoute,
@@ -80,6 +81,7 @@ export class PlaylistEffects {
     private store = inject(Store);
     private settingsStore = inject(SettingsStore);
     private readonly runtime = inject(RuntimeCapabilitiesService);
+    private readonly sourceHealthEvidence = inject(SourceHealthEvidenceService);
     private epgSources = inject(EpgSourceSettingsService);
     private readonly playlistScopedEpgFetchKeys = new Map<string, string>();
 
@@ -467,6 +469,24 @@ export class PlaylistEffects {
                 })
             );
         },
+        { dispatch: false }
+    );
+
+    // The main process already persisted the playlist (large URL imports):
+    // register the inventory change, fetch its EPG and open it.
+    playlistImportedInMain$ = createEffect(
+        () =>
+            this.actions$.pipe(
+                ofType(PlaylistActions.playlistImportedInMain),
+                tap(({ playlist }) => {
+                    this.sourceHealthEvidence.connections.next({
+                        id: playlist._id,
+                        playlist,
+                    });
+                    this.fetchPlaylistScopedEpg(playlist);
+                    this.navigateToPlaylist(playlist as Playlist);
+                })
+            ),
         { dispatch: false }
     );
 

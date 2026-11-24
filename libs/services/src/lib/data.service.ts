@@ -1,3 +1,5 @@
+import type { PlaylistUrlImportOptions, PlaylistUrlImportResult } from '@iptvnator/shared/interfaces';
+
 type ElectronProcessWindow = Window & {
     process?: {
         type?: string;
@@ -53,6 +55,11 @@ export abstract class DataService {
         void _userAgent;
         return Promise.reject(new Error('Playlist fetching is unavailable'));
     }
+    /** Electron only: fetches, persists in the main process and returns the meta. */
+    importPlaylistByUrl?(
+        url: string,
+        options?: PlaylistUrlImportOptions
+    ): Promise<PlaylistUrlImportResult>;
     get isElectron(): boolean {
         const currentWindow = window as ElectronProcessWindow;
         return Boolean(currentWindow.process?.type);

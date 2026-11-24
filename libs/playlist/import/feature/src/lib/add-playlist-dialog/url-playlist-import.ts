@@ -45,16 +45,33 @@ export function createUrlPlaylistImport() {
         errorCode.set(null);
         recovery.set(null);
         try {
-            const fetched = await data.fetchPlaylistDefinition(
-                draft.playlistUrl.trim(),
-                draft.userAgent?.trim() || undefined
-            );
-            if (!current()) return;
-            const playlist = applyPlaylistEpgImportPreference(
-                fetched,
-                draft.autoImportEpg
-            );
+            const url = draft.playlistUrl.trim();
+            const userAgent = draft.userAgent?.trim() || undefined;
             const title = draft.playlistName?.trim();
+            const imported = data.importPlaylistByUrl
+                ? await data.importPlaylistByUrl(url, {
+                      autoImportEpg: draft.autoImportEpg,
+                      title,
+                      userAgent,
+                  })
+                : null;
+            if (!current()) return;
+            if (imported?.persisted) {
+                store.dispatch(
+                    PlaylistActions.playlistImportedInMain({
+                        playlist: imported.playlist,
+                    })
+                );
+                completed();
+                return;
+            }
+            const fetched =
+                imported?.playlist ??
+                (await data.fetchPlaylistDefinition(url, userAgent));
+            if (!current()) return;
+            const playlist = imported
+                ? fetched
+                : applyPlaylistEpgImportPreference(fetched, draft.autoImportEpg);
             measureRendererPerformancePhase(
                 RENDERER_PERFORMANCE_PHASE.M3U_IMPORT_DISPATCH,
                 () =>

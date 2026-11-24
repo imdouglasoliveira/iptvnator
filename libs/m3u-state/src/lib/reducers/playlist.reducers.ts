@@ -334,6 +334,16 @@ export const playlistReducers = [
         };
     }),
     on(
+        PlaylistActions.playlistImportedInMain,
+        (state, { playlist }): PlaylistState => ({
+            ...state,
+            playlists: playlistsAdapter.addOne(
+                toEntityMeta(playlist),
+                state.playlists
+            ),
+        })
+    ),
+    on(
         PlaylistActions.handleAddingPlaylistByUrl,
         (state, action): PlaylistState => {
             if (action.isTemporary) {
