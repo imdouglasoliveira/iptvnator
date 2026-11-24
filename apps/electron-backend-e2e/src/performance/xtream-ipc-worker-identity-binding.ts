@@ -10,6 +10,7 @@ const DB_METHOD_OPERATION = Object.freeze({
     dbDeletePlaylist: 'DB_DELETE_PLAYLIST',
     dbDeleteXtreamContent: 'DB_DELETE_XTREAM_CONTENT',
     dbGetAppPlaylist: 'DB_GET_APP_PLAYLIST',
+    dbGetAppPlaylistJson: 'DB_GET_APP_PLAYLIST',
     dbGetCategories: 'DB_GET_CATEGORIES',
     dbGetContent: 'DB_GET_CONTENT',
     dbRestoreXtreamUserData: 'DB_RESTORE_XTREAM_USER_DATA',

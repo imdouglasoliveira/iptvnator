@@ -778,7 +778,10 @@ async function executeRequest(
             return getAppPlaylistMetas(db);
 
         case 'DB_GET_APP_PLAYLIST': {
-            const payload = message.payload as { playlistId: string };
+            const payload = message.payload as {
+                playlistId: string;
+                format?: 'json';
+            };
             const capturePhase: AppPlaylistGetPhaseCapture | undefined =
                 performanceCapture
                     ? {
@@ -798,7 +801,14 @@ async function executeRequest(
                               ),
                       }
                     : undefined;
-            return getAppPlaylist(db, payload.playlistId, capturePhase);
+            const playlist = await getAppPlaylist(
+                db,
+                payload.playlistId,
+                capturePhase
+            );
+            return payload.format === 'json' && playlist
+                ? JSON.stringify(playlist)
+                : playlist;
         }
 
         case 'DB_GET_APP_PLAYLIST_FAVORITE_CHANNELS': {

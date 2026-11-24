@@ -10,6 +10,10 @@ import type { PlaylistMeta } from './playlist-meta.type';
 export const MAIN_PLAYLIST_IMPORT_KILL_SWITCH_ENV =
     'IPTVNATOR_DISABLE_MAIN_PLAYLIST_IMPORT';
 
+// Kill switch for the JSON text playlist read; remove within two releases.
+export const JSON_PLAYLIST_READ_KILL_SWITCH_ENV =
+    'IPTVNATOR_DISABLE_JSON_PLAYLIST_READ';
+
 export interface PlaylistUrlImportOptions
     extends ElectronBridgePlaylistFetchOptions {
     /** Trimmed title chosen in the dialog; sets both title and filename. */

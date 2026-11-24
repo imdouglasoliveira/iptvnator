@@ -20,6 +20,7 @@ export type PlaylistDocumentStore = Pick<
     | 'dbDeleteAllPlaylists'
     | 'dbDeletePlaylist'
     | 'dbGetAppPlaylist'
+    | 'dbGetAppPlaylistJson'
     | 'dbGetAppPlaylists'
     | 'dbGetAppState'
     | 'dbSetAppState'
@@ -125,4 +126,20 @@ export class PlaylistStorageBackend {
         }
         return (window.electron as PlaylistDocumentStore | undefined) ?? null;
     }
+}
+
+/** Reads one playlist, preferring the JSON text transport when the store has it. */
+export async function readDocumentPlaylist(
+    store: PlaylistDocumentStore,
+    id: string,
+    operationId?: string
+): Promise<Playlist | null> {
+    const value = store.dbGetAppPlaylistJson
+        ? await store.dbGetAppPlaylistJson(id, operationId)
+        : operationId === undefined
+          ? await store.dbGetAppPlaylist(id)
+          : await store.dbGetAppPlaylist(id, operationId);
+    return typeof value === 'string'
+        ? (JSON.parse(value) as Playlist)
+        : (value ?? null);
 }
