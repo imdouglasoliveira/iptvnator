@@ -20,7 +20,7 @@ export type SyntheticM3uChannelCount =
 export interface SyntheticM3uFixture {
     readonly body: string;
     readonly bytes: number;
-    readonly channelCount: SyntheticM3uChannelCount;
+    readonly channelCount: number;
     readonly charset: SyntheticCharset;
     readonly sha256: string;
 }
