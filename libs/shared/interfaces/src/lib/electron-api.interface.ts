@@ -797,6 +797,7 @@ export interface ElectronBridgeApi {
         callback: (data: PlaylistRefreshEvent) => void
     ) => () => void;
     getAppVersion: () => Promise<string>;
+    isXtreamLiveRefreshOnUseDisabled?: () => boolean;
     platform: string;
     getAppUpdateStatus: () => Promise<ElectronBridgeAppUpdateStatus>;
     checkForAppUpdate: () => Promise<ElectronBridgeAppUpdateStatus>;
