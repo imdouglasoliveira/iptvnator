@@ -135,6 +135,24 @@ describe('SeasonContainerComponent random episode', () => {
         expect(played).toEqual([]);
     });
 
+    it('drops a pending shuffle when another series opens on the same season key', () => {
+        const played: XtreamSerieEpisode[] = [];
+        component.episodeClicked.subscribe((episode) => played.push(episode));
+        setInputs({ '1': [], '2': [] }, ['2']);
+        fixture.detectChanges();
+
+        component.playRandomEpisode();
+        fixture.detectChanges();
+        expect(component.selectedSeason()).toBe('2');
+
+        setInputs({ '1': [], '2': [createEpisode(7, 2)] });
+        fixture.componentRef.setInput('seriesId', 21);
+        fixture.detectChanges();
+
+        expect(component.selectedSeason()).toBe('2');
+        expect(played).toEqual([]);
+    });
+
     it('drops a pending shuffle when the page starts other playback', () => {
         const played: XtreamSerieEpisode[] = [];
         component.episodeClicked.subscribe((episode) => played.push(episode));

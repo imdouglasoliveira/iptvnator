@@ -1772,7 +1772,11 @@ Series inline playback behavior is shared across all three modes:
 - The inline player header shows the current episode metadata below the title, for example `S01E03 - Episode title`.
 - Embedded players receive previous/next episode state for the current season only.
 - On player EOF (`ended`), Stalker advances to the next mapped episode in the current season when [inline series autoplay](embedded-inline-playback.md#series-inline-episode-continuation) is enabled.
-- Autoplay and Next stop at the last episode of the current season. They do not jump to the next season and do not lazy-load an unloaded `is_series=1` season. Quick start remains the only flow that may load another VOD-series season before playback.
+- Autoplay and Next stop at the last episode of the current season. Quick start
+  and shuffle can load another `is_series=1` season before playback. Shuffle
+  holds the season it picked during hydration and draws again if that season is
+  empty. Changing series or seasons, or starting playback, cancels a
+  pending shuffle.
 - Previous is disabled on the first episode of the current season and otherwise switches directly to the previous episode.
 - Before either inline or external playback starts, the resolved content info
   includes the parent `seriesXtreamId` and the mapped `seasonNumber` /

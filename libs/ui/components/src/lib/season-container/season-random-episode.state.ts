@@ -1,6 +1,5 @@
 import {
     Signal,
-    WritableSignal,
     computed,
     effect,
     signal,
@@ -14,10 +13,13 @@ import {
 
 export interface SeasonRandomEpisodeSources {
     readonly seasons: Signal<Record<string, XtreamSerieEpisode[]>>;
+    readonly playlistId: Signal<string>;
+    readonly seriesId: Signal<number>;
     /** Seasons whose episode lists are not loaded yet (Stalker lazy-VOD). */
     readonly unloadedSeasonKeys: Signal<readonly string[]>;
-    /** Selecting a season makes the host load it when it is lazy. */
-    readonly selectedSeason: WritableSignal<string | undefined>;
+    readonly selectedSeason: Signal<string | undefined>;
+    /** Holds the chosen season during hydration and triggers the host load. */
+    selectSeason(seasonKey: string): void;
     /** Plays an episode through the host's ordinary episode path. */
     selectEpisode(episode: XtreamSerieEpisode): void;
     /**
@@ -65,6 +67,8 @@ export function createSeasonRandomEpisodeState(
     );
     const pending = signal<{
         seasonKey: string;
+        playlistId: string;
+        seriesId: number;
         playbackEpisodeId: number | null;
     } | null>(null);
 
@@ -77,6 +81,8 @@ export function createSeasonRandomEpisodeState(
         // Only a newly started episode counts; playback ending is no choice.
         const playback = playbackEpisodeId();
         if (
+            sources.playlistId() !== waiting.playlistId ||
+            sources.seriesId() !== waiting.seriesId ||
             sources.selectedSeason() !== seasonKey ||
             (playback !== null && playback !== waiting.playbackEpisodeId)
         ) {
@@ -115,14 +121,16 @@ export function createSeasonRandomEpisodeState(
         }
         pending.set({
             seasonKey: pick.seasonKey,
+            playlistId: sources.playlistId(),
+            seriesId: sources.seriesId(),
             playbackEpisodeId: untracked(playbackEpisodeId),
         });
-        if (untracked(sources.selectedSeason) === pick.seasonKey) {
+        const alreadySelected = sources.selectedSeason() === pick.seasonKey;
+        sources.selectSeason(pick.seasonKey);
+        if (alreadySelected) {
             // Already selected but unloaded (a load that failed): selecting
             // it again changes nothing, so ask the host to load it again.
             sources.seasonSelected.emit(pick.seasonKey);
-        } else {
-            sources.selectedSeason.set(pick.seasonKey);
         }
     }
 

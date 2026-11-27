@@ -19,7 +19,6 @@ import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { type SeasonEpisodeDownloadAdapter } from '@iptvnator/portal/shared/data-access';
 import {
     createLogger,
-    isPortalPlaybackInProgress,
     compareSeriesSeasonKeys,
     isPortalPlaybackWatched,
 } from '@iptvnator/portal/shared/util';
@@ -40,6 +39,7 @@ import {
     resolveEpisodeMetaState,
     usableStillUrl,
 } from './episode-meta-state.util';
+import { findMostRecentInProgressEpisodeId } from './episode-progress.util';
 import { EpisodeSkeletonComponent } from './episode-skeleton.component';
 import { createCappedMetadataWait } from './metadata-wait.state';
 import {
@@ -284,24 +284,15 @@ export class SeasonContainerComponent implements OnInit {
      * one playing (inline or external), else the most recently watched
      * episode that is not finished.
      */
-    readonly currentEpisodeId = computed<number | null>(() => {
-        const playing = this.playingEpisodeId() ?? this.activeEpisodeId();
-        if (playing !== null) {
-            return playing;
-        }
-        let best: { id: number; updatedAt: string } | null = null;
-        for (const episode of this.selectedSeasonEpisodes()) {
-            const position = this.getEpisodePosition(episode);
-            if (!isPortalPlaybackInProgress(position)) {
-                continue;
-            }
-            const updatedAt = position?.updatedAt ?? '';
-            if (!best || updatedAt > best.updatedAt) {
-                best = { id: this.getEpisodeContentId(episode), updatedAt };
-            }
-        }
-        return best?.id ?? null;
-    });
+    readonly currentEpisodeId = computed(
+        () =>
+            this.playingEpisodeId() ??
+            this.activeEpisodeId() ??
+            findMostRecentInProgressEpisodeId(
+                this.selectedSeasonEpisodes(),
+                this.playbackPositions()
+            )
+    );
 
     readonly selectedSeasonDescription = computed(() => {
         const selected = this.selectedSeason();
