@@ -295,6 +295,45 @@
                     ></mat-slide-toggle>
                 </div>
             </div>
+
+            <div class="setting-item" data-setting-id="low-end-mode">
+                <div class="setting-item__meta">
+                    <h4 id="low-end-mode-label">
+                        {{ 'SETTINGS.LOW_END_MODE' | translate }}
+                    </h4>
+                    <p id="low-end-mode-description">
+                        {{ 'SETTINGS.LOW_END_MODE_DESCRIPTION' | translate }}
+                    </p>
+                </div>
+                <div class="setting-item__control">
+                    <mat-form-field
+                        class="settings-select"
+                        appearance="outline"
+                        subscriptSizing="dynamic"
+                    >
+                        <mat-select
+                            formControlName="lowEndMode"
+                            aria-labelledby="low-end-mode-label"
+                            aria-describedby="low-end-mode-description"
+                            data-test-id="low-end-mode-select"
+                        >
+                            @for (
+                                option of lowEndModeOptions;
+                                track option.value
+                            ) {
+                                <mat-option
+                                    [value]="option.value"
+                                    [attr.data-test-id]="
+                                        'low-end-mode-' + option.value
+                                    "
+                                >
+                                    {{ option.labelKey | translate }}
+                                </mat-option>
+                            }
+                        </mat-select>
+                    </mat-form-field>
+                </div>
+            </div>
         </div>
     </section>
 </section>

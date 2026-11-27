@@ -14,6 +14,7 @@ export const SETTINGS_CONTROL_SECTIONS: Readonly<Record<string, string>> = {
     startupWindowMode: 'general',
     stripCountryPrefix: 'general',
     m3uCatalogTabs: 'general',
+    lowEndMode: 'appearance',
     optimizations: 'general',
     portalConnectivityGuard: 'general',
     player: 'playback',

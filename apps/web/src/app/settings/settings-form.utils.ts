@@ -16,6 +16,8 @@ import {
     DEFAULT_TMDB_SETTINGS,
     EpgViewMode,
     Language,
+    LOW_END_MODES,
+    LowEndMode,
     normalizeAppUpdateChannel,
     normalizeDashboardRailsSettings,
     normalizeEmbeddedMpvExtraOptions,
@@ -78,7 +80,12 @@ export function createSettingsForm(
         vodAutoFailover: false,
         m3uVodDetails: true,
         m3uCatalogTabs: true,
-        optimizations: formBuilder.group({ priorityOpen: true }),
+        lowEndMode: 'auto' as LowEndMode,
+        optimizations: formBuilder.group({
+            catalogSnapshot: true,
+            priorityOpen: true,
+            conditionalRefresh: true,
+        }),
         ageRatingCountry: 'auto',
         ...(supportsEpg
             ? { epgUrl: new FormArray<FormControl<string | null>>([]) }
@@ -260,9 +267,10 @@ export function createSettingsFromFormValue(
         vodAutoFailover: value.vodAutoFailover ?? false,
         m3uVodDetails: value.m3uVodDetails ?? true,
         m3uCatalogTabs: value.m3uCatalogTabs !== false,
+        lowEndMode: normalizeLowEndMode(value.lowEndMode),
         optimizations: {
-            catalogSnapshot: currentSettings.optimizations?.catalogSnapshot !== false,
-            conditionalRefresh: currentSettings.optimizations?.conditionalRefresh !== false,
+            catalogSnapshot: value.optimizations.catalogSnapshot !== false,
+            conditionalRefresh: value.optimizations.conditionalRefresh !== false,
             priorityOpen: value.optimizations.priorityOpen !== false,
         },
         ageRatingCountry: normalizeAgeRatingCountry(value.ageRatingCountry),
@@ -328,6 +336,10 @@ export function createSettingsFromFormValue(
             currentSettings.parentalLockRelockMinutes
         ),
     };
+}
+
+function normalizeLowEndMode(mode: unknown): LowEndMode {
+    return LOW_END_MODES.find((candidate) => candidate === mode) ?? 'auto';
 }
 
 function normalizeExternalPlayerPath(

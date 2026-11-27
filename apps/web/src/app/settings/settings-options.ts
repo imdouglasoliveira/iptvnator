@@ -1,6 +1,7 @@
 import {
     CoverSize,
     EpgViewMode,
+    LowEndMode,
     StartupBehavior,
     Theme,
     THEME_ACCENTS,
@@ -72,6 +73,15 @@ export const SETTINGS_EPG_VIEW_MODE_OPTIONS: EpgViewModeOption[] = [
         icon: 'view_list',
         labelKey: 'SETTINGS.EPG_VIEW_MODE_LIST',
     },
+];
+
+export const SETTINGS_LOW_END_MODE_OPTIONS: {
+    value: LowEndMode;
+    labelKey: string;
+}[] = [
+    { value: 'auto', labelKey: 'SETTINGS.LOW_END_MODE_AUTO' },
+    { value: 'on', labelKey: 'SETTINGS.LOW_END_MODE_ON' },
+    { value: 'off', labelKey: 'SETTINGS.LOW_END_MODE_OFF' },
 ];
 
 export const SETTINGS_STARTUP_BEHAVIOR_OPTIONS: StartupBehaviorOption[] = [

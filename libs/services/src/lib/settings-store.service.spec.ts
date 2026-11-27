@@ -67,6 +67,27 @@ describe('SettingsStore dashboard rail settings', () => {
         expect(store.startupBehavior()).toBe(StartupBehavior.RestoreLastView);
     });
 
+    it('defaults the light mode to auto and keeps a stored choice', async () => {
+        const fresh = injector.get(SettingsStore);
+        await fresh.loadSettings();
+        expect(fresh.lowEndMode()).toBe('auto');
+        expect(fresh.lowEndPlayerMigrated()).toBe(false);
+        injector.destroy();
+        storedSettings = { lowEndMode: 'off', lowEndPlayerMigrated: true };
+        injector = Injector.create({
+            providers: [
+                EpgPreferencesService,
+                SettingsStore,
+                EpgSourceSettingsService,
+                { provide: StorageMap, useValue: storage },
+            ],
+        });
+        const stored = injector.get(SettingsStore);
+        await stored.loadSettings();
+        expect(stored.lowEndMode()).toBe('off');
+        expect(stored.lowEndPlayerMigrated()).toBe(true);
+    });
+
     it('migrates an unmarked FirstView once and preserves a later FirstView choice', async () => {
         storedSettings = { startupBehavior: StartupBehavior.FirstView };
         const store = injector.get(SettingsStore);

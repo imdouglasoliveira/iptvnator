@@ -29,6 +29,7 @@ import { PlaylistActions, selectAllPlaylistsMeta } from '@iptvnator/m3u-state';
 import { filter, take } from 'rxjs';
 import {
     DataService,
+    LowEndModeService,
     ParentalLockService,
     RuntimeCapabilitiesService,
     SettingsStore,
@@ -112,6 +113,7 @@ export class AppComponent implements OnInit {
     );
     private playlistOpenRequests = inject(PlaylistOpenRequestService);
     private runtime = inject(RuntimeCapabilitiesService);
+    private readonly lowEndMode = inject(LowEndModeService);
     private readonly injector = inject(Injector);
     private readonly workspaceShellActions = inject(WORKSPACE_SHELL_ACTIONS);
     private readonly contextDrawer = inject(WorkspaceShellContextDrawerService);
@@ -173,6 +175,7 @@ export class AppComponent implements OnInit {
     }
 
     ngOnInit() {
+        void this.lowEndMode.start();
         this.triggerAutoUpdatePlaylists();
         this.store.dispatch(PlaylistActions.loadPlaylists());
         this.translate.setDefaultLang(this.DEFAULT_LANG);

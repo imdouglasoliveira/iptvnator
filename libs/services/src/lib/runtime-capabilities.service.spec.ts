@@ -20,6 +20,40 @@ describe('RuntimeCapabilitiesService', () => {
         expect(service.supportsPortalConnectivityGuard).toBe(false);
     });
 
+    it('reports weak hardware only when the desktop bridge says so', async () => {
+        const service = new RuntimeCapabilitiesService();
+        testWindow.electron = undefined;
+        expect(service.lowEndHardware).toBe(false);
+        testWindow.electron = { isLowEndHardware: jest.fn(() => true) };
+        expect(service.lowEndHardware).toBe(true);
+        testWindow.electron = { isLowEndHardware: jest.fn(() => false) };
+        expect(service.lowEndHardware).toBe(false);
+        testWindow.electron = {
+            isLowEndHardware: jest.fn(() => {
+                throw new Error('bridge failed');
+            }),
+        };
+        expect(service.lowEndHardware).toBe(false);
+    });
+
+    it('finds VLC installed only when the availability probe confirms it', async () => {
+        const service = new RuntimeCapabilitiesService();
+        testWindow.electron = undefined;
+        await expect(service.isVlcInstalled()).resolves.toBe(false);
+        testWindow.electron = {
+            getExternalPlayerAvailability: jest
+                .fn()
+                .mockResolvedValue({ mpv: false, vlc: true }),
+        };
+        await expect(service.isVlcInstalled()).resolves.toBe(true);
+        testWindow.electron = {
+            getExternalPlayerAvailability: jest
+                .fn()
+                .mockResolvedValue({ mpv: true, vlc: null }),
+        };
+        await expect(service.isVlcInstalled()).resolves.toBe(false);
+    });
+
     it('offers the parental lock worker filter only with both bridge methods', () => {
         const service = new RuntimeCapabilitiesService();
         testWindow.electron = { setParentalLockState: jest.fn() };

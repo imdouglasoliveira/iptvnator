@@ -5,6 +5,7 @@
 @use '../../../libs/ui/styles/scales';
 @use './settings-theme';
 @use './cover-size';
+@use './low-end';
 
 // ─── Tailwind CSS ─────────────────────────────────────────────────────────────
 // Preflight is disabled in tailwind.config.js to avoid conflicts with

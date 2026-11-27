@@ -9,7 +9,9 @@ import {
 } from '@angular/core';
 import { toObservable, toSignal } from '@angular/core/rxjs-interop';
 import { FormGroup, ReactiveFormsModule } from '@angular/forms';
+import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
+import { MatSelectModule } from '@angular/material/select';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { TranslateModule } from '@ngx-translate/core';
 import {
@@ -24,21 +26,28 @@ import {
     RadioGroupDirective,
     RadioOptionDirective,
 } from '@iptvnator/ui/components/radio-group';
+import { provideFormFieldDefaults } from '@iptvnator/ui/components/form-field-defaults';
 import { map, startWith, switchMap } from 'rxjs';
 import { SettingsService } from '../services/settings.service';
 import {
     deriveThemeAccentTokens,
     readThemeAccentSurfaces,
 } from '../services/theme-accent-tokens';
-import { SETTINGS_THEME_ACCENT_OPTIONS } from './settings-options';
+import {
+    SETTINGS_LOW_END_MODE_OPTIONS,
+    SETTINGS_THEME_ACCENT_OPTIONS,
+} from './settings-options';
 import { CoverSizeOption, ThemeOption } from './settings.models';
 import { markSectionForCheckOnFormEvents } from './settings-section-form-render';
 
 @Component({
     selector: 'app-settings-appearance-section',
+    providers: [provideFormFieldDefaults()],
     imports: [
         ReactiveFormsModule,
+        MatFormFieldModule,
         MatIconModule,
+        MatSelectModule,
         MatSlideToggleModule,
         TranslateModule,
         RadioGroupDirective,
@@ -60,6 +69,8 @@ export class SettingsAppearanceSectionComponent {
     readonly selectCoverSize = output<CoverSize>();
 
     readonly systemTheme = Theme.SystemTheme;
+
+    readonly lowEndModeOptions = SETTINGS_LOW_END_MODE_OPTIONS;
 
     /** The presets System can show in each device mode. */
     readonly systemPairRows = computed(() =>

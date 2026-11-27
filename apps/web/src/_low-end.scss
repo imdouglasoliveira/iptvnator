@@ -1,0 +1,39 @@
+// Light mode: `LowEndModeService` puts `low-end` on the body when the
+// effective mode is on. Effects go; information and layout stay.
+body.low-end {
+    // Large shadows fall back to the level 1 shadow.
+    --app-elev-2: var(--app-elev-1);
+    --app-elev-3: var(--app-elev-1);
+    --app-elev-4: var(--app-elev-1);
+    --app-elev-5: var(--app-elev-1);
+
+    *,
+    *::before,
+    *::after {
+        -webkit-backdrop-filter: none !important;
+        backdrop-filter: none !important;
+        animation-duration: 0s !important;
+        animation-delay: 0s !important;
+        transition-duration: 0s !important;
+        transition-delay: 0s !important;
+        scroll-behavior: auto !important;
+    }
+
+    // The dimmed overlay stays; only the blur behind it goes.
+    .cdk-overlay-dark-backdrop {
+        background: var(--app-popover-backdrop);
+    }
+
+    // Detail and hero pages keep their solid fallback, without the
+    // remote background image or trailer.
+    .hero__backdrop-image,
+    .hero__backdrop-keyart,
+    app-hero-trailer-backdrop {
+        display: none !important;
+    }
+
+    // Glass panels over the player become the dense, opaque variant.
+    .player-controls__panel {
+        background: var(--pc-glass-bg-dense) !important;
+    }
+}

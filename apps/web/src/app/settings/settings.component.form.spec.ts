@@ -356,7 +356,12 @@ describe('SettingsComponent form', () => {
     describe('Get and set settings on component init', () => {
         const settings = {
             language: Language.GERMAN,
-            optimizations: { priorityOpen: false },
+            lowEndMode: 'on',
+            optimizations: {
+                catalogSnapshot: true,
+                priorityOpen: false,
+                conditionalRefresh: true,
+            },
             player: VideoPlayer.Html5Player,
             theme: Theme.DarkTheme,
         };
