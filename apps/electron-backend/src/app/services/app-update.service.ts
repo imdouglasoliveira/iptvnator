@@ -11,7 +11,15 @@ import {
     ElectronBridgeAppUpdateReleaseNotesRequest,
     ElectronBridgeAppUpdateStatus,
 } from '@iptvnator/shared/interfaces';
-import { AppUpdateFeedTarget, applyAppUpdateChannel } from './app-update-feed';
+import {
+    AppUpdateAppAdapter,
+    AppUpdateInfo,
+    AppUpdateProgressInfo,
+    AppUpdateServiceOptions,
+    AppUpdaterAdapter,
+    AppUpdaterAdapterProvider,
+} from './app-update-adapter';
+import { applyAppUpdateChannel } from './app-update-feed';
 import {
     CachedGitHubRelease,
     normalizeVersion,
@@ -20,90 +28,11 @@ import {
 } from './app-update-release-catalog';
 import { AppUpdateReleaseCatalogs } from './app-update-release-notes';
 
+export type { AppUpdateServiceOptions } from './app-update-adapter';
+
 export const APP_UPDATE_MANUAL_DOWNLOAD_URL = appUpdateReleasesPageUrl(
     DEFAULT_APP_UPDATE_CHANNEL
 );
-
-interface AppUpdateAppAdapter {
-    getVersion(): string;
-    isPackaged: boolean;
-}
-
-interface AppUpdateWebContents {
-    send(channel: string, payload: ElectronBridgeAppUpdateStatus): void;
-}
-
-interface AppUpdateWindow {
-    isDestroyed(): boolean;
-    webContents: AppUpdateWebContents;
-}
-
-interface AppUpdateInfo {
-    version: string;
-    releaseDate?: string;
-    releaseName?: string | null;
-    releaseNotes?: string | unknown[] | null;
-}
-
-interface AppUpdateProgressInfo {
-    bytesPerSecond?: number;
-    percent: number;
-    total?: number;
-    transferred?: number;
-}
-
-interface AppUpdaterAdapter extends AppUpdateFeedTarget {
-    autoDownload: boolean;
-    autoInstallOnAppQuit?: boolean;
-    checkForUpdates(): Promise<unknown>;
-    downloadUpdate(): Promise<string[]>;
-    quitAndInstall(isSilent?: boolean, isForceRunAfter?: boolean): void;
-    on(event: 'checking-for-update', listener: () => void): this;
-    on(
-        event: 'update-available',
-        listener: (info: AppUpdateInfo) => void
-    ): this;
-    on(
-        event: 'update-not-available',
-        listener: (info: AppUpdateInfo) => void
-    ): this;
-    on(
-        event: 'download-progress',
-        listener: (progress: AppUpdateProgressInfo) => void
-    ): this;
-    on(
-        event: 'update-downloaded',
-        listener: (info: AppUpdateInfo) => void
-    ): this;
-    on(event: 'error', listener: (error: Error) => void): this;
-}
-
-type AppUpdaterAdapterProvider = AppUpdaterAdapter | (() => AppUpdaterAdapter);
-
-export interface AppUpdateServiceOptions {
-    app: AppUpdateAppAdapter;
-    appVersion?: string;
-    updater: AppUpdaterAdapterProvider;
-    getMainWindow: () => AppUpdateWindow | null | undefined;
-    platform?: NodeJS.Platform;
-    processEnv?: NodeJS.ProcessEnv;
-    releaseFetcher?: ReleaseFetcher;
-    /** Persisted update channel at startup; `setChannel` follows later saves. */
-    channel?: AppUpdateChannel;
-    /**
-     * Runs right before `quitAndInstall()`. Lets the unsaved-settings close
-     * guard stand down for the updater-driven window close, which on macOS
-     * happens before `before-quit` and would otherwise be intercepted as a
-     * plain close — abandoning the requested install.
-     */
-    prepareQuit?: () => void;
-    /**
-     * Undoes {@link prepareQuit} when `quitAndInstall()` failed synchronously
-     * and no quit is coming — the prepared one-shot close bypass must not
-     * leak into the next genuine close.
-     */
-    cancelPreparedQuit?: () => void;
-}
 
 function isSelfUpdateSupported(
     isPackaged: boolean,
@@ -297,8 +226,10 @@ export class AppUpdateService {
         }
     }
 
-    async checkForUpdatesOnStartup(): Promise<ElectronBridgeAppUpdateStatus> {
-        if (!this.isPackaged) {
+    async checkForUpdatesOnStartup(
+        enabled: boolean
+    ): Promise<ElectronBridgeAppUpdateStatus> {
+        if (!enabled || !this.isPackaged) {
             return this.getStatus();
         }
 

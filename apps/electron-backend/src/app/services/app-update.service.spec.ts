@@ -204,7 +204,7 @@ describe('AppUpdateService', () => {
             installedChannel: 'stable',
         });
 
-        await service.checkForUpdatesOnStartup();
+        await service.checkForUpdatesOnStartup(true);
 
         expect(updaterFactory).not.toHaveBeenCalled();
     });
@@ -452,10 +452,23 @@ describe('AppUpdateService', () => {
         });
     });
 
-    it('starts a packaged startup check without downloading automatically', async () => {
+    it('skips the startup check when disabled and still allows a manual check', async () => {
+        const { service, updater } = createService();
+        const initialStatus = service.getStatus();
+
+        await expect(service.checkForUpdatesOnStartup(false)).resolves.toEqual(
+            initialStatus
+        );
+        expect(updater.checkForUpdates).toHaveBeenCalledTimes(0);
+
+        await service.checkForUpdates();
+        expect(updater.checkForUpdates).toHaveBeenCalledTimes(1);
+    });
+
+    it('starts a packaged startup check when enabled without downloading automatically', async () => {
         const { service, updater } = createService();
 
-        await service.checkForUpdatesOnStartup();
+        await service.checkForUpdatesOnStartup(true);
 
         expect(updater.autoDownload).toBe(false);
         expect(updater.downloadUpdate).not.toHaveBeenCalled();

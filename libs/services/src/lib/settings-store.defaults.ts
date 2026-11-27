@@ -42,6 +42,7 @@ export const DEFAULT_SETTINGS = {
     startupBehavior: StartupBehavior.FirstView,
     startupWindowMode: 'normal',
     updateChannel: 'stable',
+    appUpdateCheckOnStartup: false,
     showExternalPlaybackBar: true,
     stripCountryPrefix: false,
     theme: Theme.SystemTheme,
@@ -156,6 +157,7 @@ type SettingsSnapshot = {
 };
 
 const nullishDefaults = [
+    'appUpdateCheckOnStartup',
     'playerAmbientMode',
     'detailTrailerBackdrop',
     'playerUpNextRail',

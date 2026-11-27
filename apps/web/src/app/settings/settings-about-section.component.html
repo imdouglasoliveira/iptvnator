@@ -123,12 +123,42 @@
                                 data-test-id="app-update-check"
                             >
                                 <mat-icon>sync</mat-icon>
-                                {{ 'SETTINGS.APP_UPDATE_CHECK' | translate }}
+                                {{ 'SETTINGS.APP_UPDATE_CHECK_NOW' | translate }}
                             </button>
                         }
                     </div>
                 }
             </div>
+
+            @if (isDesktop() && form()?.get('appUpdateCheckOnStartup')) {
+                <div
+                    class="setting-item"
+                    data-setting-id="app-update-check-on-startup"
+                    [formGroup]="form()!"
+                >
+                    <div class="setting-item__meta">
+                        <h4 id="app-update-check-on-startup-label">
+                            {{
+                                'SETTINGS.APP_UPDATE_CHECK_ON_STARTUP' | translate
+                            }}
+                        </h4>
+                        <p id="app-update-check-on-startup-description">
+                            {{
+                                'SETTINGS.APP_UPDATE_CHECK_ON_STARTUP_DESCRIPTION'
+                                    | translate
+                            }}
+                        </p>
+                    </div>
+                    <div class="setting-item__control setting-item__toggle">
+                        <mat-slide-toggle
+                            formControlName="appUpdateCheckOnStartup"
+                            aria-labelledby="app-update-check-on-startup-label"
+                            aria-describedby="app-update-check-on-startup-description"
+                            data-test-id="update-check-toggle"
+                        ></mat-slide-toggle>
+                    </div>
+                </div>
+            }
 
             @if (isDesktop() && appUpdateStatus(); as updateStatus) {
                 <div

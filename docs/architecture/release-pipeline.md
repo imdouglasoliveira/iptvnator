@@ -463,7 +463,10 @@ frontend and backend builds and before electron-builder reads it
 **In the app.** `Settings.updateChannel` (`stable` / `nightly`, default
 `stable`) is a normal renderer setting mirrored into the main-process config
 by `SETTINGS_UPDATE` (`APP_UPDATE_CHANNEL`), because the startup check runs
-before the renderer exists. `AppUpdateService` re-points electron-updater on
+before the renderer exists. `Settings.appUpdateCheckOnStartup` defaults to off
+and is mirrored into `APP_UPDATE_CHECK_ON_STARTUP` when saved from Settings →
+About. The main process reads it on launch. Manual checks are available
+regardless of this preference. `AppUpdateService` re-points electron-updater on
 every check (`app-update-feed.ts`): the GitHub feed URL of the channel's
 repository, `allowPrerelease` only for nightly, the channel name (`nightly`,
 or the explicit `latest` for stable — the setter refuses `null` once set),

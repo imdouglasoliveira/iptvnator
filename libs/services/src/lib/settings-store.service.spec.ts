@@ -61,6 +61,18 @@ describe('SettingsStore dashboard rail settings', () => {
 
     afterEach(() => injector.destroy());
 
+    it.each([null, {}])(
+        'defaults startup update checks to off for stored settings %j',
+        async (settings) => {
+            storedSettings = settings;
+            const store = injector.get(SettingsStore);
+
+            await store.loadSettings();
+
+            expect(store.getSettings().appUpdateCheckOnStartup).toBe(false);
+        }
+    );
+
     it('reflects a committed TMDB transfer without writing settings again', async () => {
         storedSettings = {
             tmdb: { enabled: true, apiKey: 'synthetic-old-key' },

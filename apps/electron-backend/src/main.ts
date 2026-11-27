@@ -43,6 +43,7 @@ import {
 } from './app/services/playlist-open-request';
 import {
     EMBEDDED_MPV_FRAME_COPY,
+    APP_UPDATE_CHECK_ON_STARTUP,
     HOSTED_SERVER_ENABLED,
     store,
 } from './app/services/store.service';
@@ -192,7 +193,9 @@ export default class Main {
             .catch(() => undefined);
         await loadingMainWindow;
         const { module, result } = await deferred.trigger();
-        void result.appUpdateService.checkForUpdatesOnStartup();
+        void result.appUpdateService.checkForUpdatesOnStartup(
+            store.get(APP_UPDATE_CHECK_ON_STARTUP, false) === true
+        );
 
         await module.finishStartupAfterFirstLoad();
 

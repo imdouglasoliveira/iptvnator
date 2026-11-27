@@ -222,6 +222,7 @@ export interface Settings {
      * stable release exists.
      */
     updateChannel?: AppUpdateChannel;
+    appUpdateCheckOnStartup?: boolean;
     /** Show the desktop footer bar for external playback status */
     showExternalPlaybackBar?: boolean;
     /** Strip country/group prefixes like "US | " or "UK - " from channel names */

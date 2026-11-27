@@ -51,6 +51,7 @@ export const SETTINGS_CONTROL_SECTIONS: Readonly<Record<string, string>> = {
     ageRatingCountry: 'tmdb',
     m3uVodDetails: 'tmdb',
     updateChannel: 'about',
+    appUpdateCheckOnStartup: 'about',
 };
 
 /**

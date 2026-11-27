@@ -7,6 +7,7 @@ import {
 import { redactSensitiveData } from '@iptvnator/shared/logging';
 import {
     EMBEDDED_MPV_AUTO_RECONNECT,
+    APP_UPDATE_CHECK_ON_STARTUP,
     EMBEDDED_MPV_EXTRA_OPTIONS,
     EMBEDDED_MPV_FRAME_COPY,
     MPV_PLAYER_ARGUMENTS,
@@ -114,6 +115,13 @@ ipcMain.handle('SETTINGS_UPDATE', (_event, arg) => {
     // exists; a change re-points the running updater immediately.
     if (arg.updateChannel !== undefined) {
         persistAppUpdateChannel(arg.updateChannel);
+    }
+
+    if (arg.appUpdateCheckOnStartup !== undefined) {
+        store.set(
+            APP_UPDATE_CHECK_ON_STARTUP,
+            arg.appUpdateCheckOnStartup === true
+        );
     }
 
     // Handle remote control settings
