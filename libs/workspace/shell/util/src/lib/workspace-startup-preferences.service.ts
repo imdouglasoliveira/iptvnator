@@ -48,7 +48,7 @@ export class WorkspaceStartupPreferencesService {
     startupBehavior(): StartupBehavior {
         return (
             this.settingsStore.startupBehavior?.() ??
-            StartupBehavior.FirstView
+            StartupBehavior.RestoreLastView
         );
     }
 

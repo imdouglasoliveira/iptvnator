@@ -80,6 +80,10 @@ export const ChannelActions = createActionGroup({
     source: 'Channels',
     events: {
         'Set Channels Loading': props<{ loading: boolean }>(),
+        'Set Priority Channels': props<{
+            playlistId: string;
+            channels: Channel[];
+        }>(),
         // `playlistId` names the playlist the rows were read from. Omitted
         // when the array is only being emptied.
         'Set Channels': props<{ channels: Channel[]; playlistId?: string }>(),

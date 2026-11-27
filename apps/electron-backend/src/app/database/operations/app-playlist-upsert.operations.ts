@@ -13,7 +13,7 @@ import type { AppDatabase } from '../database.types';
 import {
     afterM3uDocumentWrite,
     captureM3uDocumentWrite,
-    m3uCatalogSnapshotEnabled,
+    m3uDocumentSnapshotsEnabled,
     type ScheduleM3uSnapshot,
     type SnapshotJob,
 } from './m3u-catalog-snapshot.operations';
@@ -65,7 +65,7 @@ export async function upsertAppPlaylist(
     }
 
     const write = async () => {
-        if (!m3uCatalogSnapshotEnabled()) {
+        if (!m3uDocumentSnapshotsEnabled()) {
             writePlaylist(db, row, playlist);
             return;
         }
@@ -124,7 +124,7 @@ export async function upsertAppPlaylists(
             }
             return changed;
         },
-        m3uCatalogSnapshotEnabled() ? { behavior: 'immediate' } : undefined
+        m3uDocumentSnapshotsEnabled() ? { behavior: 'immediate' } : undefined
     );
     for (const job of jobs) schedule(db, job);
 

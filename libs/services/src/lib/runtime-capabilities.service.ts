@@ -122,6 +122,10 @@ export class RuntimeCapabilitiesService {
         );
     }
 
+    get supportsM3uPriorityOpen(): boolean {
+        return this.hasElectronMethod('dbGetM3uFavoritesSnapshot');
+    }
+
     get supportsEpg(): boolean {
         return (
             this.supportsEpgImport &&

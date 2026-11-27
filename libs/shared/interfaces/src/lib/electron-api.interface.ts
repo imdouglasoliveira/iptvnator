@@ -1136,13 +1136,13 @@ export interface ElectronBridgeApi extends ExternalPlaybackEventSubscriptions {
          */
         operationId?: string
     ) => Promise<Playlist | null>;
-    // JSON text crosses IPC and the context bridge in one copy; the object is per property.
     dbGetAppPlaylistJson?: (
         playlistId: string,
         operationId?: string
     ) => Promise<string | Playlist | null>;
     dbGetAppPlaylistFavoriteChannels(id: string): Promise<M3uFavoriteChannel[]>;
     dbGetM3uCatalogSnapshot?(playlistId: string): Promise<string | null>;
+    dbGetM3uFavoritesSnapshot?(playlistId: string): Promise<string | null>;
     dbUpdatePlaylist: (
         playlistId: string,
         updates: Partial<Playlist> | ElectronBridgePlaylistInput

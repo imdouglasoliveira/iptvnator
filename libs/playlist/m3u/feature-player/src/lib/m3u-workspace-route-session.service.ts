@@ -23,6 +23,7 @@ import { M3uCatalogIndexService } from '@iptvnator/m3u-state/catalog-index';
 import { PlaylistContextFacade } from '@iptvnator/playlist/shared/util';
 import { PlaylistsService } from '@iptvnator/services';
 import { PlaylistMeta } from '@iptvnator/shared/interfaces';
+import { M3uPriorityOpenService } from './m3u-priority-open.service';
 
 type M3uLoadedSection = 'all' | 'groups' | 'vod' | 'series';
 
@@ -33,6 +34,7 @@ export class M3uWorkspaceRouteSession {
     private readonly playlistsService = inject(PlaylistsService);
     private readonly router = inject(Router);
     private readonly store = inject(Store);
+    private readonly priorityOpen = inject(M3uPriorityOpenService);
     /**
      * Created here so it exists on every M3U section, including Favorites
      * and Recent: the shell rail and section memory read it through
@@ -126,8 +128,30 @@ export class M3uWorkspaceRouteSession {
 
         const hiddenGroupTitlesBeforeRead =
             this.playlistEntities()[playlistId]?.hiddenGroupTitles;
+        const isCurrent = () =>
+            this.isCurrentLoadRequest(requestId, playlistId);
+        let previewFavorites: PlaylistMeta['favorites'];
 
         try {
+            if (section === 'all' || section === 'groups') {
+                const priority = this.priorityOpen.open(
+                    playlistId,
+                    isCurrent,
+                    (favorites) => {
+                        this.publishFavorites(favorites.favoriteIds);
+                        previewFavorites =
+                            this.playlistEntities()[playlistId]?.favorites;
+                        this.store.dispatch(
+                            ChannelActions.setPriorityChannels({
+                                playlistId,
+                                channels: favorites.channels,
+                            })
+                        );
+                    }
+                );
+                if (priority) await priority;
+                if (!isCurrent()) return;
+            }
             const playlist = await firstValueFrom(
                 this.playlistsService.getPlaylist(playlistId)
             );
@@ -156,14 +180,10 @@ export class M3uWorkspaceRouteSession {
                 hiddenGroupTitlesBeforeRead
             );
 
-            void window.electron
-                ?.setUserAgent(playlist.userAgent, playlist.referrer)
-                .catch((error: unknown) => {
-                    console.warn(
-                        '[M3uWorkspaceRouteSession] Failed to configure Electron request headers:',
-                        error
-                    );
-                });
+            this.priorityOpen.configureHeaders(
+                playlist.userAgent,
+                playlist.referrer
+            );
 
             measureRendererPerformancePhase(
                 RENDERER_PERFORMANCE_PHASE.M3U_PUBLISH_CHANNELS,
@@ -177,19 +197,18 @@ export class M3uWorkspaceRouteSession {
                 () => ({ items: channels.length })
             );
 
-            const favorites = (playlist.favorites ?? []).filter(
+            const currentFavorites =
+                this.playlistEntities()[playlistId]?.favorites;
+            const favorites = (
+                previewFavorites !== undefined &&
+                currentFavorites !== previewFavorites &&
+                currentFavorites !== undefined
+                    ? currentFavorites
+                    : (playlist.favorites ?? [])
+            ).filter(
                 (favorite): favorite is string => typeof favorite === 'string'
             );
-            measureRendererPerformancePhase(
-                RENDERER_PERFORMANCE_PHASE.M3U_PUBLISH_FAVORITES,
-                () =>
-                    this.store.dispatch(
-                        FavoritesActions.hydrateFavorites({
-                            channelIds: favorites,
-                        })
-                    ),
-                () => ({ items: favorites.length })
-            );
+            this.publishFavorites(favorites);
         } catch {
             if (!this.isCurrentLoadRequest(requestId, playlistId)) {
                 return;
@@ -201,6 +220,17 @@ export class M3uWorkspaceRouteSession {
                 FavoritesActions.hydrateFavorites({ channelIds: [] })
             );
         }
+    }
+
+    private publishFavorites(channelIds: string[]): void {
+        measureRendererPerformancePhase(
+            RENDERER_PERFORMANCE_PHASE.M3U_PUBLISH_FAVORITES,
+            () =>
+                this.store.dispatch(
+                    FavoritesActions.hydrateFavorites({ channelIds })
+                ),
+            () => ({ items: channelIds.length })
+        );
     }
 
     /**

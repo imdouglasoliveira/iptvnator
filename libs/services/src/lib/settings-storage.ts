@@ -5,7 +5,11 @@ import {
     STORE_KEY,
     type Settings,
 } from '@iptvnator/shared/interfaces';
-import { notifyTmdbKeyChange } from './settings-store.defaults';
+import {
+    DEFAULT_SETTINGS,
+    needsStartupViewMigration,
+    notifyTmdbKeyChange,
+} from './settings-store.defaults';
 import type { SettingsStore } from './settings-store.service';
 
 export async function readSavedTmdbKey(storage: StorageMap): Promise<string> {
@@ -13,6 +17,21 @@ export async function readSavedTmdbKey(storage: StorageMap): Promise<string> {
         Partial<Settings> | undefined;
     const key = saved?.tmdb?.apiKey;
     return typeof key === 'string' ? key : '';
+}
+
+export async function migrateStartupView(storage: StorageMap) {
+    let startupBehavior: Settings['startupBehavior'] = DEFAULT_SETTINGS.startupBehavior;
+    let startupBehaviorMigrated: boolean | undefined;
+    await updateSettingsRecord(storage, (current) => {
+        if (needsStartupViewMigration(current)) {
+            startupBehaviorMigrated = true;
+            return { ...current, startupBehavior, startupBehaviorMigrated };
+        }
+        startupBehavior = current?.startupBehavior ?? startupBehavior;
+        startupBehaviorMigrated = current?.startupBehaviorMigrated;
+        return undefined;
+    });
+    return { startupBehavior, startupBehaviorMigrated };
 }
 
 export async function saveTransferredTmdbKey(

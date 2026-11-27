@@ -841,9 +841,9 @@ document across the bridge. `DB_MUTATE_M3U_ACTIVITY` applies one explicit
 command (`history.touch`, `history.remove`, `history.clear`,
 `favorites.setMembership`, `favorites.reorder`) to `playlists.recently_viewed`
 or `playlists.favorites` only, in one synchronous transaction with a
-compare-and-swap on the value read. `playlists.payload` is never read or
-rewritten, and the answer carries only the changed `recentlyViewed` or
-`favorites` list. No callback crosses IPC.
+compare-and-swap on the value read. The transaction leaves `playlists.payload`
+unchanged and returns only the changed `recentlyViewed` or `favorites` list.
+No callback crosses IPC.
 
 - Owner: `apps/electron-backend/src/app/database/operations/m3u-activity.operations.ts`;
   contract in `libs/shared/interfaces/src/lib/m3u-activity-mutation.ts`.
@@ -859,6 +859,12 @@ rewritten, and the answer carries only the changed `recentlyViewed` or
   Xtream/Stalker favorites keep the document path. Add moves the URL to the
   end, reorder keeps unknown stored entries after the ordered ones, as the
   transform did.
+- Priority opening updates `m3u_catalog_snapshots.favorites` in the same
+  transaction. Removing and reordering can reuse a current snapshot. Adding
+  a channel or repairing a missing snapshot projects the matching rows in
+  SQLite. `DB_GET_M3U_FAVORITES_SNAPSHOT` reads only snapshot and metadata
+  columns and falls back when membership, revision or classifier version
+  diverge.
 - Reads prefer the column: `parseAppPlaylist` takes `recentlyViewed` from
   `recently_viewed`, so a stale copy inside `payload` is never shown.
 - Refresh protection: `PlaylistsService.updatePlaylist` and

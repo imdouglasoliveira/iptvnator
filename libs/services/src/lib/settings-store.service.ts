@@ -33,6 +33,7 @@ import {
 
 import {
     DEFAULT_SETTINGS,
+    needsStartupViewMigration,
     normalizeSettingsPatch,
     notifyTmdbKeyChange,
     SettingsStorageState,
@@ -98,6 +99,10 @@ export const SettingsStore = signalStore(
                         patchState(store, {
                             ...DEFAULT_SETTINGS,
                             ...storedSettings,
+                            optimizations: {
+                                ...DEFAULT_SETTINGS.optimizations,
+                                ...storedSettings.optimizations,
+                            },
                             epgUrl: normalizeEpgSourceUrls(
                                 storedSettings.epgUrl
                             ),
@@ -120,6 +125,35 @@ export const SettingsStore = signalStore(
                                 ),
                         });
                         committedEpg = pickEpg(this.getSettings());
+                        if (needsStartupViewMigration(storedSettings)) {
+                            if (storage.backingEngine === 'indexedDB') {
+                                try {
+                                    const { migrateStartupView } =
+                                        await settingsStorage();
+                                    const migrated =
+                                        await migrateStartupView(storage);
+                                    if (
+                                        store.startupBehaviorMigrated?.() !== true
+                                    ) {
+                                        patchState(store, migrated);
+                                    }
+                                } catch {
+                                    patchState(store, {
+                                        ...(store.startupBehaviorMigrated?.() !==
+                                            true && {
+                                            startupBehavior:
+                                                DEFAULT_SETTINGS.startupBehavior,
+                                        }),
+                                        storageFailure: 'save',
+                                    });
+                                }
+                            } else {
+                                await this.updateSettings({
+                                    startupBehavior:
+                                        DEFAULT_SETTINGS.startupBehavior,
+                                }).catch(() => undefined);
+                            }
+                        }
                         void this.sanitizeEmbeddedMpvSelection().catch(
                             (error) => {
                                 console.warn(

@@ -40,7 +40,8 @@ export const DEFAULT_SETTINGS = {
     language: Language.ENGLISH,
     showCaptions: false,
     showDashboard: true,
-    startupBehavior: StartupBehavior.FirstView,
+    startupBehavior: StartupBehavior.RestoreLastView,
+    startupBehaviorMigrated: false,
     startupWindowMode: 'normal',
     updateChannel: 'stable',
     appUpdateCheckOnStartup: false,
@@ -100,6 +101,13 @@ export interface SettingsStorageState {
 
 export const TMDB_KEY_CHANGE = 'iptvnator:tmdb-key-change';
 
+export function needsStartupViewMigration(settings?: Partial<Settings>): boolean {
+    return (
+        settings?.startupBehavior === StartupBehavior.FirstView &&
+        settings.startupBehaviorMigrated !== true
+    );
+}
+
 export function notifyTmdbKeyChange(): void {
     try {
         // A storage event invalidates other tabs without carrying the key.
@@ -114,6 +122,15 @@ export function normalizeSettingsPatch(
 ): Partial<Settings> {
     return {
         ...settings,
+        ...(settings.startupBehavior !== undefined && {
+            startupBehaviorMigrated: true,
+        }),
+        ...(settings.optimizations && {
+            optimizations: {
+                ...DEFAULT_SETTINGS.optimizations,
+                ...settings.optimizations,
+            },
+        }),
         ...('theme' in settings
             ? { theme: normalizeTheme(settings.theme) }
             : {}),

@@ -21,9 +21,10 @@ import { playlistConflictUpdate } from './playlist-server-timezone.operations';
 import {
     afterM3uDocumentWrite,
     captureM3uDocumentWrite,
-    m3uCatalogSnapshotEnabled,
+    m3uDocumentSnapshotsEnabled,
     type ScheduleM3uSnapshot,
 } from './m3u-catalog-snapshot.operations';
+import { updateM3uFavoritesSnapshot } from './m3u-favorites-snapshot.operations';
 
 const stored = schema.playlists;
 const M3U_TYPES: ReadonlySet<string> = new Set([
@@ -169,9 +170,10 @@ export function mutateM3uActivity(
             if (!current)
                 return { status: 'unavailable', reason: 'unreadable' };
             const next = applyM3uFavoritesCommand(current, command);
+            const encoded = JSON.stringify(next);
             const result = tx
                 .update(stored)
-                .set({ favorites: JSON.stringify(next) })
+                .set({ favorites: encoded })
                 .where(
                     and(
                         eq(stored.id, request.playlistId),
@@ -181,6 +183,7 @@ export function mutateM3uActivity(
                 .run();
             if (result.changes !== 1)
                 throw new Error('m3u_activity_cas_conflict');
+            updateM3uFavoritesSnapshot(tx, request.playlistId, row.favorites, encoded);
             return { status: 'applied', favorites: next };
         }
 
@@ -230,7 +233,7 @@ export function upsertAppPlaylistKeepingActivity(
             })
             .run();
     };
-    if (!m3uCatalogSnapshotEnabled()) {
+    if (!m3uDocumentSnapshotsEnabled()) {
         write(db);
         return { success: true };
     }

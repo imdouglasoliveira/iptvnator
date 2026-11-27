@@ -1,10 +1,10 @@
-import { type Settings, STORE_KEY } from '@iptvnator/shared/interfaces';
+import { type Settings, StartupBehavior, STORE_KEY } from '@iptvnator/shared/interfaces';
 import { type DestroyableInjector, Injector } from '@angular/core';
 import { StorageMap } from '@ngx-pwa/local-storage';
 import { of } from 'rxjs';
 import { EpgPreferencesService } from './epg-preferences.service';
 import { EpgSourceSettingsService } from './epg-source-settings.service';
-import { writeSettings, writeTransferredTmdbKey } from './settings-storage';
+import { migrateStartupView, writeSettings, writeTransferredTmdbKey } from './settings-storage';
 import { DEFAULT_SETTINGS } from './settings-store.defaults';
 import { SettingsStore } from './settings-store.service';
 
@@ -118,6 +118,36 @@ describe('Settings storage', () => {
         await expect(transfer(apiKey, '', () => true)).rejects.toThrow(
             'Could not save'
         );
+    });
+
+    it('migrates the stored startup view without rewriting other preferences', async () => {
+        read.result = { ...saved, startupBehavior: StartupBehavior.FirstView };
+        const migration = migrateStartupView(storageMap());
+        open.onsuccess?.();
+        read.onsuccess?.();
+        expect(put).toHaveBeenCalledWith({
+            ...saved,
+            startupBehavior: StartupBehavior.RestoreLastView,
+            startupBehaviorMigrated: true,
+        }, STORE_KEY.Settings);
+        transaction.oncomplete?.();
+        await expect(migration).resolves.toEqual({
+            startupBehavior: StartupBehavior.RestoreLastView,
+            startupBehaviorMigrated: true,
+        });
+    });
+
+    it('keeps a FirstView choice that another window has already recorded', async () => {
+        read.result = {
+            startupBehavior: StartupBehavior.FirstView,
+            startupBehaviorMigrated: true,
+        };
+        const migration = migrateStartupView(storageMap());
+        open.onsuccess?.();
+        read.onsuccess?.();
+        expect(put).not.toHaveBeenCalled();
+        transaction.oncomplete?.();
+        await expect(migration).resolves.toEqual(read.result);
     });
 
     it('reads the current key in the transaction that saves unrelated settings', async () => {

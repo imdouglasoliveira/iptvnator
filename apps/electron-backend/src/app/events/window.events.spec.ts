@@ -105,6 +105,7 @@ describe('WindowEvents', () => {
     it('registers handlers for all window control channels', () => {
         expect([...mockHandlers.keys()].sort()).toEqual([
             'M3U_CATALOG_SNAPSHOT_ENABLED',
+            'M3U_PRIORITY_OPEN_ENABLED',
             'WINDOW:CLOSE',
             'WINDOW:GET_STATE',
             'WINDOW:GET_ZOOM_LEVEL',
@@ -113,6 +114,24 @@ describe('WindowEvents', () => {
             'WINDOW:TOGGLE_MAXIMIZE',
             'WINDOW:ZOOM_LEVEL_APPLIED',
         ]);
+    });
+
+    it('exposes the priority opening capability unless its kill switch is set', () => {
+        const handler = mockHandlers.get('M3U_PRIORITY_OPEN_ENABLED')!;
+        const event = { ...fakeEvent, returnValue: null as boolean | null };
+        const previous = process.env.IPTVNATOR_DISABLE_M3U_PRIORITY_OPEN;
+        try {
+            process.env.IPTVNATOR_DISABLE_M3U_PRIORITY_OPEN = '1';
+            handler(event);
+            expect(event.returnValue).toBe(false);
+            process.env.IPTVNATOR_DISABLE_M3U_PRIORITY_OPEN = '0';
+            handler(event);
+            expect(event.returnValue).toBe(true);
+        } finally {
+            if (previous === undefined)
+                delete process.env.IPTVNATOR_DISABLE_M3U_PRIORITY_OPEN;
+            else process.env.IPTVNATOR_DISABLE_M3U_PRIORITY_OPEN = previous;
+        }
     });
 
     it('minimizes the sender window', () => {

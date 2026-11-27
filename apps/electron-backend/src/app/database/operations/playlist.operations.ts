@@ -20,6 +20,7 @@ import type {
 } from '@iptvnator/shared/interfaces';
 import { setConditionalCatalogState } from './xtream-catalog-state';
 import { deleteExplicitCategoryVisibility } from './category-visibility';
+import { resolveM3uFavoriteChannels } from './m3u-favorites-snapshot.operations';
 import {
     checkpointOperation,
     type OperationControl,
@@ -54,36 +55,6 @@ export {
     getAppPlaylist,
     type AppPlaylistGetPhaseCapture,
 } from './app-playlist-read.operations';
-
-function getFavoriteChannelMatch(
-    channel: Channel,
-    favoritePositions: ReadonlyMap<string, number>
-): { favoriteId: string; favoriteIndex: number } | null {
-    const channelId = String(channel.id ?? '').trim();
-    const channelUrl = String(channel.url ?? '').trim();
-    const channelIdFavoritePosition = favoritePositions.get(channelId);
-    const channelUrlFavoritePosition = favoritePositions.get(channelUrl);
-
-    if (
-        channelIdFavoritePosition !== undefined &&
-        (channelUrlFavoritePosition === undefined ||
-            channelIdFavoritePosition <= channelUrlFavoritePosition)
-    ) {
-        return {
-            favoriteId: channelId,
-            favoriteIndex: channelIdFavoritePosition,
-        };
-    }
-
-    if (channelUrlFavoritePosition !== undefined) {
-        return {
-            favoriteId: channelUrl,
-            favoriteIndex: channelUrlFavoritePosition,
-        };
-    }
-
-    return null;
-}
 
 export async function createPlaylist(
     db: AppDatabase,
@@ -223,36 +194,7 @@ export async function getAppPlaylistFavoriteChannels(
     const channels = Array.isArray(payload?.playlist?.items)
         ? payload.playlist.items
         : [];
-    if (channels.length === 0) {
-        return [];
-    }
-
-    const favoritePositions = new Map<string, number>();
-    favorites.forEach((favorite, index) => {
-        if (!favoritePositions.has(favorite)) {
-            favoritePositions.set(favorite, index);
-        }
-    });
-
-    const resolved: M3uFavoriteChannel[] = [];
-    for (const channel of channels) {
-        const match = getFavoriteChannelMatch(channel, favoritePositions);
-        if (!match) {
-            continue;
-        }
-
-        resolved.push({
-            favoriteId: match.favoriteId,
-            favoriteIndex: match.favoriteIndex,
-            channel,
-        });
-
-        if (resolved.length === favoritePositions.size) {
-            break;
-        }
-    }
-
-    return resolved.sort((a, b) => a.favoriteIndex - b.favoriteIndex);
+    return resolveM3uFavoriteChannels(channels, favorites);
 }
 
 /**

@@ -59,6 +59,7 @@ describe('app playlist upsert performance boundaries', () => {
         jest.replaceProperty(process, 'env', {
             ...process.env,
             [M3U_CATALOG_SNAPSHOT_KILL_SWITCH]: '1',
+            IPTVNATOR_DISABLE_M3U_PRIORITY_OPEN: '1',
         });
         const { db, get, run, transaction } = createDatabaseMock();
         const schedule = jest.fn();

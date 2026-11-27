@@ -10,6 +10,7 @@ export interface PlaylistState {
     currentEpgProgram: EpgProgram | undefined;
     epgAvailable: boolean;
     channelsLoading: boolean;
+    priorityChannels?: { playlistId: string; channels: Channel[] };
     channels: Channel[]; // TODO: use entity store
     /**
      * The playlist `channels` was read from; absent or null when unknown

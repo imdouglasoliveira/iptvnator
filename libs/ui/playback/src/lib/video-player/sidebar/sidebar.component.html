@@ -1,9 +1,10 @@
+@let previewChannels = preview();
 <app-channel-list-container
-    [channelList]="channels()"
-    [managementChannels]="managementChannels()"
+    [channelList]="previewChannels ?? channels()"
+    [managementChannels]="previewChannels ? null : managementChannels()"
     [emptyHint]="emptyHint()"
-    [channelsLoading]="channelsLoading()"
-    [activeView]="activeView()"
+    [channelsLoading]="channelsLoading() && !previewChannels"
+    [activeView]="previewChannels ? 'all' : activeView()"
     [recentItems]="activePlaylist()?.recentlyViewed ?? []"
     [sidebarWidth]="sidebarWidth()"
     (sidebarWidthRequested)="onSidebarWidthRequested($event)"
@@ -11,3 +12,9 @@
     (sidebarToggleRequested)="sidebarToggleRequested.emit()"
     (selectedGroupChange)="selectedGroupChange.emit($event)"
 />
+@if (previewChannels) {
+    <app-channel-list-loading-state
+        view="groups"
+        [groupsOnly]="true"
+    />
+}

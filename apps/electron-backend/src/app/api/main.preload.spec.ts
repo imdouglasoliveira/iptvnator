@@ -71,7 +71,10 @@ describe('main preload DB IPC contract', () => {
             send: jest.fn(),
             sendSync: jest.fn(
                 (channel: string) =>
-                    channel === 'M3U_CATALOG_SNAPSHOT_ENABLED' ? true : 1.5
+                    channel === 'M3U_CATALOG_SNAPSHOT_ENABLED' ||
+                    channel === 'M3U_PRIORITY_OPEN_ENABLED'
+                        ? true
+                        : 1.5
             ),
         };
         mockWebFrame = {
@@ -211,13 +214,20 @@ describe('main preload DB IPC contract', () => {
         mockIpcRenderer.sendSync
             .mockClear()
             .mockImplementation((channel: string) =>
-                channel === 'M3U_CATALOG_SNAPSHOT_ENABLED' ? false : 1.5
+                channel === 'M3U_CATALOG_SNAPSHOT_ENABLED' ||
+                channel === 'M3U_PRIORITY_OPEN_ENABLED'
+                    ? false
+                    : 1.5
             );
         await import('./main.preload');
 
         expect(getExposedApi().dbGetM3uCatalogSnapshot).toBeUndefined();
+        expect(getExposedApi().dbGetM3uFavoritesSnapshot).toBeUndefined();
         expect(mockIpcRenderer.sendSync).toHaveBeenCalledWith(
             'M3U_CATALOG_SNAPSHOT_ENABLED'
+        );
+        expect(mockIpcRenderer.sendSync).toHaveBeenCalledWith(
+            'M3U_PRIORITY_OPEN_ENABLED'
         );
         expect(mockIpcRenderer.invoke).not.toHaveBeenCalled();
     });

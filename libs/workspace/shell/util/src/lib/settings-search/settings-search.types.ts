@@ -12,6 +12,7 @@ export type SettingsSearchRequirement =
     | 'remote-control'
     | 'android-settings'
     | 'startup-window-mode'
+    | 'm3u-priority-open'
     | 'portal-connectivity-guard'
     | 'managed-external-players'
     | 'external-player-paths'

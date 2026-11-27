@@ -53,6 +53,7 @@ export type PlaylistDocumentStore = Pick<
         Pick<
             ElectronBridgeApi,
             | 'dbGetAppPlaylistFavoriteChannels'
+            | 'dbGetM3uFavoritesSnapshot'
             | 'dbGetAppPlaylistMetas'
             | 'dbMigrateAppPlaylists'
             | 'dbRecoverLegacyPlaylists'

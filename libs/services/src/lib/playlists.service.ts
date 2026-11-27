@@ -1198,31 +1198,31 @@ export class PlaylistsService {
 
     getM3uFavoriteChannels(
         playlistId: string
-    ): Observable<M3uFavoriteChannel[] | null> {
-        if (this.favoriteSync.active()) return of(null);
+    ): Observable<M3uFavoriteChannel[] | null>;
+    getM3uFavoriteChannels(
+        playlistId: string,
+        format: 'snapshot'
+    ): Observable<string | null>;
+    getM3uFavoriteChannels(playlistId: string, format?: 'snapshot') {
+        if (this.favoriteSync.active() || !this.usesElectronStorage) return of(null);
         const store = this.documentStore;
-        const getFavoriteChannels = store?.dbGetAppPlaylistFavoriteChannels;
-        if (
-            !store ||
-            !this.usesElectronStorage ||
-            typeof getFavoriteChannels !== 'function'
-        ) {
-            return of(null);
-        }
+        if (!store) return of(null);
+        const read = format === 'snapshot'
+            ? store.dbGetM3uFavoritesSnapshot
+            : store.dbGetAppPlaylistFavoriteChannels;
+        if (typeof read !== 'function') return of(null);
 
         return from(
             (async () => {
-                // A favorite toggled just before this read may still be queued;
-                // the queue tail never rejects.
+                // Wait for queued favorites and refresh writes for this source.
                 await this.playlistWriteQueues.get(playlistId);
-                const alreadyMigrated = await store.dbGetAppState(
-                    SQLITE_PLAYLIST_MIGRATION_FLAG
-                );
-                if (alreadyMigrated !== '1') {
+                if (this.favoriteSync.active() || !this.usesElectronStorage) return null;
+                if (
+                    format !== 'snapshot' &&
+                    await store.dbGetAppState(SQLITE_PLAYLIST_MIGRATION_FLAG) !== '1'
+                )
                     return null;
-                }
-
-                return getFavoriteChannels(playlistId);
+                return read(playlistId);
             })()
         );
     }

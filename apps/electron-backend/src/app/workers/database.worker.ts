@@ -14,6 +14,7 @@ import type {
 import { migrateAppPlaylists } from '../database/operations/playlist-migration.operations';
 import { decodeAppPlaylistWritePayload } from '../database/operations/app-playlist-json-write';
 import { readStandaloneSources } from '../database/operations/standalone-sources.operations';
+import { getM3uFavoritesSnapshot } from '../database/operations/m3u-favorites-snapshot.operations';
 import {
     afterM3uDocumentWrite,
     getM3uCatalogSnapshot,
@@ -793,21 +794,20 @@ async function executeRequest(
         }
 
         case 'DB_GET_M3U_CATALOG_SNAPSHOT':
-            return getM3uCatalogSnapshot(
-                db,
-                (message.payload as { playlistId: string }).playlistId,
-                scheduleM3uSnapshot
-            );
-
+        case 'DB_GET_M3U_FAVORITES_SNAPSHOT':
         case 'DB_GET_APP_PLAYLIST_FAVORITE_CHANNELS': {
-            const payload = message.payload as { playlistId: string };
-            return getAppPlaylistFavoriteChannels(db, payload.playlistId);
+            const { playlistId } = message.payload as { playlistId: string };
+            if (message.operation === 'DB_GET_APP_PLAYLIST_FAVORITE_CHANNELS')
+                return getAppPlaylistFavoriteChannels(db, playlistId);
+            if (message.operation === 'DB_GET_M3U_CATALOG_SNAPSHOT')
+                return getM3uCatalogSnapshot(db, playlistId, scheduleM3uSnapshot);
+            return getM3uFavoritesSnapshot(db, playlistId, (revision) =>
+                scheduleM3uSnapshot(db, { playlistId, revision, favoritesOnly: true })
+            );
         }
 
-        case 'DB_GET_PLAYLIST': {
-            const payload = message.payload as { playlistId: string };
-            return getPlaylist(db, payload.playlistId);
-        }
+        case 'DB_GET_PLAYLIST':
+            return getPlaylist(db, (message.payload as { playlistId: string }).playlistId);
 
         case 'DB_SET_PLAYLIST_SERVER_TIMEZONE': {
             const payload = message.payload as {

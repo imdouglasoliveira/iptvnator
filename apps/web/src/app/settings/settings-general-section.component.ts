@@ -13,7 +13,10 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { TranslateModule } from '@ngx-translate/core';
-import { getAndroidShellControls } from '@iptvnator/services';
+import {
+    getAndroidShellControls,
+    RuntimeCapabilitiesService,
+} from '@iptvnator/services';
 import { Language } from '@iptvnator/shared/interfaces';
 import {
     StartupBehaviorOption,
@@ -73,6 +76,8 @@ export class SettingsGeneralSectionComponent {
     /** Desktop only: the window-mode select needs the main-process mirror and F11 */
     readonly supportsStartupWindowMode = input(false);
     readonly supportsPortalConnectivityGuard = input(false);
+    protected readonly supportsPriorityOpen =
+        inject(RuntimeCapabilitiesService).supportsM3uPriorityOpen;
 
     private getLegacyAndroidShellControls() {
         const controls = getAndroidShellControls();

@@ -1,19 +1,29 @@
 import {
     Component,
+    computed,
     inject,
     input,
     output,
     ChangeDetectionStrategy,
 } from '@angular/core';
+import { Store } from '@ngrx/store';
+import { selectPriorityChannels } from '@iptvnator/m3u-state';
 import { PlaylistContextFacade } from '@iptvnator/playlist/shared/util';
 import { Channel } from '@iptvnator/shared/interfaces';
-import { ChannelListContainerComponent } from '@iptvnator/ui/components';
+import {
+    ChannelListContainerComponent,
+    ChannelListLoadingStateComponent,
+} from '@iptvnator/ui/components';
 
 @Component({
     selector: 'app-sidebar',
     templateUrl: './sidebar.component.html',
     changeDetection: ChangeDetectionStrategy.OnPush,
-    imports: [ChannelListContainerComponent],
+    imports: [ChannelListContainerComponent, ChannelListLoadingStateComponent],
+    styles: [
+        ':host { display: flex; flex-direction: column; }',
+        'app-channel-list-container { flex: 1; min-height: 0; }',
+    ],
 })
 export class SidebarComponent {
     readonly channels = input<Channel[]>([]);
@@ -31,6 +41,18 @@ export class SidebarComponent {
     readonly selectedGroupChange = output<string | null>();
 
     private readonly playlistContext = inject(PlaylistContextFacade);
+    private readonly priorityChannels = inject(Store).selectSignal(
+        selectPriorityChannels
+    );
+    readonly preview = computed(() => {
+        const view = this.activeView();
+        if (!this.channelsLoading() || (view !== 'all' && view !== 'groups'))
+            return undefined;
+        const priority = this.priorityChannels();
+        return priority?.playlistId === this.playlistContext.resolvedPlaylistId()
+            ? priority?.channels
+            : undefined;
+    });
 
     readonly activePlaylist = this.playlistContext.activePlaylist;
 

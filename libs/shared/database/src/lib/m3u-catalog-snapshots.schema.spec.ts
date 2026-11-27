@@ -66,6 +66,8 @@ it.each(['fresh', 'v0.19.0'])(
 it('retires snapshots and suspends revision writes across repeated disabled startups', () => {
     const sqlite = openNodeSqlite(':memory:');
     const previous = process.env[M3U_CATALOG_SNAPSHOT_KILL_SWITCH];
+    const previousPriority = process.env.IPTVNATOR_DISABLE_M3U_PRIORITY_OPEN;
+    process.env.IPTVNATOR_DISABLE_M3U_PRIORITY_OPEN = '1';
     const start = (disabled: boolean) => {
         process.env[M3U_CATALOG_SNAPSHOT_KILL_SWITCH] = disabled ? '1' : '0';
         hooks.createTables(sqlite);
@@ -120,6 +122,9 @@ it('retires snapshots and suspends revision writes across repeated disabled star
         if (previous === undefined)
             delete process.env[M3U_CATALOG_SNAPSHOT_KILL_SWITCH];
         else process.env[M3U_CATALOG_SNAPSHOT_KILL_SWITCH] = previous;
+        if (previousPriority === undefined)
+            delete process.env.IPTVNATOR_DISABLE_M3U_PRIORITY_OPEN;
+        else process.env.IPTVNATOR_DISABLE_M3U_PRIORITY_OPEN = previousPriority;
         sqlite.close();
     }
 });

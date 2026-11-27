@@ -64,6 +64,14 @@ export const SETTINGS_SEARCH_ENTRIES: readonly SettingsSearchEntry[] = [
         keywords: ['m3u', 'movies', 'series', 'vod', 'episodes', 'catalog'],
     },
     {
+        id: 'm3u-priority-open',
+        section: 'general',
+        labelKey: 'SETTINGS.M3U_PRIORITY_OPEN',
+        descriptionKey: 'SETTINGS.M3U_PRIORITY_OPEN_DESCRIPTION',
+        keywords: ['m3u', 'favorites', 'live', 'loading', 'optimization'],
+        requires: ['m3u-priority-open'],
+    },
+    {
         id: 'portal-connectivity-guard',
         section: 'general',
         labelKey: 'SETTINGS.PORTAL_CONNECTIVITY_GUARD',

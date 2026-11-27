@@ -108,7 +108,6 @@ import {
 } from '@iptvnator/ui/playback';
 import { LiveEpgPanelSummary } from '@iptvnator/ui/shared-portals';
 import { createPlaybackSessionKey } from '@iptvnator/playback/util';
-import { ChannelListLoadingStateComponent } from '@iptvnator/ui/components';
 import {
     EpgPreferencesService,
     DataService,
@@ -191,7 +190,6 @@ function isInsideScrollableRegion(
     selector: 'app-video-player',
     imports: [
         AudioPlayerComponent,
-        ChannelListLoadingStateComponent,
         CommonModule,
         EpgGuideComponent,
         EpgGuideNowPlayingComponent,

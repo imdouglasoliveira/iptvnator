@@ -8,8 +8,16 @@ export const channelReducers = [
         return {
             ...state,
             channelsLoading: action.loading,
+            priorityChannels: undefined,
         };
     }),
+    on(
+        ChannelActions.setPriorityChannels,
+        (state, { playlistId, channels }): PlaylistState => ({
+            ...state,
+            priorityChannels: { playlistId, channels },
+        })
+    ),
     on(
         ChannelActions.setActiveChannelSuccess,
         (state, action): PlaylistState => {
@@ -34,6 +42,7 @@ export const channelReducers = [
         return {
             ...state,
             channelsLoading: false,
+            priorityChannels: undefined,
             channels: action.channels,
             channelsPlaylistId: action.playlistId,
         };

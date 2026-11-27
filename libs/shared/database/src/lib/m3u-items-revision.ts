@@ -1,5 +1,5 @@
 import type Database from 'better-sqlite3';
-import { M3U_CATALOG_SNAPSHOT_KILL_SWITCH } from '@iptvnator/shared/interfaces/ipc-commands';
+import { M3U_CATALOG_SNAPSHOT_KILL_SWITCH, M3U_PRIORITY_OPEN_KILL_SWITCH } from '@iptvnator/shared/interfaces/ipc-commands';
 
 const items = (row: 'OLD' | 'NEW') =>
     `CASE WHEN json_valid(${row}.payload) THEN json_extract(${row}.payload, '$.playlist.items') END`;
@@ -35,7 +35,10 @@ export const M3U_ITEMS_REVISION_TRIGGERS = [
 ];
 
 export function ensureM3uItemsRevisionTriggers(db: Database.Database): void {
-    if (process.env[M3U_CATALOG_SNAPSHOT_KILL_SWITCH] === '1') {
+    if (
+        process.env[M3U_CATALOG_SNAPSHOT_KILL_SWITCH] === '1' &&
+        process.env[M3U_PRIORITY_OPEN_KILL_SWITCH] === '1'
+    ) {
         db.transaction(() => {
             db.exec(`DROP TRIGGER IF EXISTS m3u_items_revision_insert`);
             db.exec(`DROP TRIGGER IF EXISTS m3u_items_revision_update`);

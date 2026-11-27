@@ -1,10 +1,9 @@
 import { setImmediate as nextTurn } from 'node:timers/promises';
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import {
     m3uCatalogSnapshots as snapshots,
     playlists,
 } from '@iptvnator/shared/database/schema';
-import { PLAYLIST_TYPES } from '@iptvnator/shared/database/app-playlist';
 import type { Channel } from '@iptvnator/shared/interfaces';
 import { M3U_CATALOG_SNAPSHOT_KILL_SWITCH } from '@iptvnator/shared/interfaces/ipc-commands';
 import { redactSensitiveData } from '@iptvnator/shared/logging';
@@ -13,18 +12,19 @@ import type { AppDatabase } from '../database.types';
 import { buildM3uCatalogSnapshot } from './m3u-catalog-snapshot-build';
 import { readM3uSnapshotChannels } from './m3u-catalog-snapshot-payload';
 import { serializeM3uCatalogSnapshot } from './m3u-catalog-snapshot-serialization';
-
-const m3uTypes = [
-    PLAYLIST_TYPES.M3U_FILE,
-    PLAYLIST_TYPES.M3U_TEXT,
-    PLAYLIST_TYPES.M3U_URL,
-];
-const m3uType = inArray(playlists.type, m3uTypes);
+import {
+    m3uPlaylistType,
+    m3uPriorityOpenEnabled,
+    prepareM3uFavorites,
+    readM3uFavoritesSource,
+    saveM3uFavorites,
+} from './m3u-favorites-snapshot.operations';
 
 export interface SnapshotJob {
     playlistId: string;
     revision: number;
     channels?: readonly Channel[];
+    favoritesOnly?: boolean;
 }
 
 export type ScheduleM3uSnapshot = typeof afterM3uDocumentWrite;
@@ -35,12 +35,16 @@ export function readM3uItemsRevision(db: RevisionReader, playlistId: string) {
     return db
         .select({ revision: playlists.itemsRevision })
         .from(playlists)
-        .where(and(eq(playlists.id, playlistId), m3uType))
+        .where(and(eq(playlists.id, playlistId), m3uPlaylistType))
         .get()?.revision;
 }
 
 export function m3uCatalogSnapshotEnabled(): boolean {
     return process.env[M3U_CATALOG_SNAPSHOT_KILL_SWITCH] !== '1';
+}
+
+export function m3uDocumentSnapshotsEnabled(): boolean {
+    return m3uCatalogSnapshotEnabled() || m3uPriorityOpenEnabled();
 }
 
 export function m3uDocumentChannels(document: Record<string, unknown> | null) {
@@ -57,17 +61,27 @@ export function captureM3uDocumentWrite(
     write: () => void
 ): SnapshotJob | undefined {
     const channels =
-        m3uCatalogSnapshotEnabled() &&
-        m3uTypes.some((type) => type === row.type)
+        m3uDocumentSnapshotsEnabled() && row.type.startsWith('m3u-')
             ? m3uDocumentChannels(document)
             : undefined;
-    const before = channels && readM3uItemsRevision(db, row.id);
+    const before = channels && readM3uFavoritesSource(db, row.id);
     write();
     if (!channels) return undefined;
-    const revision = readM3uItemsRevision(db, row.id);
-    return revision === undefined || revision === before
-        ? undefined
-        : { playlistId: row.id, revision, channels };
+    const after = readM3uFavoritesSource(db, row.id);
+    if (!after) return undefined;
+    const favoritesOnly = after.revision === before?.revision;
+    if (
+        favoritesOnly &&
+        (!m3uPriorityOpenEnabled() || after.favorites === before?.favorites)
+    ) {
+        return undefined;
+    }
+    return {
+        playlistId: row.id,
+        revision: after.revision,
+        channels,
+        ...(favoritesOnly && { favoritesOnly }),
+    };
 }
 
 export function getM3uCatalogSnapshot(
@@ -78,7 +92,10 @@ export function getM3uCatalogSnapshot(
     if (!m3uCatalogSnapshotEnabled()) return null;
     try {
         const row = db
-            .select({ revision: playlists.itemsRevision, data: snapshots.data })
+            .select({
+                revision: playlists.itemsRevision,
+                data: sql<string | null>`nullif(${snapshots.data}, '')`,
+            })
             .from(playlists)
             .leftJoin(
                 snapshots,
@@ -88,7 +105,7 @@ export function getM3uCatalogSnapshot(
                     eq(snapshots.classifierVersion, M3U_CLASSIFIER_VERSION)
                 )
             )
-            .where(and(eq(playlists.id, playlistId), m3uType))
+            .where(and(eq(playlists.id, playlistId), m3uPlaylistType))
             .get();
         if (!row) return null;
         if (row.data === null)
@@ -108,12 +125,22 @@ export function afterM3uDocumentWrite(
     db: AppDatabase,
     job?: SnapshotJob
 ): void {
-    if (!job || !m3uCatalogSnapshotEnabled()) return;
+    if (!job || !m3uDocumentSnapshotsEnabled()) return;
     const pending = jobsByDatabase.get(db);
     if (pending) {
         const existing = pending.get(job.playlistId);
-        if (!existing || job.revision > existing.revision)
+        if (!existing || job.revision > existing.revision) {
             pending.set(job.playlistId, job);
+        } else if (
+            job.revision === existing.revision &&
+            (job.channels || (existing.favoritesOnly && !job.favoritesOnly))
+        ) {
+            pending.set(job.playlistId, {
+                ...job,
+                channels: job.channels ?? existing.channels,
+                favoritesOnly: job.favoritesOnly && existing.favoritesOnly,
+            });
+        }
         return;
     }
     const queue = new Map([[job.playlistId, job]]);
@@ -157,11 +184,11 @@ async function saveSnapshot(
     job: SnapshotJob,
     current: () => boolean
 ) {
-    const build = prepareSnapshotData(db, job);
+    const build = buildSnapshotData(db, job, current);
     let step = build.next();
     while (!step.done) {
         await nextTurn();
-        if (!current() || !m3uCatalogSnapshotEnabled()) return;
+        if (!current() || !m3uDocumentSnapshotsEnabled()) return;
         step = build.next();
     }
     const data = step.value;
@@ -180,7 +207,12 @@ async function saveSnapshot(
                 .values({ playlistId, ...values })
                 .onConflictDoUpdate({
                     target: snapshots.playlistId,
-                    set: values,
+                    set: {
+                        ...values,
+                        favorites: sql`CASE WHEN ${snapshots.itemsRevision} = ${revision}
+                            AND ${snapshots.classifierVersion} = ${M3U_CLASSIFIER_VERSION}
+                            THEN ${snapshots.favorites} END`,
+                    },
                 })
                 .run();
         },
@@ -188,9 +220,10 @@ async function saveSnapshot(
     );
 }
 
-function* prepareSnapshotData(
+function* buildSnapshotData(
     db: AppDatabase,
-    { channels, playlistId, revision }: SnapshotJob
+    { channels, playlistId, revision, favoritesOnly }: SnapshotJob,
+    current: () => boolean
 ): Generator<void, string | undefined> {
     if (!channels) {
         const row = db
@@ -203,6 +236,33 @@ function* prepareSnapshotData(
         channels = yield* readM3uSnapshotChannels(row.payload);
     }
     if (!channels) return undefined;
+    if (m3uPriorityOpenEnabled()) {
+        const source = readM3uFavoritesSource(db, playlistId);
+        if (source?.revision === revision) {
+            const favorites = yield* prepareM3uFavorites(
+                channels,
+                source.favorites
+            );
+            if (current() && m3uPriorityOpenEnabled()) {
+                db.transaction(
+                    (tx) => {
+                        const latest = readM3uFavoritesSource(tx, playlistId);
+                        if (
+                            latest?.revision === revision &&
+                            latest.favorites === source.favorites
+                        ) {
+                            saveM3uFavorites(
+                                tx, playlistId, revision, source.favorites, favorites
+                            );
+                        }
+                    },
+                    { behavior: 'immediate' }
+                );
+            }
+        }
+    }
+    if (favoritesOnly || !m3uCatalogSnapshotEnabled() || !current())
+        return undefined;
     const snapshot = yield* buildM3uCatalogSnapshot(channels, playlistId, revision);
     return yield* serializeM3uCatalogSnapshot(snapshot);
 }

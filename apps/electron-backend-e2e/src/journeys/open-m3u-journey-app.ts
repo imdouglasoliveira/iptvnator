@@ -71,6 +71,12 @@ export async function seedOpenM3uJourneyProfile(
                 .poll(
                     () =>
                         page.evaluate(async (id) => {
+                            const readSnapshot =
+                                window.electron.dbGetM3uFavoritesSnapshot;
+                            if (readSnapshot) {
+                                const snapshot = await readSnapshot(id);
+                                return snapshot ? JSON.parse(snapshot).channels.length : 0;
+                            }
                             const favorites =
                                 await window.electron.dbGetAppPlaylistFavoriteChannels(id);
                             return favorites.length;

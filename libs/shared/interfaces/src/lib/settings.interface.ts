@@ -212,6 +212,7 @@ export interface Settings {
     showCaptions: boolean;
     showDashboard: boolean;
     startupBehavior: StartupBehavior;
+    startupBehaviorMigrated?: boolean;
     /**
      * Desktop window presentation at launch: normal (last size), maximized,
      * or fullscreen. Electron only and applied on the next launch; a missing

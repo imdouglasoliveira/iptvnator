@@ -2,7 +2,6 @@ import { AsyncPipe } from '@angular/common';
 import { Component, NO_ERRORS_SCHEMA, output, signal } from '@angular/core';
 import {
     ComponentFixture,
-    DeferBlockState,
     TestBed,
 } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
@@ -392,7 +391,7 @@ describe('VideoPlayerComponent — collapsible channels rail', () => {
         expect(query('.video-player')).not.toBeNull();
     });
 
-    it('opens the guide on the group the sidebar rail is showing', async () => {
+    it('opens the guide on the group the sidebar rail is showing', () => {
         // The user can browse to another group before pressing the guide
         // shortcut; the playing channel's group is only the fallback.
         const makeChannel = (id: string, group: string) =>
@@ -414,11 +413,6 @@ describe('VideoPlayerComponent — collapsible channels rail', () => {
         liveChannels.set([newsChannel, sportsChannel]);
         routeParams$.next({ id: playlistId(), view: 'groups' });
         fixture.detectChanges();
-        // The rail sits behind an `@defer`; TestBed leaves such a block on its
-        // placeholder until the test renders it.
-        const [railBlock] = await fixture.getDeferBlocks();
-        await railBlock.render(DeferBlockState.Complete);
-
         fixture.debugElement
             .query(By.directive(StubSidebarComponent))
             .componentInstance.selectedGroupChange.emit('Sports');

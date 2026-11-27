@@ -61,6 +61,44 @@ describe('SettingsStore dashboard rail settings', () => {
 
     afterEach(() => injector.destroy());
 
+    it('defaults a new profile to restoring the last view', async () => {
+        const store = injector.get(SettingsStore);
+        await store.loadSettings();
+        expect(store.startupBehavior()).toBe(StartupBehavior.RestoreLastView);
+    });
+
+    it('migrates an unmarked FirstView once and preserves a later FirstView choice', async () => {
+        storedSettings = { startupBehavior: StartupBehavior.FirstView };
+        const store = injector.get(SettingsStore);
+        await store.loadSettings();
+        await store.loadSettings();
+        expect(store.startupBehavior()).toBe(StartupBehavior.RestoreLastView);
+        expect(storage.set).toHaveBeenCalledTimes(1);
+        expect(storage.set).toHaveBeenLastCalledWith(
+            STORE_KEY.Settings,
+            expect.objectContaining({
+                startupBehavior: StartupBehavior.RestoreLastView,
+                startupBehaviorMigrated: true,
+            })
+        );
+        await store.updateSettings({ startupBehavior: StartupBehavior.FirstView });
+        expect(store.getSettings()).toMatchObject({
+            startupBehavior: StartupBehavior.FirstView,
+            startupBehaviorMigrated: true,
+        });
+    });
+
+    it('preserves a previously recorded FirstView choice during startup', async () => {
+        storedSettings = {
+            startupBehavior: StartupBehavior.FirstView,
+            startupBehaviorMigrated: true,
+        };
+        const store = injector.get(SettingsStore);
+        await store.loadSettings();
+        expect(store.startupBehavior()).toBe(StartupBehavior.FirstView);
+        expect(storage.set).not.toHaveBeenCalled();
+    });
+
     it.each([null, {}])(
         'defaults startup update checks to off for stored settings %j',
         async (settings) => {

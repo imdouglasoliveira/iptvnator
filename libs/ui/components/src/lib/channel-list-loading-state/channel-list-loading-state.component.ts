@@ -21,6 +21,7 @@ import { ChannelListSkeletonComponent } from '../channel-list-container/channel-
 })
 export class ChannelListLoadingStateComponent {
     readonly view = input<string>('all');
+    readonly groupsOnly = input(false);
     readonly showEpg = input(true);
     /** False where the loaded view hides its header (compact lists). */
     readonly showHeader = input(true);

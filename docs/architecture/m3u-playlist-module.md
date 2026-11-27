@@ -42,9 +42,29 @@ The catalog and series services use those same rows to resolve positions and
 apply the existing parental lock. A missing or invalid snapshot, an unavailable
 desktop bridge or a disabled optimization uses the local builders.
 `IPTVNATOR_DISABLE_M3U_CATALOG_SNAPSHOT=1` hides the read capability at preload
-startup, disables background builds, and restores autocommit for single writes
-and deferred transactions for batches. Changes to classification or series
-aggregation must bump `M3U_CLASSIFIER_VERSION`.
+startup and disables catalog builds. Changes to classification or series
+aggregation must bump `M3U_CLASSIFIER_VERSION`. Disabling both catalog snapshots
+and priority opening restores autocommit for single writes and deferred
+transactions for batches.
+
+On Electron, the live sidebar can paint playable favorites from a small
+SQLite snapshot before the route requests the full document. Groups show a
+loading skeleton until the complete rows arrive. The preview has its own
+playlist-scoped state, so it cannot supply rows to the catalog index, and the
+live sidebar applies its usual parental lock to the preview. The worker
+validates the snapshot against the current item revision, classifier version
+and stored favorites without reading the playlist payload. The same document
+write hook prepares it in batches, and the partial favorites write updates it
+with the membership change. A missing snapshot falls back to opening the
+document and can queue a background rebuild. The desktop capability is hidden
+by `IPTVNATOR_DISABLE_M3U_PRIORITY_OPEN=1`. Users can also disable priority
+opening under Settings → General → Optimizations. Settings search offers the
+option when the desktop bridge exposes the favorites snapshot read.
+
+Workspace startup defaults to restoring the last available route. A saved
+`FirstView` with no migration marker is treated as the historical default,
+since older settings stored the same value for default and explicit choices.
+Subsequent startup-view choices persist the migration marker with the setting.
 
 ## Adding a URL source
 

@@ -5,7 +5,7 @@ import { buildPlaylistRow } from '@iptvnator/shared/database/app-playlist';
 import {
     afterM3uDocumentWrite,
     captureM3uDocumentWrite,
-    m3uCatalogSnapshotEnabled,
+    m3uDocumentSnapshotsEnabled,
     type ScheduleM3uSnapshot,
     type SnapshotJob,
 } from './m3u-catalog-snapshot.operations';
@@ -78,7 +78,7 @@ export function migrateAppPlaylists(
                 })
                 .run();
             return { success: true, count };
-        }, m3uCatalogSnapshotEnabled() ? { behavior: 'immediate' } : undefined);
+        }, m3uDocumentSnapshotsEnabled() ? { behavior: 'immediate' } : undefined);
         for (const job of jobs) schedule(db, job);
         return result;
     } catch {

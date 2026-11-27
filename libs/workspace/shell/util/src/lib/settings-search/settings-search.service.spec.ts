@@ -33,6 +33,7 @@ interface RuntimeStub {
     supportsProviderEpg: boolean;
     supportsRemoteControl: boolean;
     supportsStartupWindowMode: boolean;
+    supportsM3uPriorityOpen: boolean;
     supportsPortalConnectivityGuard: boolean;
     supportsManagedExternalPlayers: boolean;
     supportsExternalPlayerPathSettings: boolean;
@@ -61,6 +62,7 @@ function setup(
                     supportsProviderEpg: false,
                     supportsRemoteControl: false,
                     supportsStartupWindowMode: false,
+                    supportsM3uPriorityOpen: false,
                     supportsPortalConnectivityGuard: false,
                     supportsManagedExternalPlayers: false,
                     supportsExternalPlayerPathSettings: false,
@@ -94,6 +96,7 @@ const DESKTOP: Partial<RuntimeStub> = {
     supportsEpgDataManagement: true,
     supportsRemoteControl: true,
     supportsStartupWindowMode: true,
+    supportsM3uPriorityOpen: true,
     supportsPortalConnectivityGuard: true,
     supportsManagedExternalPlayers: true,
     supportsExternalPlayerPathSettings: true,
@@ -173,6 +176,7 @@ describe('SettingsSearchService', () => {
         expect(entries).not.toContain('android-external-player');
         expect(entries).not.toContain('android-device-advanced');
         expect(entries).not.toContain('epg-view-mode');
+        expect(entries).not.toContain('m3u-priority-open');
         expect(entries).not.toContain('recording-folder');
         expect(entries).not.toContain('mpv-player-path');
         expect(entries).toContain('theme');
@@ -202,6 +206,7 @@ describe('SettingsSearchService', () => {
         expect(entries).toContain('epg-view-mode');
         expect(entries).toContain('remote-control-port');
         expect(entries).toContain('mpv-player-path');
+        expect(entries).toContain('m3u-priority-open');
         expect(entries).not.toContain('vod-auto-failover');
         // Embedded MPV rows wait for the support probe.
         expect(entries).not.toContain('embedded-mpv-extra-options');

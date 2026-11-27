@@ -78,6 +78,7 @@ export function createSettingsForm(
         vodAutoFailover: false,
         m3uVodDetails: true,
         m3uCatalogTabs: true,
+        optimizations: formBuilder.group({ priorityOpen: true }),
         ageRatingCountry: 'auto',
         ...(supportsEpg
             ? { epgUrl: new FormArray<FormControl<string | null>>([]) }
@@ -102,7 +103,7 @@ export function createSettingsForm(
             tmdbRecommendations:
                 DEFAULT_DASHBOARD_RAILS_SETTINGS.tmdbRecommendations,
         }),
-        startupBehavior: StartupBehavior.FirstView,
+        startupBehavior: StartupBehavior.RestoreLastView,
         startupWindowMode: 'normal' as StartupWindowMode,
         updateChannel: DEFAULT_APP_UPDATE_CHANNEL as AppUpdateChannel,
         appUpdateCheckOnStartup: false,
@@ -259,6 +260,11 @@ export function createSettingsFromFormValue(
         vodAutoFailover: value.vodAutoFailover ?? false,
         m3uVodDetails: value.m3uVodDetails ?? true,
         m3uCatalogTabs: value.m3uCatalogTabs !== false,
+        optimizations: {
+            catalogSnapshot: currentSettings.optimizations?.catalogSnapshot !== false,
+            conditionalRefresh: currentSettings.optimizations?.conditionalRefresh !== false,
+            priorityOpen: value.optimizations.priorityOpen !== false,
+        },
         ageRatingCountry: normalizeAgeRatingCountry(value.ageRatingCountry),
         streamFormat: value.streamFormat ?? StreamFormat.AutoStreamFormat,
         openStreamOnDoubleClick: value.openStreamOnDoubleClick ?? false,
@@ -266,7 +272,7 @@ export function createSettingsFromFormValue(
         showCaptions: value.showCaptions ?? false,
         showDashboard: value.showDashboard ?? true,
         dashboardRails: normalizeDashboardRailsSettings(value.dashboardRails),
-        startupBehavior: value.startupBehavior ?? StartupBehavior.FirstView,
+        startupBehavior: value.startupBehavior ?? StartupBehavior.RestoreLastView,
         startupWindowMode: normalizeStartupWindowMode(value.startupWindowMode),
         updateChannel: normalizeAppUpdateChannel(value.updateChannel),
         appUpdateCheckOnStartup: value.appUpdateCheckOnStartup === true,

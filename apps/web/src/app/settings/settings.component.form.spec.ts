@@ -356,6 +356,7 @@ describe('SettingsComponent form', () => {
     describe('Get and set settings on component init', () => {
         const settings = {
             language: Language.GERMAN,
+            optimizations: { priorityOpen: false },
             player: VideoPlayer.Html5Player,
             theme: Theme.DarkTheme,
         };
@@ -523,7 +524,7 @@ describe('SettingsComponent form', () => {
                 DEFAULT_DASHBOARD_RAILS
             );
             expect(component.settingsForm.value.startupBehavior).toBe(
-                StartupBehavior.FirstView
+                StartupBehavior.RestoreLastView
             );
             expect(component.settingsForm.value.startupWindowMode).toBe(
                 'normal'

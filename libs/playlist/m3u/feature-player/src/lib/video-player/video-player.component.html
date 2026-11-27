@@ -33,34 +33,20 @@
             <mat-icon>chevron_left</mat-icon>
         </button>
     }
-    @defer (on immediate) {
-        <app-sidebar
-            [channels]="sidebarChannels()"
-            [managementChannels]="channels()"
-            [emptyHint]="
-                liveEmptyHintKey() ? (liveEmptyHintKey()! | translate) : null
-            "
-            [channelsLoading]="channelsLoading()"
-            [activeView]="activeView()"
-            [sidebarWidth]="sidebarWidth()"
-            (sidebarWidthRequested)="onGroupedSidebarWidthRequested($event)"
-            (sidebarWidthRequestEnded)="
-                onGroupedSidebarWidthRequestEnded($event)
-            "
-            (sidebarToggleRequested)="toggleSidebar()"
-            (selectedGroupChange)="onSidebarGroupSelected($event)"
-        />
-    } @loading {
-        <app-channel-list-loading-state
-            [view]="activeView()"
-            [showEpg]="supportsEpg"
-        />
-    } @placeholder {
-        <app-channel-list-loading-state
-            [view]="activeView()"
-            [showEpg]="supportsEpg"
-        />
-    }
+    <app-sidebar
+        [channels]="sidebarChannels()"
+        [managementChannels]="channels()"
+        [emptyHint]="
+            liveEmptyHintKey() ? (liveEmptyHintKey()! | translate) : null
+        "
+        [channelsLoading]="channelsLoading()"
+        [activeView]="activeView()"
+        [sidebarWidth]="sidebarWidth()"
+        (sidebarWidthRequested)="onGroupedSidebarWidthRequested($event)"
+        (sidebarWidthRequestEnded)="onGroupedSidebarWidthRequestEnded($event)"
+        (sidebarToggleRequested)="toggleSidebar()"
+        (selectedGroupChange)="onSidebarGroupSelected($event)"
+    />
 </div>
 
 <div

@@ -11,7 +11,7 @@ describe('WorkspaceStartupPreferencesService', () => {
     let settingsStore: {
         loadSettings: jest.Mock;
         showDashboard: ReturnType<typeof signal<boolean>>;
-        startupBehavior: ReturnType<typeof signal<StartupBehavior>>;
+        startupBehavior: ReturnType<typeof signal<StartupBehavior | undefined>>;
     };
 
     beforeEach(() => {
@@ -25,7 +25,7 @@ describe('WorkspaceStartupPreferencesService', () => {
         settingsStore = {
             loadSettings: jest.fn().mockResolvedValue(undefined),
             showDashboard: signal(true),
-            startupBehavior: signal(StartupBehavior.FirstView),
+            startupBehavior: signal<StartupBehavior | undefined>(undefined),
         };
 
         TestBed.configureTestingModule({
@@ -65,6 +65,21 @@ describe('WorkspaceStartupPreferencesService', () => {
 
         await expect(service.resolveInitialWorkspacePath()).resolves.toBe(
             '/workspace/global-recent'
+        );
+    });
+
+    it('restores the last M3U section by default', async () => {
+        service.persistLastRestorablePath('/workspace/playlists/playlist-1/series');
+        await expect(service.resolveInitialWorkspacePath()).resolves.toBe(
+            '/workspace/playlists/playlist-1/series'
+        );
+    });
+
+    it('honors an explicit choice to open the first view', async () => {
+        settingsStore.startupBehavior.set(StartupBehavior.FirstView);
+        service.persistLastRestorablePath('/workspace/playlists/playlist-1/series');
+        await expect(service.resolveInitialWorkspacePath()).resolves.toBe(
+            '/workspace/dashboard'
         );
     });
 

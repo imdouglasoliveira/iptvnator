@@ -69,6 +69,7 @@ export class SettingsSearchService {
             'remote-control': runtime.supportsRemoteControl,
             'android-settings': !!getAndroidSettingsControls(),
             'startup-window-mode': runtime.supportsStartupWindowMode,
+            'm3u-priority-open': runtime.supportsM3uPriorityOpen,
             'portal-connectivity-guard':
                 runtime.supportsPortalConnectivityGuard,
             'managed-external-players': runtime.supportsManagedExternalPlayers,

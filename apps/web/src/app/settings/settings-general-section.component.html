@@ -225,6 +225,34 @@
         </div>
     </section>
 
+    @if (supportsPriorityOpen && form().get('optimizations')) {
+        <section class="settings-section" formGroupName="optimizations">
+            <div class="settings-section__header">
+                <h3>{{ 'SETTINGS.OPTIMIZATIONS' | translate }}</h3>
+            </div>
+            <div class="settings-card">
+                <div class="setting-item" data-setting-id="m3u-priority-open">
+                    <div class="setting-item__meta">
+                        <h4 id="m3u-priority-open-label">
+                            {{ 'SETTINGS.M3U_PRIORITY_OPEN' | translate }}
+                        </h4>
+                        <p id="m3u-priority-open-description">
+                            {{ 'SETTINGS.M3U_PRIORITY_OPEN_DESCRIPTION' | translate }}
+                        </p>
+                    </div>
+                    <div class="setting-item__control setting-item__toggle">
+                        <mat-slide-toggle
+                            formControlName="priorityOpen"
+                            aria-labelledby="m3u-priority-open-label"
+                            aria-describedby="m3u-priority-open-description"
+                            data-test-id="m3u-priority-open-toggle"
+                        ></mat-slide-toggle>
+                    </div>
+                </div>
+            </div>
+        </section>
+    }
+
     @if (supportsPortalConnectivityGuard()) {
         <section
             class="settings-section"
