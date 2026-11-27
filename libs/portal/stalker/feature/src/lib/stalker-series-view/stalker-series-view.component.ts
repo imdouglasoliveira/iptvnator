@@ -1322,6 +1322,9 @@ export class StalkerSeriesViewComponent implements OnDestroy {
         autoplaySignal?: AbortSignal
     ): Promise<void> {
         if (autoplaySignal?.aborted) return;
+        // Any start (hero Play or Next, a restart) wins over a shuffle still
+        // waiting for its season; the episode ids change only after resolving.
+        this.seasonContainerRef()?.cancelRandomEpisode();
         const generation = ++this.seriesPlaybackRequestGeneration;
         this.pendingStart.set(null);
         const episodeNum = episodeState.episodeNumber;

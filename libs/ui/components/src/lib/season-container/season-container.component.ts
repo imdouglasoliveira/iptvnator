@@ -63,6 +63,10 @@ import {
 } from './season-watch-toggle.util';
 import { dialogSize } from '@iptvnator/ui/dialog/dialog-size';
 import { StateViewComponent } from '@iptvnator/ui/state';
+import {
+    type SeasonRandomEpisodeState,
+    createSeasonRandomEpisodeState,
+} from './season-random-episode.state';
 
 const EPISODE_VIEW_MODE_KEY = 'iptvnator_episode_view_mode';
 
@@ -107,6 +111,7 @@ export class SeasonContainerComponent implements OnInit {
     private readonly logger = createLogger('SeasonContainer');
     /** Auto-select + `seasonSelected` emission; wired in the constructor. */
     private readonly autoSelect: SeasonAutoSelectState;
+    private readonly randomEpisode: SeasonRandomEpisodeState;
     readonly downloadPresenter = inject(SeasonDownloadPresenter);
     readonly watchPresenter = inject(SeasonWatchPresenter);
 
@@ -358,6 +363,12 @@ export class SeasonContainerComponent implements OnInit {
             emitSeasonSelected: (seasonKey) =>
                 this.seasonSelected.emit(seasonKey),
         });
+
+        this.randomEpisode = createSeasonRandomEpisodeState(this);
+    }
+
+    canPlayRandomEpisode(): boolean {
+        return this.randomEpisode.canPlay();
     }
 
     ngOnInit() {
@@ -406,10 +417,21 @@ export class SeasonContainerComponent implements OnInit {
     }
 
     selectEpisode(episode: XtreamSerieEpisode) {
+        this.randomEpisode.cancel();
         this.episodeClicked.emit(episode);
     }
 
+    playRandomEpisode() {
+        this.randomEpisode.play();
+    }
+
+    /** The host starts other playback: a shuffle still waiting yields. */
+    cancelRandomEpisode() {
+        this.randomEpisode.cancel();
+    }
+
     restartEpisode(episode: XtreamSerieEpisode) {
+        this.randomEpisode.cancel();
         this.episodeRestartRequested.emit(episode);
     }
 
