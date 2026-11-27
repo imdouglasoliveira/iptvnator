@@ -6,7 +6,6 @@ import { PlaylistActions } from '@iptvnator/m3u-state';
 import { DialogService } from '@iptvnator/ui/components/confirm-dialog';
 import {
     DataService,
-    type ExternalSessionLaunch,
     ParentalLockExternalLaunches,
     type PlaylistImportRecovery,
     SettingsStore,
@@ -20,6 +19,7 @@ import {
     ELECTRON_BRIDGE_SECURITY_ERROR_CODES,
     ElectronBridgePlayerError,
     ERROR,
+    type ExternalPlaybackEnded,
     EXTERNAL_PLAYER_ERROR_KEYS,
     EXTERNAL_PLAYER_LAUNCH_FAILED_KEY,
     EXTERNAL_PLAYER_UNKNOWN_ERROR_KEY,
@@ -27,7 +27,6 @@ import {
     isPortalRequestFailureEnvelope,
     normalizeHost,
     parseSecurityPolicyError,
-    PlayerContentInfo,
     Playlist,
     PlaylistUrlImportOptions,
     PlaylistUrlImportResult,
@@ -45,25 +44,12 @@ import {
 } from '@iptvnator/shared/logging';
 import { AppConfig } from '../../environments/environment';
 import { buildAutoUpdatePlaylistsFeedback } from './auto-update-playlists-feedback';
+import type { PlayerLaunchPayload } from './player.service';
 import {
     createLogger,
     createPortalDebugRequestContext,
     logPortalDebugEvent,
 } from '@iptvnator/portal/shared/util/logger';
-
-interface PlayerLaunchPayload {
-    readonly launchId?: string;
-    readonly parentalLaunch?: ExternalSessionLaunch;
-    readonly headers?: Record<string, string>;
-    readonly origin?: string;
-    readonly referer?: string;
-    readonly startTime?: number;
-    readonly thumbnail?: string;
-    readonly title?: string;
-    readonly url: string;
-    readonly ['user-agent']?: string;
-    readonly contentInfo?: PlayerContentInfo;
-}
 
 interface ErrorStatus {
     readonly message?: string;
@@ -98,6 +84,12 @@ export class ElectronService extends DataService {
         super();
         this.setupPlayerErrorListener();
         this.setupPortalDebugListener();
+    }
+
+    override onExternalPlaybackEnded(
+        callback: (event: ExternalPlaybackEnded) => void
+    ): (() => void) | undefined {
+        return window.electron?.onExternalPlaybackEnded?.(callback);
     }
 
     private setupPlayerErrorListener() {
@@ -246,7 +238,7 @@ export class ElectronService extends DataService {
                     launches.capture(data.contentInfo?.playlistId)
             );
             try {
-                return (await window.electron[mpv ? 'openInMpv' : 'openInVlc'](
+                const args = [
                     data.url,
                     data.title ?? '',
                     data.thumbnail ?? '',
@@ -257,8 +249,16 @@ export class ElectronService extends DataService {
                     data.startTime,
                     data.headers ?? undefined,
                     data.launchId,
-                    requestId
-                )) as T;
+                    requestId,
+                ] as const;
+                return (await (!mpv && data.vlcContinuationSessionId
+                    ? window.electron.openInVlc(
+                          ...args,
+                          data.vlcContinuationSessionId
+                      )
+                    : window.electron[mpv ? 'openInMpv' : 'openInVlc'](
+                          ...args
+                      ))) as T;
             } catch (error: unknown) {
                 this.showPlayerLaunchError(mpv ? 'MPV' : 'VLC', error);
                 this.logger.error(

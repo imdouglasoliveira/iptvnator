@@ -264,6 +264,7 @@ describe('M3uSeriesDetailRouteComponent', () => {
     };
     const positionBridge = {
         supportsStorage: true,
+        onPlaybackPositionUpdate: jest.fn(),
         getSeriesPlaybackPositions: jest.fn().mockResolvedValue([]),
         savePlaybackPosition: jest.fn().mockResolvedValue(undefined),
         clearPlaybackPosition: jest.fn().mockResolvedValue(undefined),
@@ -524,9 +525,13 @@ describe('M3uSeriesDetailRouteComponent', () => {
                 trackLaunch,
             });
 
-        // Without the episode identity: an external launch is untracked.
         expect(portalPlayer.openExternalPlayback).toHaveBeenCalledWith(
-            expect.not.objectContaining({ contentInfo: expect.anything() }),
+            expect.objectContaining({
+                contentInfo: expect.objectContaining({
+                    contentType: 'episode',
+                    m3uSeries: true,
+                }),
+            }),
             'vlc'
         );
         expect(portalPlayer.openExternalPlayback).toHaveBeenCalledWith(

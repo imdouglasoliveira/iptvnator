@@ -1,6 +1,6 @@
 import { PLAYBACK_ACTIVITY_EVENTS } from '@iptvnator/services/activity-events';
 import { Injectable, inject } from '@angular/core';
-import { DataService } from '@iptvnator/services';
+import { DataService, type ExternalSessionLaunch } from '@iptvnator/services';
 import {
     ExternalPlayerSession,
     OPEN_MPV_PLAYER,
@@ -13,6 +13,21 @@ import type { ExternalPlayerName } from '@iptvnator/shared/interfaces';
 import { LazyMatDialog } from '@iptvnator/ui/components/lazy-dialog';
 import { dialogSize } from '@iptvnator/ui/dialog/dialog-size';
 import { SettingsStore } from './settings-store.service';
+
+export interface PlayerLaunchPayload {
+    readonly url: string;
+    readonly title?: string;
+    readonly thumbnail?: string | null;
+    readonly ['user-agent']?: string;
+    readonly origin?: string;
+    readonly referer?: string;
+    readonly startTime?: number;
+    readonly headers?: Record<string, string>;
+    readonly launchId?: string;
+    readonly contentInfo?: PlayerContentInfo;
+    readonly parentalLaunch?: ExternalSessionLaunch;
+    readonly vlcContinuationSessionId?: string;
+}
 
 @Injectable({
     providedIn: 'root',
@@ -120,7 +135,7 @@ export class PlayerService {
         playback: ResolvedPortalPlayback,
         player: ExternalPlayerName
     ): Promise<ExternalPlayerSession | void> {
-        if (playback.contentInfo)
+        if (playback.contentInfo && !playback.contentInfo.m3uSeries)
             void this.activity
                 ?.begin(
                     playback.contentInfo,
@@ -143,7 +158,10 @@ export class PlayerService {
                 contentInfo: playback.contentInfo,
                 startTime: playback.startTime,
                 launchId: playback.launchId,
-            }
+                ...(playback.vlcContinuationSessionId && {
+                    vlcContinuationSessionId: playback.vlcContinuationSessionId,
+                }),
+            } satisfies PlayerLaunchPayload
         );
     }
 }

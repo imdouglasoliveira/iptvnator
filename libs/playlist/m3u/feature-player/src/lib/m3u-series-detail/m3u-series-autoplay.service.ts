@@ -6,14 +6,17 @@ import {
     signal,
     type Signal,
 } from '@angular/core';
-import { createLogger, PORTAL_PLAYER } from '@iptvnator/portal/shared/util';
+import { PORTAL_PLAYER } from '@iptvnator/portal/shared/util';
+import type { PlaybackFallbackRequest } from '@iptvnator/playback/util';
 import { SettingsStore } from '@iptvnator/services';
-import type {
-    Channel,
-    PlaybackPositionData,
-    PlaylistMeta,
-    ResolvedPortalPlayback,
-    XtreamSerieEpisode,
+import {
+    VideoPlayer,
+    type Channel,
+    type ExternalPlaybackEnded,
+    type PlaybackPositionData,
+    type PlaylistMeta,
+    type ResolvedPortalPlayback,
+    type XtreamSerieEpisode,
 } from '@iptvnator/shared/interfaces';
 import type { M3uSeries } from '@iptvnator/shared/m3u-utils/series';
 import {
@@ -33,6 +36,10 @@ import {
     toSeasonRecord,
     type M3uSeasonRecord,
 } from './m3u-series-episode.adapter';
+import {
+    m3uEpisodeContentInfo,
+    M3uSeriesExternalAutoplay,
+} from './m3u-series-external-autoplay';
 import { M3uSeriesPositionsService } from './m3u-series-positions.service';
 
 export interface PlayingEpisode {
@@ -59,16 +66,17 @@ interface EpisodeOpenOptions {
     fromStart?: boolean;
     automatic?: boolean;
     autoplaySignal?: AbortSignal;
+    vlcContinuationSessionId?: string;
 }
 
 @Injectable()
 export class M3uSeriesAutoplayService {
-    private readonly logger = createLogger('M3uSeriesDetail');
     private readonly access = inject(M3uEpisodeAccessService);
     private readonly positions = inject(M3uSeriesPositionsService);
     private readonly portalPlayer = inject(PORTAL_PLAYER);
     private readonly settings = inject(SettingsStore);
     private readonly streak = inject(AutoplayStreakService);
+    private readonly external = inject(M3uSeriesExternalAutoplay);
     private readonly page = signal<PlaybackBindings | null>(null);
     private pending: EpisodeOpenOptions | null = null;
     private readonly autoplayEnabled = computed(
@@ -172,6 +180,59 @@ export class M3uSeriesAutoplayService {
 
     connect(page: PlaybackBindings): void {
         this.page.set(page);
+        this.external.connect(
+            (event) => this.onExternalPlaybackEnded(event),
+            () => this.streak.playbackStarted()
+        );
+    }
+
+    leaveSeries(): void {
+        this.cancelPending();
+        this.external.release();
+    }
+
+    openFallback(
+        request: PlaybackFallbackRequest,
+        playing: PlayingEpisode | null
+    ): void {
+        this.cancelPending();
+        this.streak.reset();
+        const page = this.page();
+        if (page && playing)
+            this.access.recordWhenPlayed(
+                page.playlistId(),
+                playing.channel,
+                null
+            );
+        request.trackLaunch(
+            this.external.open(request.playback, request.player, true)
+        );
+    }
+
+    private onExternalPlaybackEnded(
+        event: ExternalPlaybackEnded
+    ): Promise<void> | void {
+        const page = this.page();
+        const { contentInfo, sessionId } = event;
+        if (
+            !page ||
+            this.pending ||
+            contentInfo.playlistId !== page.playlistId() ||
+            contentInfo.seriesXtreamId !== page.seriesId() ||
+            !this.autoplayEnabled()
+        )
+            return;
+
+        const [, next] = buildUpNextRailItems({
+            episodesBySeason: this.playbackSeasons(),
+            currentEpisodeId: contentInfo.contentXtreamId,
+            limit: 2,
+        });
+        if (!next || !this.streak.beginAutoplay()) return;
+        return this.openEpisode(next.episode, {
+            automatic: true,
+            vlcContinuationSessionId: sessionId,
+        });
     }
 
     onPlaybackEnded(): Promise<void> | void {
@@ -227,11 +288,13 @@ export class M3uSeriesAutoplayService {
         this.pending = request;
         const playlistId = page.playlistId();
         const seriesId = page.seriesId();
+        const continuation = request.vlcContinuationSessionId;
         const canOpen = () =>
             this.pending === request &&
             !request.autoplaySignal?.aborted &&
             playlistId === page.playlistId() &&
             seriesId === page.seriesId() &&
+            (!continuation || this.external.owns(continuation)) &&
             (!request.automatic || this.autoplayEnabled());
 
         try {
@@ -255,9 +318,10 @@ export class M3uSeriesAutoplayService {
             }
 
             const external =
-                !this.portalPlayer.isEmbeddedPlayer() &&
+                (Boolean(continuation) ||
+                    !this.portalPlayer.isEmbeddedPlayer()) &&
                 !m3uEpisodeStaysInline(channel);
-            if (request.automatic && external) return;
+            if (request.automatic && external !== Boolean(continuation)) return;
 
             const startTime = request.fromStart
                 ? undefined
@@ -266,44 +330,57 @@ export class M3uSeriesAutoplayService {
                   );
             this.pending = null;
             if (!request.automatic) this.streak.reset();
-            this.play(
+            await this.play(
                 page,
                 playlistId,
                 { episode, channel, startTime },
-                external
+                external,
+                continuation
             );
         } finally {
             if (this.pending === request) this.cancelPending();
         }
     }
 
-    private play(
+    private async play(
         page: PlaybackBindings,
         playlistId: string,
         playing: PlayingEpisode,
-        external: boolean
-    ): void {
+        external: boolean,
+        continuation?: string
+    ): Promise<void> {
         const { episode, channel, startTime } = playing;
         if (external) {
             page.closePlayer();
             this.access.recordWhenPlayed(playlistId, channel, null);
-            void this.portalPlayer
-                .openResolvedPlayback(
-                    buildM3uPlaybackPayload({
+            const opened = await this.external.open(
+                {
+                    ...buildM3uPlaybackPayload({
                         channel,
                         target: channel,
                         playlistMeta: page.playbackPlaylist(),
                         isLive: false,
                         startTime,
                     }),
-                    true
-                )
-                .catch(() =>
-                    this.logger.warn('External episode launch failed')
-                );
+                    contentInfo: m3uEpisodeContentInfo(
+                        playlistId,
+                        page.seriesId(),
+                        episode
+                    ),
+                    ...(continuation && {
+                        vlcContinuationSessionId: continuation,
+                    }),
+                },
+                continuation || this.settings.player?.() === VideoPlayer.VLC
+                    ? 'vlc'
+                    : undefined,
+                Boolean(continuation)
+            );
+            if (continuation && !opened) this.streak.cancelAutoplay();
             return;
         }
 
+        this.external.release();
         this.access.recordWhenPlayed(
             playlistId,
             channel,

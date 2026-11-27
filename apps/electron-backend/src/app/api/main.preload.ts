@@ -6,6 +6,7 @@ import {
     HOSTED_SERVER_CONTROL,
     HOSTED_CLOUDFLARE_CONTROL,
     HOSTED_DEVICE_CONTROL,
+    EXTERNAL_PLAYBACK_ENDED,
 } from '@iptvnator/shared/interfaces';
 import { createAppMenuListener } from './app-menu-listener';
 import type {
@@ -90,7 +91,6 @@ import type {
     ExternalPlayerSession,
     GlobalSearchPaginationOptions,
     GlobalSearchResultSource,
-    PlaybackPositionData,
     PlayerContentInfo,
     Playlist,
     PlaylistRefreshEvent,
@@ -316,6 +316,13 @@ const frameZoomPorts = {
     setZoomLevel: (level: number) => webFrame.setZoomLevel(level),
 };
 
+function subscribeToPlayback<T>(channel: string, callback: (data: T) => void) {
+    const handler = (_event: Electron.IpcRendererEvent, data: T) =>
+        callback(data);
+    ipcRenderer.on(channel, handler);
+    return () => ipcRenderer.off(channel, handler);
+}
+
 const electronApi: ElectronBridgeApi = {
     onAppMenuAction: createAppMenuListener(ipcRenderer),
     sourceSyncConnection: () => {
@@ -396,27 +403,12 @@ const electronApi: ElectronBridgeApi = {
     onEpgProgress: (callback: (data: ElectronBridgeEpgProgress) => void) => {
         ipcRenderer.on('EPG_PROGRESS_UPDATE', (_event, data) => callback(data));
     },
-    // Playback position update listener - returns unsubscribe function
-    onPlaybackPositionUpdate: (
-        callback: (data: PlaybackPositionData) => void
-    ) => {
-        const handler = (
-            _event: Electron.IpcRendererEvent,
-            data: PlaybackPositionData
-        ) => callback(data);
-        ipcRenderer.on('playback-position-update', handler);
-        return () => ipcRenderer.off('playback-position-update', handler);
-    },
-    onExternalPlayerSessionUpdate: (
-        callback: (data: ExternalPlayerSession) => void
-    ) => {
-        const handler = (
-            _event: Electron.IpcRendererEvent,
-            data: ExternalPlayerSession
-        ) => callback(data);
-        ipcRenderer.on(EXTERNAL_PLAYER_SESSION_UPDATE, handler);
-        return () => ipcRenderer.off(EXTERNAL_PLAYER_SESSION_UPDATE, handler);
-    },
+    onPlaybackPositionUpdate: (callback) =>
+        subscribeToPlayback('playback-position-update', callback),
+    onExternalPlaybackEnded: (callback) =>
+        subscribeToPlayback(EXTERNAL_PLAYBACK_ENDED, callback),
+    onExternalPlayerSessionUpdate: (callback) =>
+        subscribeToPlayback(EXTERNAL_PLAYER_SESSION_UPDATE, callback),
     onEmbeddedMpvSessionUpdate: (
         callback: (data: EmbeddedMpvSession) => void
     ) => {
@@ -636,7 +628,8 @@ const electronApi: ElectronBridgeApi = {
         startTime?: number,
         headers?: Record<string, string>,
         launchId?: string,
-        requestId?: string
+        requestId?: string,
+        vlcContinuationSessionId?: string
     ): Promise<ExternalPlayerSession> =>
         ipcRenderer.invoke(
             'OPEN_VLC_PLAYER',
@@ -650,7 +643,8 @@ const electronApi: ElectronBridgeApi = {
             startTime,
             headers,
             launchId,
-            requestId
+            requestId,
+            ...(vlcContinuationSessionId ? [vlcContinuationSessionId] : [])
         ),
     closeExternalPlayerSession: (sessionId: string, exact?: boolean) =>
         ipcRenderer.invoke(

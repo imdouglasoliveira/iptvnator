@@ -16,40 +16,14 @@ import {
 } from './external-player-runtime';
 import {
     buildVlcEnqueueCommands,
+    getVlcPlaybackState,
     markVlcInputUnverified,
     markVlcOpened,
     sendVlcRcCommand,
     sendVlcRcCommands,
     type VlcRcAddress,
 } from './vlc-rc';
-
-export interface VlcReuseAttemptState {
-    contentMutated: boolean;
-    teardownUnconfirmed: boolean;
-    closeRequested: boolean;
-    requestedClose: Promise<void> | null;
-}
-
-interface VlcReuseOptions {
-    session: ExternalPlayerSession;
-    url: string;
-    title: string;
-    effectiveUserAgent?: string;
-    effectiveReferer?: string;
-    effectiveOrigin?: string;
-    mergedHeaders: Record<string, string>;
-    contentInfo?: PlayerContentInfo;
-    startTime?: number;
-    state: VlcReuseAttemptState;
-    startPositionPolling: (
-        port: VlcRcAddress,
-        contentInfo: PlayerContentInfo,
-        sessionId: string,
-        onSnapshot?: (snapshot: ExternalPlaybackSnapshot) => void,
-        onStopped?: () => void
-    ) => void;
-    stopPositionPolling: (sessionId: string) => void;
-}
+import type { VlcReuseOptions } from './vlc-reuse-options';
 
 /** Owns the one VLC child/RC port retained when instance reuse is enabled. */
 export class VlcReusableProcess {
@@ -167,7 +141,14 @@ export class VlcReusableProcess {
         if (!reusedProcess || reusedProcess.killed || !reusedRcPort)
             return null;
 
-        const { session, state } = options;
+        const { session, state, continuationOf } = options;
+        const canContinue = () =>
+            !continuationOf ||
+            (externalPlayerSessions.getActiveSessionId() === session.id &&
+                !externalPlayerSessions.isCloseRequested(continuationOf) &&
+                this.processSessionId ===
+                    (state.contentMutated ? session.id : continuationOf));
+        if (!canContinue()) return null;
         const cancelled = this.watchStop();
         let reusedProcessSessionId = this.processSessionIds.get(reusedProcess);
         const order = ++this.reuseOrder;
@@ -291,6 +272,11 @@ export class VlcReusableProcess {
         });
 
         try {
+            if (continuationOf) {
+                const playbackState = await getVlcPlaybackState(reusedRcPort);
+                if (state.closeRequested) return await finishRequestedClose();
+                if (playbackState !== 'stopped') return null;
+            }
             await sendVlcRcCommands(
                 reusedRcPort,
                 buildVlcEnqueueCommands({
@@ -320,6 +306,7 @@ export class VlcReusableProcess {
                 (index) => {
                     if (
                         state.closeRequested ||
+                        !canContinue() ||
                         cancelled() ||
                         supersededOrder() ||
                         superseded() ||
@@ -333,6 +320,8 @@ export class VlcReusableProcess {
                 }
             );
             if (state.closeRequested) return await finishRequestedClose();
+            if (continuationOf && !state.contentMutated) return null;
+            if (!canContinue()) return retire();
             if (cancelled()) return await settleCancelled();
             if (superseded()) return retire();
             if (lostChild()) return state.contentMutated ? retire() : null;
@@ -380,6 +369,14 @@ export class VlcReusableProcess {
             if (superseded()) return retire();
             if (lostChild()) return state.contentMutated ? retire() : null;
             if (supersededOrder()) return current ?? session;
+            if (continuationOf) {
+                if (!state.contentMutated) return null;
+                return externalPlayerSessions.markError(
+                    session.id,
+                    'VLC RC continuation failed',
+                    { canClose: true, code: 'connection-failed' }
+                );
+            }
             if (readExternalPlayerErrorCode(error) === 'previous-closing') {
                 const owner = this.processSessionIds.get(reusedProcess);
                 if (state.contentMutated) state.teardownUnconfirmed = true;

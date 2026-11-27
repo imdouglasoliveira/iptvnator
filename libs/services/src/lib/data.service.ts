@@ -1,4 +1,8 @@
-import type { PlaylistUrlImportOptions, PlaylistUrlImportResult } from '@iptvnator/shared/interfaces';
+import type {
+    ExternalPlaybackEnded,
+    PlaylistUrlImportOptions,
+    PlaylistUrlImportResult,
+} from '@iptvnator/shared/interfaces';
 
 type ElectronProcessWindow = Window & {
     process?: {
@@ -78,6 +82,9 @@ export abstract class DataService {
         signal?: AbortSignal
     ): T | Promise<T>;
     abstract removeAllListeners(type: string): void;
+    onExternalPlaybackEnded?(
+        callback: (event: ExternalPlaybackEnded) => void
+    ): (() => void) | undefined;
     abstract listenOn(
         command: string,
         callback: (...args: unknown[]) => void

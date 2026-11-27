@@ -42,12 +42,16 @@ import {
     ResolvedPortalPlayback,
     XtreamSerieEpisode,
 } from '@iptvnator/shared/interfaces';
-import { PORTAL_PLAYER } from '@iptvnator/portal/shared/util';
 import { M3uSeries } from '@iptvnator/shared/m3u-utils/series';
 import {
     createPlaybackSessionKey,
     type PlaybackFallbackRequest,
 } from '@iptvnator/playback/util';
+import {
+    m3uEpisodeContentInfo,
+    M3uSeriesExternalAutoplay,
+} from './m3u-series-external-autoplay';
+import { M3uSeriesExternalPositions } from './m3u-series-external-positions';
 import { buildM3uPlaybackPayload } from '../m3u-playback-payload.util';
 import { readStoredM3uVolume } from '../m3u-stored-volume.util';
 import { M3uEpisodeAccessService } from './m3u-episode-access.service';
@@ -76,6 +80,8 @@ import { M3uSeriesPositionsService } from './m3u-series-positions.service';
     providers: [
         M3uEpisodeAccessService,
         M3uSeriesAutoplayService,
+        M3uSeriesExternalAutoplay,
+        M3uSeriesExternalPositions,
         M3uSeriesMenuService,
         M3uSeriesMetadataService,
         M3uSeriesPositionsService,
@@ -89,7 +95,6 @@ export class M3uSeriesDetailRouteComponent {
     private readonly catalog = inject(M3uSeriesCatalogService);
     private readonly positions = inject(M3uSeriesPositionsService);
     private readonly metadata = inject(M3uSeriesMetadataService);
-    private readonly portalPlayer = inject(PORTAL_PLAYER);
     private readonly access = inject(M3uEpisodeAccessService);
     private readonly settingsStore = inject(SettingsStore);
     protected readonly autoplay = inject(M3uSeriesAutoplayService);
@@ -182,14 +187,11 @@ export class M3uSeriesDetailRouteComponent {
                     startTime: playing.startTime,
                 }),
                 // The episode identity enables the fullscreen episode panel.
-                contentInfo: {
-                    playlistId: this.playlistId(),
-                    contentXtreamId: Number(playing.episode.id),
-                    contentType: 'episode',
-                    seriesXtreamId: this.seriesId(),
-                    seasonNumber: playing.episode.season,
-                    episodeNumber: playing.episode.episode_num,
-                },
+                contentInfo: m3uEpisodeContentInfo(
+                    this.playlistId(),
+                    this.seriesId(),
+                    playing.episode
+                ),
             };
         }
     );
@@ -245,7 +247,7 @@ export class M3uSeriesDetailRouteComponent {
                 const key = `${playlistId}\u0000${seriesId}`;
                 if (key !== this.shownSeriesKey) {
                     this.shownSeriesKey = key;
-                    this.autoplay.cancelPending();
+                    this.autoplay.leaveSeries();
                     this.playing.set(null);
                 }
                 void this.positions.load(playlistId, seriesId);
@@ -339,17 +341,7 @@ export class M3uSeriesDetailRouteComponent {
     protected onExternalFallbackRequested(
         request: PlaybackFallbackRequest
     ): void {
-        this.autoplay.cancelPending();
-        const playback = { ...request.playback };
-        delete playback.contentInfo;
-        // MPV and VLC confirm the history entry by URL.
-        const channel = this.playing()?.channel;
-        if (channel) {
-            this.access.recordWhenPlayed(this.playlistId(), channel, null);
-        }
-        request.trackLaunch(
-            this.portalPlayer.openExternalPlayback(playback, request.player)
-        );
+        this.autoplay.openFallback(request, this.playing());
     }
 
     protected onPanelEpisodeSelected(

@@ -2332,9 +2332,13 @@ coordinate holds dozens of rows.
 - With MPV or VLC saved as the player, an episode click launches it through
   `PORTAL_PLAYER.openResolvedPlayback` at the episode's resume offset instead
   of mounting the inline player, which has no engine for them. DASH episodes
-  stay inline under every setting, as on the `:view` route. The external
-  launch writes no progress: the M3U payload carries no content info for
-  the player's position reports to be attributed to.
+  stay inline under every setting, as on the `:view` route. VLC receives the
+  M3U episode identity and its position reports update that episode's row.
+  When VLC stops within five seconds of the known duration, the series
+  records full progress. With series autoplay enabled, it checks the next
+  episode's access and switches the same VLC window over RC, including when
+  global VLC instance reuse is disabled. An unavailable RC ends the autoplay
+  attempt. External MPV still opens the episode at its saved offset.
 - The season and series watched toggles are started from the hero "More"
   menu (`M3uSeriesMenuService`) and persist through the batch position
   IPC, one transaction per direction; `toggleRunning` guards a double

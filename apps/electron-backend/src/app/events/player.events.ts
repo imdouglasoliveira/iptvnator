@@ -152,9 +152,11 @@ ipcMain.handle(
         startTime?: number,
         headers?: Record<string, string>,
         launchId?: string,
-        requestId?: string
+        requestId?: string,
+        vlcContinuationSessionId?: string
     ) => {
-        await waitForPathIfBareName('vlc', store.get(VLC_PLAYER_PATH));
+        if (!vlcContinuationSessionId)
+            await waitForPathIfBareName('vlc', store.get(VLC_PLAYER_PATH));
         return openVlcPlayer({
             url,
             title,
@@ -167,6 +169,7 @@ ipcMain.handle(
             headers,
             launchId,
             requestId,
+            vlcContinuationSessionId,
         });
     }
 );

@@ -12,6 +12,7 @@ import { M3uEpisodeAccessService } from './m3u-episode-access.service';
 import { toSeasonRecord } from './m3u-series-episode.adapter';
 import { M3uSeriesPositionsService } from './m3u-series-positions.service';
 import type { M3uSeriesAutoplayService } from './m3u-series-autoplay.service';
+import { M3uSeriesExternalAutoplay } from './m3u-series-external-autoplay';
 
 jest.unstable_mockModule('video.js', () => ({ default: jest.fn() }));
 jest.unstable_mockModule('@yangkghjh/videojs-aspect-ratio-panel', () => ({}));
@@ -63,6 +64,10 @@ describe('M3uSeriesAutoplayService', () => {
         TestBed.configureTestingModule({
             providers: [
                 serviceType,
+                {
+                    provide: M3uSeriesExternalAutoplay,
+                    useValue: { connect: jest.fn(), release: jest.fn() },
+                },
                 { provide: SettingsStore, useValue: { seriesAutoplay } },
                 {
                     provide: PORTAL_PLAYER,

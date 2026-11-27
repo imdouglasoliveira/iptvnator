@@ -22,13 +22,10 @@ import {
     shouldReuseVlcInstance,
 } from './external-player-launch-context';
 import { resolveEffectiveExternalPlaybackRequest } from './external-player-playback-request';
-import { ExternalPlayerPositionPollers } from './external-player-position-pollers';
 import {
     buildPlayerStartError,
     ExternalPlaybackSnapshot,
     externalPlayerSessions,
-    maskUrlForLogs,
-    sendPlaybackActivityUpdate,
     sendPlaybackPositionUpdate,
     sendPlayerErrorNotification,
     traceExternalPlayer,
@@ -40,19 +37,21 @@ import {
 } from './mpv-ipc-endpoint';
 import {
     getVlcPlaybackSnapshot,
-    getVlcPlaybackState,
     markVlcOpened,
     type VlcRcAddress,
 } from './vlc-rc';
+import {
+    startVlcPositionPolling,
+    stopVlcPositionPolling,
+    takeVlcContinuation,
+} from './vlc-position-polling';
 export {
     buildVlcEnqueueCommands,
     parseVlcRcNumericResponse,
     parseVlcRcPlaybackState,
 } from './vlc-rc';
-import {
-    VlcReusableProcess,
-    VlcReuseAttemptState,
-} from './vlc-reusable-process';
+import { VlcReusableProcess } from './vlc-reusable-process';
+import type { VlcReuseAttemptState } from './vlc-reuse-options';
 
 export interface OpenVlcPlayerRequest {
     url: string;
@@ -66,66 +65,16 @@ export interface OpenVlcPlayerRequest {
     headers?: Record<string, string>;
     launchId?: string;
     requestId?: string;
+    vlcContinuationSessionId?: string;
 }
 
 const reusableVlcProcess = new VlcReusableProcess();
-const vlcPollers = new ExternalPlayerPositionPollers();
 
 function getVlcPath(options: PlayerPathOptions = {}): string {
     return (
         normalizeCustomPlayerPath(store.get(VLC_PLAYER_PATH)) ??
         getDefaultVlcPath(options)
     );
-}
-
-function stopVlcPositionPolling(sessionId?: string): void {
-    vlcPollers.stop(sessionId);
-}
-
-function startVlcPositionPolling(
-    port: VlcRcAddress,
-    contentInfo: PlayerContentInfo,
-    sessionId: string,
-    onSnapshot?: (snapshot: ExternalPlaybackSnapshot) => void,
-    onStopped?: () => void
-): void {
-    vlcPollers.start(sessionId, 1500, 2000, async (isCurrent) => {
-        const primary = vlcPollers.isPrimary(sessionId);
-        // A reply requested before a newer window launched should not
-        // change the old session. Its next poll observes it in the background.
-        const ownsReply = () =>
-            isCurrent() && primary === vlcPollers.isPrimary(sessionId);
-        try {
-            const snapshot = await getVlcPlaybackSnapshot(port);
-            if (!ownsReply()) return;
-            if (snapshot) {
-                if (primary) {
-                    onSnapshot?.(snapshot);
-                    sendPlaybackPositionUpdate(
-                        sessionId,
-                        contentInfo,
-                        snapshot
-                    );
-                } else {
-                    sendPlaybackActivityUpdate(
-                        sessionId,
-                        contentInfo,
-                        snapshot.positionSeconds
-                    );
-                }
-                return;
-            }
-
-            const playbackState = await getVlcPlaybackState(port);
-            if (!ownsReply()) return;
-            if (playbackState === 'stopped') {
-                if (primary) onStopped?.();
-                stopVlcPositionPolling(sessionId);
-            }
-        } catch {
-            if (ownsReply()) stopVlcPositionPolling(sessionId);
-        }
-    });
 }
 
 function getFreePort(): Promise<number> {
@@ -184,8 +133,10 @@ export async function openVlcPlayer({
     headers,
     launchId,
     requestId,
+    vlcContinuationSessionId,
 }: OpenVlcPlayerRequest) {
-    externalPlayerProcessTeardownGate.assertLaunchAllowed();
+    if (!vlcContinuationSessionId)
+        externalPlayerProcessTeardownGate.assertLaunchAllowed();
     const isFlatpak = isRunningInFlatpak();
     const requestedReuseInstance = store.get(VLC_REUSE_INSTANCE, false);
     const reuseInstance = shouldReuseVlcInstance(
@@ -194,6 +145,23 @@ export async function openVlcPlayer({
     );
     const stopped = reuseInstance ? reusableVlcProcess.watchStop() : undefined;
     const displacedSessionId = externalPlayerSessions.getActiveSessionId();
+    const continuation = vlcContinuationSessionId
+        ? takeVlcContinuation(vlcContinuationSessionId, contentInfo)
+        : undefined;
+    if (vlcContinuationSessionId && !continuation) {
+        const previous = externalPlayerSessions.getSession(
+            vlcContinuationSessionId
+        );
+        if (previous) return previous;
+        throw new Error('VLC continuation session is unavailable');
+    }
+    const processOwner =
+        continuation ??
+        (reuseInstance ? reusableVlcProcess : new VlcReusableProcess());
+    const startPositionPolling = startVlcPositionPolling.bind(
+        null,
+        processOwner
+    );
     const session = externalPlayerSessions.beginSession({
         player: 'vlc',
         launchId,
@@ -213,12 +181,6 @@ export async function openVlcPlayer({
     let closeRetained: (() => Promise<void>) | undefined;
 
     try {
-        const vlcLaunchContext = resolveExternalPlayerLaunchContext(
-            'vlc',
-            getVlcPath({ isFlatpak }),
-            { isFlatpak }
-        );
-        const customVlcArguments = store.get(VLC_PLAYER_ARGUMENTS, '');
         const guideLaunch = !!session.launchId && !contentInfo;
         const effectiveRequest = resolveEffectiveExternalPlaybackRequest({
             url,
@@ -238,12 +200,40 @@ export async function openVlcPlayer({
             effectiveUserAgent,
             headerFields,
         } = effectiveRequest;
+        if (vlcContinuationSessionId) {
+            const reused = await processOwner.tryReuse({
+                session,
+                url,
+                title,
+                effectiveUserAgent,
+                effectiveReferer,
+                effectiveOrigin,
+                mergedHeaders,
+                contentInfo,
+                startTime,
+                state: reuseState,
+                continuationOf: vlcContinuationSessionId,
+                startPositionPolling,
+                stopPositionPolling: stopVlcPositionPolling,
+            });
+            if (reused) return reused;
+            externalPlayerSessions.restoreActiveSession(
+                vlcContinuationSessionId,
+                session.id
+            );
+            return externalPlayerSessions.markClosed(session.id) ?? session;
+        }
+        const vlcLaunchContext = resolveExternalPlayerLaunchContext(
+            'vlc',
+            getVlcPath({ isFlatpak }),
+            { isFlatpak }
+        );
+        const customVlcArguments = store.get(VLC_PLAYER_ARGUMENTS, '');
         traceExternalPlayer('open vlc player', {
             path: vlcLaunchContext.playerPath,
             launchMode: vlcLaunchContext.mode,
             requestedReuseInstance,
             reuseInstance,
-            stream: maskUrlForLogs(url),
             hasUserAgent: Boolean(effectiveUserAgent),
             hasReferer: Boolean(effectiveReferer),
             hasOrigin: Boolean(effectiveOrigin),
@@ -283,7 +273,7 @@ export async function openVlcPlayer({
                     contentInfo,
                     startTime,
                     state: reuseState,
-                    startPositionPolling: startVlcPositionPolling,
+                    startPositionPolling,
                     stopPositionPolling: stopVlcPositionPolling,
                 });
                 if (reused) return reused;
@@ -500,12 +490,11 @@ export async function openVlcPlayer({
                     resolveSpawn();
                 });
 
-                if (trackProcess) {
-                    reusableVlcProcess.track(
-                        proc,
-                        isRetry ? 0 : rcPort,
-                        session.id
-                    );
+                if (
+                    trackProcess ||
+                    (!isRetry && rcPort && contentInfo?.m3uSeries)
+                ) {
+                    processOwner.track(proc, isRetry ? 0 : rcPort, session.id);
                     traceExternalPlayer('tracking vlc process for reuse', {
                         rcPort,
                     });
@@ -553,8 +542,8 @@ export async function openVlcPlayer({
                 externalPlayerSessions.attachCloser(session.id, () => {
                     closeRequested = true;
                     if (
-                        trackProcess &&
-                        !reusableVlcProcess.owns(proc, session.id)
+                        (trackProcess || processOwner.currentSessionId()) &&
+                        !processOwner.owns(proc, session.id)
                     ) {
                         return;
                     }
@@ -591,21 +580,24 @@ export async function openVlcPlayer({
                     return requestedClose;
                 });
                 if (!isRetry && !!rcPort && contentInfo) {
-                    startVlcPositionPolling(
+                    startPositionPolling(
                         rcPort,
                         contentInfo,
                         session.id,
                         (snapshot) => {
                             lastVlcSnapshot = snapshot;
                         },
-                        () => {
-                            markVlcSessionClosed();
-                        }
+                        markVlcSessionClosed
                     );
                 }
 
+                const logsPlayerOutput = () =>
+                    !externalPlayerSessions.getSession(
+                        processOwner.sessionIdFor(proc, session.id)
+                    )?.contentInfo?.m3uSeries;
                 if (proc.stdout) {
                     proc.stdout.on('data', (data) => {
+                        if (!logsPlayerOutput()) return;
                         const output = data.toString().trim();
                         if (output) {
                             traceExternalPlayer('vlc stdout', { output });
@@ -615,6 +607,7 @@ export async function openVlcPlayer({
 
                 if (proc.stderr) {
                     proc.stderr.on('data', (data) => {
+                        if (!logsPlayerOutput()) return;
                         const output = data.toString().trim();
                         if (output) {
                             console.error('[VLC stderr]:', output);
@@ -623,7 +616,8 @@ export async function openVlcPlayer({
                 }
 
                 proc.on('error', (err) => {
-                    console.error('Failed to start VLC player:', err);
+                    if (logsPlayerOutput())
+                        console.error('Failed to start VLC player:', err);
                     if (
                         !closeRequested &&
                         externalPlayerProcessTeardownGate.isTeardownPending(
@@ -631,11 +625,11 @@ export async function openVlcPlayer({
                         )
                     )
                         return;
-                    const processSessionId = reusableVlcProcess.sessionIdFor(
+                    const processSessionId = processOwner.sessionIdFor(
                         proc,
                         session.id
                     );
-                    reusableVlcProcess.clear(proc);
+                    processOwner.clear(proc);
                     stopVlcPositionPolling(processSessionId);
                     if (reusableVlcProcess.isRecovering(proc)) return;
                     if (closeRequested) {
@@ -680,11 +674,11 @@ export async function openVlcPlayer({
 
                 proc.on('exit', (code) => {
                     traceExternalPlayer('vlc exited', { code });
-                    const processSessionId = reusableVlcProcess.sessionIdFor(
+                    const processSessionId = processOwner.sessionIdFor(
                         proc,
                         session.id
                     );
-                    reusableVlcProcess.clear(proc);
+                    processOwner.clear(proc);
                     stopVlcPositionPolling(processSessionId);
                     if (reusableVlcProcess.isRecovering(proc)) return;
                     const stopping =

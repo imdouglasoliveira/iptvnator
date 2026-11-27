@@ -59,6 +59,7 @@ import {
 import { Playlist } from './playlist.interface';
 import type { PlaylistUrlImportOptions, PlaylistUrlImportResult } from './playlist-url-import';
 import {
+    ExternalPlaybackEventSubscriptions,
     PlayerContentInfo,
     ResolvedPortalPlayback,
 } from './portal-playback.interface';
@@ -755,7 +756,7 @@ export interface ElectronRecordingItem {
     fileAvailability: ElectronDownloadFileAvailability | 'unknown';
 }
 
-export interface ElectronBridgeApi {
+export interface ElectronBridgeApi extends ExternalPlaybackEventSubscriptions {
     onAppMenuAction: (
         callback: (action: ElectronBridgeAppMenuAction) => void
     ) => () => void;
@@ -958,7 +959,8 @@ export interface ElectronBridgeApi {
         startTime?: number,
         headers?: Record<string, string>,
         launchId?: string,
-        requestId?: string
+        requestId?: string,
+        vlcContinuationSessionId?: string
     ) => Promise<ExternalPlayerSession>;
     autoUpdatePlaylists: (
         playlists: Playlist[],
@@ -1423,9 +1425,6 @@ export interface ElectronBridgeApi {
             contentType: ElectronBridgePlaybackContentType;
         }[]
     ) => Promise<ElectronBridgeResult>;
-    onPlaybackPositionUpdate: (
-        callback: (data: PlaybackPositionData) => void
-    ) => () => void;
     onExternalPlayerSessionUpdate?: (
         callback: (data: ExternalPlayerSession) => void
     ) => () => void;

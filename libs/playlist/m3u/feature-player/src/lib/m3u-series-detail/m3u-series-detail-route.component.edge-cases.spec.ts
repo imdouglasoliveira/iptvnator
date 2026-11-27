@@ -89,6 +89,7 @@ describe('M3uSeriesDetailRouteComponent edge cases', () => {
     };
     const positionBridge = {
         supportsStorage: true,
+        onPlaybackPositionUpdate: jest.fn(),
         getSeriesPlaybackPositions: jest.fn().mockResolvedValue([]),
         savePlaybackPosition: jest.fn().mockResolvedValue(undefined),
     };
@@ -337,7 +338,7 @@ describe('M3uSeriesDetailRouteComponent edge cases', () => {
 
             expect(page.playback()).toBeNull();
             expect(warn).toHaveBeenCalledWith(
-                '[M3uSeriesDetail]',
+                '[M3uSeriesExternalAutoplay]',
                 'External episode launch failed'
             );
         } finally {

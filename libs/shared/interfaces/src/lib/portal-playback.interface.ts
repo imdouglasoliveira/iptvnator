@@ -6,6 +6,25 @@ export interface PlayerContentInfo extends Omit<
     'positionSeconds' | 'durationSeconds' | 'updatedAt'
 > {
     playlistId: string;
+    m3uSeries?: true;
+}
+
+export const EXTERNAL_PLAYBACK_ENDED = 'external-playback-ended';
+
+export interface ExternalPlaybackEnded {
+    sessionId: string;
+    contentInfo: PlayerContentInfo;
+    positionSeconds: number;
+    durationSeconds: number;
+}
+
+export interface ExternalPlaybackEventSubscriptions {
+    onPlaybackPositionUpdate: (
+        callback: (data: PlaybackPositionData) => void
+    ) => () => void;
+    onExternalPlaybackEnded?: (
+        callback: (data: ExternalPlaybackEnded) => void
+    ) => () => void;
 }
 
 export interface ResolvedPortalPlayback {
@@ -25,6 +44,7 @@ export interface ResolvedPortalPlayback {
     };
     startTime?: number;
     launchId?: string;
+    vlcContinuationSessionId?: string;
     contentInfo?: PlayerContentInfo;
     headers?: Record<string, string>;
     userAgent?: string;

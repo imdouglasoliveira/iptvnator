@@ -27,6 +27,12 @@ const subscriptions: Array<{
         forwardsPayload: true,
     },
     {
+        name: 'external playback ended',
+        channel: 'external-playback-ended',
+        subscribe: (api, cb) => api.onExternalPlaybackEnded!(cb),
+        forwardsPayload: true,
+    },
+    {
         name: 'external player session',
         channel: 'EXTERNAL_PLAYER_SESSION_UPDATE',
         subscribe: (api, cb) => api.onExternalPlayerSessionUpdate!(cb),

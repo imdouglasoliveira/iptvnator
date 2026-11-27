@@ -175,7 +175,9 @@ export class M3uSeriesPositionsService implements OnDestroy {
             immediate &&
             !this.pending &&
             this.lastWritten?.contentXtreamId === position.contentXtreamId &&
-            this.lastWritten.positionSeconds === position.positionSeconds
+            this.lastWritten.positionSeconds === position.positionSeconds &&
+            this.lastWritten.durationSeconds === position.durationSeconds &&
+            this.lastWritten.watched === position.watched
         ) {
             return;
         }
