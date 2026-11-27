@@ -594,17 +594,22 @@ every session from `onExternalPlayerSessionUpdate`:
   reports do not count) — is closed on relock when its source may hold
   withheld content: the lock store is unreadable, or the source has a
   locked category (any source has, when the source cannot be told). The
-  source is the session's `contentInfo.playlistId`, otherwise the source
-  route the launch (or the in-place switch to its current media) was made
-  from; a launch from a global page (dashboard, favorites, search) has
-  none. A session first reported after a relock it started before raced
-  that relock and counts as opened while unlocked. A
-  session opened while locked came from the filtered catalog and keeps
-  playing, until its source's locks change: a session carries no
-  category, so an edit of that source's locks (of any source's, when the
-  source is unknown) counts it as opened while unlocked, and so does any
-  lock edit for one first reported after the edit that started before it.
-  Deleting another source or re-stamping the index leaves it alone. Closing uses `closeExternalPlayerSession(id, true)` and hides
+  source is the request's `contentInfo.playlistId` when present, or its
+  source route. A request from a global page without a source ID counts
+  against all sources. The renderer captures the source, lock state and
+  published locks at the playback request, before M3U reads player
+  settings or Electron waits for the login-shell PATH. MPV/VLC reports
+  carry an opaque request ID so the tracker can recover that context.
+  A request made while locked came from the filtered catalog and keeps
+  playing until the locks of its source change. An edit to any source
+  counts when the request's source is unknown.
+  Deleting another source or re-stamping the index leaves it alone, and so
+  does a save that changes no lock or only reorders them: edits are
+  compared by lock contents (`parentalLockSetKey`, order-insensitive), not
+  by the store revision. The contents compared are the store's published
+  `lockSet`, which moves with the revision: an edit still stamping the
+  index keeps its previous locks there, so a launch requested in that window
+  is judged against the locks that filtered the lists. Closing uses `closeExternalPlayerSession(id, true)` and hides
   the session from the dock first; a launch without a closer yet is closed
   on its next update, a rejected close is retried every second, and a
   session that cannot be closed (`canClose: false`) is only hidden — shown
@@ -622,15 +627,16 @@ every session from `onExternalPlayerSessionUpdate`:
   `parental-lock-external-sessions.deferred.ts`, which loads the tracker
   once the first screen has rendered and the page is idle (one second,
   then an idle callback of at most five), and only where the bridge
-  reports MPV/VLC or Embedded MPV. Until then it records when the page
-  started, when it last relocked or its lock set changed (other version
-  bumps while locked do not count), and, for each session's media, the
-  route it was opened from and whether the app was locked then (listener
-  registrations are not bridge calls). A failed chunk load is retried
+  reports MPV/VLC or Embedded MPV. Until then it keeps the launch
+  context for sessions that report. For older bridge calls without a
+  request ID it uses the first report's route and compares the native
+  start time with the last relock or lock edit. Listener registrations
+  add no bridge calls. A failed chunk load is retried
   twice, five seconds apart. The tracker judges every listed session by
   those readings: one opened while unlocked before a relock it missed is
   closed when it loads; one opened while locked stays allowed even if the
-  PIN was entered before the load; one it never saw report counts as
+  PIN was entered, or the app unlocked and relocked, before the load,
+  unless its source's locks changed since; one it never saw report counts as
   opened while unlocked from any source; a session's source is the route
   of its launch rather than the route at the load; and the busy probe
   counts nothing yet.
@@ -641,9 +647,11 @@ every session from `onExternalPlayerSessionUpdate`:
   closes a session of a withheld one, so an unlocked channel keeps
   playing.
 - **Idle relock.** Embedded MPV counts as busy while any session is
-  `playing` (up to four with multiview). An MPV/VLC film or episode counts while
-  its position, reported every 5 s, moved within the last 15 s, so a pause
-  lets the timer run. A session that reports no position does not count,
+  `playing` (up to four with multiview). Each independent MPV/VLC window
+  counts while its position moved within the last 15 s, so a pause lets
+  the timer run. MPV polls every 5 s and VLC every 2 s. Older windows
+  send activity samples that do not save a resume position. A session
+  that reports no position does not count,
   like live MPV/VLC: those players cannot report a pause, and an open,
   paused window must not keep the app unlocked indefinitely. Positions
   need `contentInfo` and, for MPV, the IPC socket, so M3U films (no

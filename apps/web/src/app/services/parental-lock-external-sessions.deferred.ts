@@ -1,34 +1,24 @@
 import type { Injector } from '@angular/core';
+import {
+    type ExternalSessionLaunch,
+    ParentalLockExternalLaunches,
+    sourceIdOfRoute,
+} from '@iptvnator/services';
 import type { ParentalLockExternalSessions } from './parental-lock-external-sessions';
 
 type IdleScheduler = (run: () => void, options: { timeout: number }) => number;
-
-/** A source route; a launch from it plays that source's content. */
-const SOURCE_ROUTE = /^\/workspace\/(?:playlists|xtreams|stalker)\/([^/?#]+)/;
-
-/** The source a route belongs to; `null` outside a source. */
-export function sourceIdOfRoute(url: string | undefined): string | null {
-    const match = SOURCE_ROUTE.exec(url ?? '');
-    return match ? decodeURIComponent(match[1]) : null;
-}
-
-/** How a session's media was opened, as the eager half saw it. */
-export interface ExternalSessionLaunch {
-    readonly sourceId: string | null;
-    readonly openedLocked: boolean;
-}
 
 /** What the eager half saw before the tracker loaded. */
 export interface ExternalSessionsHandoff {
     pageStartedAt: number;
     /** The last relock or lock-set change. */
     lockedAt: number;
-    /** The lock-set revision `lockedAt` accounts for. */
-    lockRevision: number;
+    /** The lock set (`lockSetKey(null)`) `lockedAt` accounts for. */
+    lockSet: string;
     /**
      * Each session's media as first reported, or as switched to by a reused
-     * player: the route source it was opened from, and whether the app was
-     * locked then (opened from the filtered catalog).
+     * player: the route source it was opened from, whether the app was
+     * locked then, and the locks it was opened under.
      */
     launchSources: ReadonlyMap<string, ExternalSessionLaunch>;
 }
@@ -36,8 +26,8 @@ export interface ExternalSessionsHandoff {
 export interface DeferredExternalSessionsDeps {
     injector: Injector;
     isLocked: () => boolean;
-    /** Bumps whenever the lock set changes. */
-    lockRevision: () => number;
+    /** What a source (any, when `null`) locks; a no-op save keeps it. */
+    lockSetKey: (sourceId: string | null) => string;
     routeUrl: () => string | undefined;
 }
 
@@ -67,15 +57,16 @@ export function afterFirstScreen(run: () => void): void {
  * the first screen has rendered (and only where the bridge reports MPV/VLC
  * or Embedded MPV). The listing covers every session opened meanwhile, so
  * this half only keeps what the tracker judges them by: when the page
- * started, when it last locked or its lock set changed, and the route each
- * session was first reported on (a session's source when it has no
- * `contentInfo`). Listener registrations are not bridge calls.
+ * started, when it last locked or its lock set changed, and how each
+ * session's media was opened: the route (its source when it has no
+ * `contentInfo`), whether from the filtered catalog, and under which locks.
+ * Listener registrations are not bridge calls.
  */
 export class DeferredExternalSessions {
     private tracker: ParentalLockExternalSessions | null = null;
     private readonly pageStartedAt: number;
     private lockedAt: number;
-    private lockRevision: number;
+    private lockSet: string;
     private wasLocked: boolean;
     private readonly launchSources = new Map<
         string,
@@ -90,7 +81,7 @@ export class DeferredExternalSessions {
         this.now = hooks.now ?? Date.now;
         // A page starts locked (or with the feature off).
         this.pageStartedAt = this.lockedAt = this.now();
-        this.lockRevision = deps.lockRevision();
+        this.lockSet = deps.lockSetKey(null);
         this.wasLocked = deps.isLocked();
         const bridge =
             typeof window === 'undefined' ? undefined : window.electron;
@@ -101,16 +92,41 @@ export class DeferredExternalSessions {
             return;
         }
         const stopWatching = bridge.onExternalPlayerSessionUpdate?.(
-            ({ id, streamUrl }) => {
+            ({ id, streamUrl, startedAt, contentInfo, requestId }) => {
                 const seen = this.launchSources.get(id);
                 if (seen?.streamUrl === streamUrl) return;
                 if (!seen && this.launchSources.size >= MAX_LAUNCH_SOURCES) {
                     return;
                 }
+                if (!seen && requestId) {
+                    const launch = deps.injector
+                        .get(ParentalLockExternalLaunches)
+                        .take(requestId) ?? {
+                        sourceId: contentInfo?.playlistId ?? null,
+                        openedLocked: false,
+                        lockKey: deps.lockSetKey(
+                            contentInfo?.playlistId ?? null
+                        ),
+                    };
+                    this.launchSources.set(id, { streamUrl, ...launch });
+                    return;
+                }
+                const sourceId = sourceIdOfRoute(deps.routeUrl());
+                // Media opened unlocked stays so across a switch. A first
+                // report after a relock or lock edit the launch preceded
+                // raced it: the media was not chosen from what it shows.
+                const openedLocked =
+                    this.deps.isLocked() &&
+                    (seen
+                        ? seen.openedLocked
+                        : Date.parse(startedAt) > this.lockedAt);
                 this.launchSources.set(id, {
                     streamUrl,
-                    sourceId: sourceIdOfRoute(this.deps.routeUrl()),
-                    openedLocked: this.deps.isLocked(),
+                    sourceId,
+                    openedLocked,
+                    lockKey: this.deps.lockSetKey(
+                        contentInfo?.playlistId ?? sourceId
+                    ),
                 });
             }
         );
@@ -127,12 +143,12 @@ export class DeferredExternalSessions {
                     tracker.start({
                         pageStartedAt: this.pageStartedAt,
                         lockedAt: this.lockedAt,
-                        lockRevision: this.lockRevision,
+                        lockSet: this.lockSet,
                         launchSources: new Map(
                             [...this.launchSources].map(
-                                ([id, { sourceId, openedLocked }]) => [
+                                ([id, { sourceId, openedLocked, lockKey }]) => [
                                     id,
-                                    { sourceId, openedLocked },
+                                    { sourceId, openedLocked, lockKey },
                                 ]
                             )
                         ),
@@ -163,15 +179,15 @@ export class DeferredExternalSessions {
             this.tracker.onLockChange();
             return;
         }
-        // A relock or a lock-set change; other version bumps while locked
-        // would count a session launched from the filtered catalog as
-        // having raced a relock.
-        const revision = this.deps.lockRevision();
+        // A relock or a lock-set change; other version bumps (a save that
+        // changed nothing, a re-stamp) would count a session launched from
+        // the filtered catalog as having raced a relock.
+        const lockSet = this.deps.lockSetKey(null);
         const locked = this.deps.isLocked();
-        if ((locked && !this.wasLocked) || revision !== this.lockRevision) {
+        if ((locked && !this.wasLocked) || lockSet !== this.lockSet) {
             this.lockedAt = this.now();
         }
-        this.lockRevision = revision;
+        this.lockSet = lockSet;
         this.wasLocked = locked;
     }
 }

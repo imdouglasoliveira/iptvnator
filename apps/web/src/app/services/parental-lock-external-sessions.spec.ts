@@ -2,14 +2,17 @@ import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { Router } from '@angular/router';
 import {
+    ParentalLockExternalLaunches,
     ParentalLockLockStore,
     ParentalLockService,
     ParentalLockSessionOwners,
 } from '@iptvnator/services';
-import type {
-    EmbeddedMpvSession,
-    ExternalPlayerSession,
-    PlaybackPositionData,
+import {
+    type EmbeddedMpvSession,
+    type ExternalPlayerSession,
+    parentalLockSetKey,
+    type ParentalLockStore,
+    type PlaybackPositionData,
 } from '@iptvnator/shared/interfaces';
 import { ExternalPlaybackService } from './external-playback.service';
 import {
@@ -18,6 +21,16 @@ import {
 } from './parental-lock-external-sessions';
 
 type Listener<T> = (value: T) => void;
+
+/** Locked M3U groups per source, as the lock store holds them. */
+let sourceLocks: Record<string, string[]>;
+const lockStore = (): ParentalLockStore =>
+    Object.fromEntries(
+        Object.entries(sourceLocks).map(([id, m3u]) => [
+            id,
+            { xtream: [], stalker: [], m3u },
+        ])
+    );
 
 const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
 
@@ -42,7 +55,6 @@ describe('ParentalLockExternalSessions', () => {
     let active: ReturnType<typeof signal<boolean>>;
     let hasLocks: jest.Mock;
     let lockRevision: ReturnType<typeof signal<number>>;
-    let sourceLocks: Record<string, string[]>;
     let withholdsEverything: ReturnType<typeof signal<boolean>>;
     let activeSession: ReturnType<typeof signal<ExternalPlayerSession | null>>;
     let dismissActiveSession: jest.Mock;
@@ -100,10 +112,9 @@ describe('ParentalLockExternalSessions', () => {
                     provide: ParentalLockLockStore,
                     useValue: {
                         hasLocks,
+                        // Moves on every write, a no-op save included.
                         revision: lockRevision,
-                        locksFor: (id: string) => ({
-                            m3u: sourceLocks[id] ?? [],
-                        }),
+                        lockSet: () => lockStore(),
                     },
                 },
                 {
@@ -123,7 +134,7 @@ describe('ParentalLockExternalSessions', () => {
             pageStartedAt: clock,
             lockedAt: clock,
             launchSources: new Map(),
-            lockRevision: 0,
+            lockSet: '[]',
         });
     });
 
@@ -133,6 +144,47 @@ describe('ParentalLockExternalSessions', () => {
     });
 
     describe('relock', () => {
+        it('uses the request context when a player first reports after relock and navigation', () => {
+            const launches = TestBed.inject(ParentalLockExternalLaunches);
+            const requestId = launches.register(launches.capture());
+            hasLocks.mockImplementation((id) => id === 'm3u-1');
+            clock = 12_000;
+            relock();
+            router.url = '/workspace/playlists/m3u-2/all';
+            launches.finish(requestId);
+
+            emitSession(session({ requestId }));
+
+            expect(closeExternalPlayerSession).toHaveBeenCalledWith(
+                'session-1',
+                true
+            );
+        });
+
+        it('keeps an allowed request that reports after the PIN is entered', () => {
+            active.set(true);
+            const launches = TestBed.inject(ParentalLockExternalLaunches);
+            const requestId = launches.register(launches.capture());
+            active.set(false);
+            service.onLockChange();
+
+            emitSession(session({ requestId }));
+            relock();
+
+            expect(closeExternalPlayerSession).not.toHaveBeenCalled();
+        });
+
+        it('closes a pending request from the previous renderer', () => {
+            active.set(true);
+            emitSession(session({ requestId: 'previous-page' }));
+
+            expect(hasLocks).toHaveBeenCalledWith(null);
+            expect(closeExternalPlayerSession).toHaveBeenCalledWith(
+                'session-1',
+                true
+            );
+        });
+
         it('closes a session started while unlocked and hides it from the dock', async () => {
             const started = session();
             emitSession(started);
@@ -396,7 +448,7 @@ describe('ParentalLockExternalSessions', () => {
                     pageStartedAt: clock,
                     lockedAt: clock,
                     launchSources: new Map(),
-                    lockRevision: 0,
+                    lockSet: '[]',
                 });
                 return page;
             };
@@ -434,13 +486,27 @@ describe('ParentalLockExternalSessions', () => {
         describe('sessions opened while the tracker was loading', () => {
             // It loads after the first screen; the listing reports what
             // opened before, judged by the eager half's clock readings.
+            // The eager half keys the source's locks when it sees a report.
             const launched = (openedLocked: boolean) =>
-                new Map([['session-1', { sourceId: 'm3u-1', openedLocked }]]);
+                new Map([
+                    [
+                        'session-1',
+                        {
+                            sourceId: 'm3u-1',
+                            openedLocked,
+                            lockKey: parentalLockSetKey(lockStore(), 'm3u-1'),
+                        },
+                    ],
+                ]);
             const loadedPage = (
                 lockedAt: number,
                 launchSources: Map<
                     string,
-                    { sourceId: string | null; openedLocked: boolean }
+                    {
+                        sourceId: string | null;
+                        openedLocked: boolean;
+                        lockKey: string;
+                    }
                 > = launched(false),
                 locked = true
             ) => {
@@ -452,7 +518,7 @@ describe('ParentalLockExternalSessions', () => {
                 page.start({
                     pageStartedAt: 10_000,
                     lockedAt,
-                    lockRevision: 0,
+                    lockSet: parentalLockSetKey(lockStore(), null),
                     launchSources,
                 });
                 return page;
@@ -502,6 +568,32 @@ describe('ParentalLockExternalSessions', () => {
                 expect(closeExternalPlayerSession).not.toHaveBeenCalled();
             });
 
+            it('keeps one opened while locked across an unlock and relock before the load', async () => {
+                clock = 15_000;
+                listed = [openedAt(12_000)];
+                // Unlocked at 13 s, relocked at 14 s; no lock was edited.
+                loadedPage(14_000, launched(true));
+                await flush();
+
+                expect(closeExternalPlayerSession).not.toHaveBeenCalled();
+            });
+
+            it('closes one opened while locked when its locks changed before the listing', async () => {
+                clock = 15_000;
+                listed = [openedAt(12_000)];
+                const launches = launched(true);
+                // Edited while unlocked, relocked before the load.
+                sourceLocks['m3u-1'] = ['Synthetic group'];
+                lockRevision.set(1);
+                loadedPage(14_000, launches);
+                await flush();
+
+                expect(closeExternalPlayerSession).toHaveBeenCalledWith(
+                    'session-1',
+                    true
+                );
+            });
+
             it('keeps one opened while locked after the PIN was entered before the load', async () => {
                 clock = 15_000;
                 listed = [openedAt(12_000)];
@@ -542,6 +634,42 @@ describe('ParentalLockExternalSessions', () => {
             service.onLockChange();
 
             expect(closeExternalPlayerSession).not.toHaveBeenCalled();
+        });
+
+        describe('a locked-time session of an unknown source', () => {
+            // A global page (an M3U favorite) launches without a source.
+            beforeEach(() => {
+                router.url = '/workspace/favorites';
+                active.set(true);
+                emitSession(session());
+                active.set(false);
+                service.onLockChange();
+            });
+
+            it('keeps playing when a save changed no lock', () => {
+                // Category management saves an unchanged list: the
+                // revision moves all the same.
+                lockRevision.set(1);
+                service.onLockChange();
+
+                relock();
+
+                expect(closeExternalPlayerSession).not.toHaveBeenCalled();
+            });
+
+            it("is closed once any source's locks changed", () => {
+                sourceLocks['xtream-2'] = ['Synthetic category'];
+                lockRevision.set(1);
+                service.onLockChange();
+
+                relock();
+
+                expect(hasLocks).toHaveBeenCalledWith(null);
+                expect(closeExternalPlayerSession).toHaveBeenCalledWith(
+                    'session-1',
+                    true
+                );
+            });
         });
 
         it('forgets a closed session', () => {
@@ -592,6 +720,20 @@ describe('ParentalLockExternalSessions', () => {
             clock += EXTERNAL_PROGRESS_WINDOW_MS - 4_000;
 
             expect(service.isBusy()).toBe(false);
+        });
+
+        it('counts the older window when the newer film stops progressing', () => {
+            emitSession(film());
+            emitSession({ ...film(), id: 'session-2' });
+            emitPosition(position(100));
+            emitPosition({ ...position(20), sessionId: 'session-2' });
+
+            clock += EXTERNAL_PROGRESS_WINDOW_MS + 1;
+            emitPosition({ ...position(20), sessionId: 'session-2' });
+            expect(service.isBusy()).toBe(false);
+
+            emitPosition({ ...position(135), activityOnly: true });
+            expect(service.isBusy()).toBe(true);
         });
 
         it('stops counting a film whose player closed', () => {
