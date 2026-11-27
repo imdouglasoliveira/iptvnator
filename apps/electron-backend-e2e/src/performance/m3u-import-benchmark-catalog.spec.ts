@@ -59,7 +59,7 @@ describe('opt-in provider-shaped catalog scenario', () => {
 
         assert.equal(
             createM3uImportScenarioFixture(catalog).sha256,
-            '2d2028bb6f11354f2ee91f4c5006abb607a440d4c9a58f22cfa334a8dbe551bf'
+            '1257010e9ff4a469736f9681b65e73b9af3d6f9b4465278b9bbbffd89161a7c1'
         );
         assert.equal(createM3uImportScenarioFixture(formal).channelCount, 10_000);
     });

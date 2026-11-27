@@ -16,6 +16,7 @@ import { defineConfig } from '@playwright/test';
  */
 const xtreamMockPort =
     process.env['IPTVNATOR_JOURNEY_XTREAM_MOCK_PORT'] ?? '3231';
+const openM3u = process.env['IPTVNATOR_JOURNEY_OPEN_M3U'] === '1';
 
 // One summary file per invocation. The runner loads this config before it
 // forks the worker, and the worker (which has TEST_WORKER_INDEX) loads it
@@ -32,22 +33,25 @@ export default defineConfig({
     reporter: [['list']],
     retries: 0,
     testDir: './src/journeys',
-    testMatch: '**/*.journey.ts',
+    testMatch: openM3u ? '**/open-m3u.journey.ts' : '**/*.journey.ts',
+    testIgnore: openM3u ? undefined : '**/open-m3u.journey.ts',
     timeout: 30 * 60 * 1_000,
     use: {
         testIdAttribute: 'data-test-id',
     },
-    webServer: {
-        command: 'node --import tsx apps/xtream-mock-server/src/main.ts',
-        cwd: workspaceRoot,
-        env: {
-            HOST: '127.0.0.1',
-            NODE_ENV: 'development',
-            PORT: xtreamMockPort,
-            TSX_TSCONFIG_PATH: 'tsconfig.base.json',
-        },
-        reuseExistingServer: !process.env['CI'],
-        url: `http://127.0.0.1:${xtreamMockPort}/health`,
-    },
+    webServer: openM3u
+        ? undefined
+        : {
+              command: 'node --import tsx apps/xtream-mock-server/src/main.ts',
+              cwd: workspaceRoot,
+              env: {
+                  HOST: '127.0.0.1',
+                  NODE_ENV: 'development',
+                  PORT: xtreamMockPort,
+                  TSX_TSCONFIG_PATH: 'tsconfig.base.json',
+              },
+              reuseExistingServer: !process.env['CI'],
+              url: `http://127.0.0.1:${xtreamMockPort}/health`,
+          },
     workers: 1,
 });

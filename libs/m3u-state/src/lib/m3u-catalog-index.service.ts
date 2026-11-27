@@ -3,6 +3,10 @@ import { Store, createSelector } from '@ngrx/store';
 import { ParentalLockService, SettingsStore } from '@iptvnator/services';
 import { Channel } from '@iptvnator/shared/interfaces';
 import {
+    measureRendererPerformancePhase,
+    RENDERER_PERFORMANCE_PHASE,
+} from '@iptvnator/shared/logging';
+import {
     M3uCatalogIndex,
     M3uContentKind,
     M3uWithheldGroups,
@@ -129,9 +133,14 @@ export class M3uCatalogIndexService implements M3uCatalogSectionsSource {
     }
 
     /** Index of whatever the store holds, current or not. */
-    private readonly storedIndex: Signal<M3uCatalogIndex<Channel>> = computed(
-        () => buildM3uCatalogIndex(this.channels())
-    );
+    private readonly storedIndex: Signal<M3uCatalogIndex<Channel>> = computed(() => {
+        const channels = this.channels();
+        return measureRendererPerformancePhase(
+            RENDERER_PERFORMANCE_PHASE.M3U_BUILD_CATALOG_INDEX,
+            () => buildM3uCatalogIndex(channels),
+            () => ({ items: channels.length })
+        );
+    });
 
     /**
      * The groups the parental lock withholds from the rows' playlist now.

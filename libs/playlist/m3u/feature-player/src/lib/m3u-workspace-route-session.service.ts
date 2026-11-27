@@ -167,10 +167,15 @@ export class M3uWorkspaceRouteSession {
             const favorites = (playlist.favorites ?? []).filter(
                 (favorite): favorite is string => typeof favorite === 'string'
             );
-            this.store.dispatch(
-                FavoritesActions.hydrateFavorites({
-                    channelIds: favorites,
-                })
+            measureRendererPerformancePhase(
+                RENDERER_PERFORMANCE_PHASE.M3U_PUBLISH_FAVORITES,
+                () =>
+                    this.store.dispatch(
+                        FavoritesActions.hydrateFavorites({
+                            channelIds: favorites,
+                        })
+                    ),
+                () => ({ items: favorites.length })
             );
         } catch {
             if (!this.isCurrentLoadRequest(requestId, playlistId)) {

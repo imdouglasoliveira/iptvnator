@@ -2,8 +2,10 @@ export const RENDERER_PERFORMANCE_PHASE_HOOK_KEY =
     'iptvnator.renderer.performance-phase-hook.v1';
 
 export const RENDERER_PERFORMANCE_PHASE = {
+    M3U_BUILD_CATALOG_INDEX: 'store.m3u-build-catalog-index',
     M3U_IMPORT_DISPATCH: 'store.m3u-import-dispatch',
     M3U_PUBLISH_CHANNELS: 'store.m3u-publish-channels',
+    M3U_PUBLISH_FAVORITES: 'store.m3u-publish-favorites',
     XTREAM_DELETE_ROW: 'store.xtream-delete-row',
     XTREAM_IMPORT_TERMINAL: 'store.xtream-import-terminal',
     XTREAM_PUBLISH_CATEGORIES: 'store.xtream-publish-categories',

@@ -4,6 +4,10 @@ import { Store } from '@ngrx/store';
 import { ParentalLockService, SettingsStore } from '@iptvnator/services';
 import { Channel } from '@iptvnator/shared/interfaces';
 import {
+    RENDERER_PERFORMANCE_PHASE_HOOK_KEY,
+    type RendererPerformancePhaseEvent,
+} from '@iptvnator/shared/logging';
+import {
     M3uCatalogIndexService,
     selectChannelsPlaylistId,
 } from './m3u-catalog-index.service';
@@ -115,6 +119,45 @@ describe('M3uCatalogIndexService', () => {
         // Identity, not equality: the whole point of the memo is that
         // consumers can compare references instead of re-deriving.
         expect(service.index()).toBe(service.index());
+    });
+
+    it('emits one successful build per indexed channel array', () => {
+        const globals = globalThis as unknown as Record<symbol, unknown>;
+        const key = Symbol.for(RENDERER_PERFORMANCE_PHASE_HOOK_KEY);
+        const events: RendererPerformancePhaseEvent[] = [];
+        globals[key] = (event: RendererPerformancePhaseEvent) => events.push(event);
+        try {
+            channels.set([LIVE, MOVIE]);
+            const service = TestBed.inject(M3uCatalogIndexService);
+            service.liveChannels();
+            service.index();
+            service.sectionsOf('pl-a');
+            channels.set([LIVE]);
+            service.index();
+
+            expect(
+                events
+                    .filter((event) => event.boundary === 'end')
+                    .map(({ phase, outcome, metadata }) => ({
+                        phase,
+                        outcome,
+                        metadata,
+                    }))
+            ).toEqual([
+                {
+                    phase: 'store.m3u-build-catalog-index',
+                    outcome: 'success',
+                    metadata: { items: 2 },
+                },
+                {
+                    phase: 'store.m3u-build-catalog-index',
+                    outcome: 'success',
+                    metadata: { items: 1 },
+                },
+            ]);
+        } finally {
+            delete globals[key];
+        }
     });
 
     it('rebuilds when the store replaces the channel array', () => {

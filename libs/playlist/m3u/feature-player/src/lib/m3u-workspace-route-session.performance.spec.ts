@@ -65,6 +65,7 @@ describe('M3uWorkspaceRouteSession performance phases', () => {
                                 playlist: {
                                     items: [PRIMARY_CHANNEL, NEXT_CHANNEL],
                                 },
+                                favorites: ['channel-1'],
                                 title: 'Sensitive title',
                                 url: 'https://user:secret@example.test/list.m3u',
                             } as Playlist)
@@ -88,7 +89,7 @@ describe('M3uWorkspaceRouteSession performance phases', () => {
         delete (window as unknown as { electron?: unknown }).electron;
     });
 
-    it('marks channel publication with only the imported item count', async () => {
+    it('marks publication of all channels and favorites with item counts only', async () => {
         const events: RendererPerformancePhaseEvent[] = [];
         (
             globalThis as unknown as Record<
@@ -119,6 +120,18 @@ describe('M3uWorkspaceRouteSession performance phases', () => {
                 metadata: { items: 2 },
                 outcome: 'success',
                 phase: 'store.m3u-publish-channels',
+            },
+            {
+                boundary: 'start',
+                metadata: { items: 1 },
+                outcome: undefined,
+                phase: 'store.m3u-publish-favorites',
+            },
+            {
+                boundary: 'end',
+                metadata: { items: 1 },
+                outcome: 'success',
+                phase: 'store.m3u-publish-favorites',
             },
         ]);
         expect(JSON.stringify(events)).not.toContain('Sensitive');

@@ -103,6 +103,19 @@
                 "command": "playwright test --config=playwright.journeys.config.ts src/journeys/launch-large.journey.ts"
             }
         },
+        "journeys-open-m3u": {
+            "dependsOn": ["electron-backend:build-performance"],
+            "executor": "nx:run-commands",
+            "cache": false,
+            "parallelism": false,
+            "options": {
+                "cwd": "apps/electron-backend-e2e",
+                "env": {
+                    "IPTVNATOR_JOURNEY_OPEN_M3U": "1"
+                },
+                "command": "playwright test --config=playwright.journeys.config.ts src/journeys/open-m3u.journey.ts"
+            }
+        },
         "large-library-profile": {
             "executor": "nx:run-commands",
             "cache": false,

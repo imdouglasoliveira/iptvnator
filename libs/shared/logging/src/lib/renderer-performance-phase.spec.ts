@@ -1,8 +1,10 @@
 import * as sharedLogging from '../index';
 
 type RendererPerformancePhase =
+    | 'store.m3u-build-catalog-index'
     | 'store.m3u-import-dispatch'
     | 'store.m3u-publish-channels'
+    | 'store.m3u-publish-favorites'
     | 'store.xtream-delete-row'
     | 'store.xtream-import-terminal'
     | 'store.xtream-publish-categories'
@@ -35,8 +37,10 @@ interface RendererPerformancePhaseModule {
         metadata?: () => Readonly<{ items: number }>
     ) => T;
     readonly RENDERER_PERFORMANCE_PHASE?: Readonly<{
+        M3U_BUILD_CATALOG_INDEX: 'store.m3u-build-catalog-index';
         M3U_IMPORT_DISPATCH: 'store.m3u-import-dispatch';
         M3U_PUBLISH_CHANNELS: 'store.m3u-publish-channels';
+        M3U_PUBLISH_FAVORITES: 'store.m3u-publish-favorites';
         XTREAM_DELETE_ROW: 'store.xtream-delete-row';
         XTREAM_IMPORT_TERMINAL: 'store.xtream-import-terminal';
         XTREAM_PUBLISH_CATEGORIES: 'store.xtream-publish-categories';
@@ -191,8 +195,10 @@ describe('renderer performance phases', () => {
             EXPECTED_HOOK_KEY
         );
         expect(rendererPerformance.RENDERER_PERFORMANCE_PHASE).toEqual({
+            M3U_BUILD_CATALOG_INDEX: 'store.m3u-build-catalog-index',
             M3U_IMPORT_DISPATCH: 'store.m3u-import-dispatch',
             M3U_PUBLISH_CHANNELS: 'store.m3u-publish-channels',
+            M3U_PUBLISH_FAVORITES: 'store.m3u-publish-favorites',
             XTREAM_DELETE_ROW: 'store.xtream-delete-row',
             XTREAM_IMPORT_TERMINAL: 'store.xtream-import-terminal',
             XTREAM_PUBLISH_CATEGORIES: 'store.xtream-publish-categories',

@@ -17,6 +17,7 @@ live in `tools/performance/`.
 | J2 `open-source` | click on the Xtream portal card              | category list and first page of the opened section painted                    |
 | J3 `playback`    | click on a channel                           | HTML5 `playing` event                                                         |
 | J4 `search`      | six-character query typed into global search | results list settled                                                          |
+| J5 `open-m3u`    | click on the synthetic 380k M3U source card  | first visible channel, with additional samples for the first favorite and full list |
 | J1 `launch-large` | Electron process spawn on the large-library profile (182 sources, 2.4M catalog rows) | the first card as J1, then every dashboard rail settled                 |
 
 J1 is instrumented: `renderer.initialBytes` from the built output, and the
@@ -1391,6 +1392,41 @@ the Xtream workspace can use `waitForXtreamCatalog(page, { cached: true })`.
 That path checks SQLite, waits for the renderer's catalog initialization
 to finish, and waits for any overlay to clear. Two J4 counters are enforced
 since #1899 (see [Enforced journey counters](#enforced-journey-counters)).
+
+## J5 `open-m3u` — open a large M3U playlist
+
+```bash
+pnpm nx run electron-backend-e2e:journeys-open-m3u
+```
+
+The target sets `IPTVNATOR_JOURNEY_OPEN_M3U=1` and selects J5. The default
+journey run and CI exclude J5. The loopback fixture has 380,000 entries,
+including 330,200 episodes across 18,000 series with two seasons each and
+shared titles across release years. The seed imports the fixture through
+the Add playlist dialog, marks three live channels as favorites, and returns
+to the dashboard. Each iteration starts a fresh Electron process from a
+copy of the seed. The shared click-settle helper waits for DOM, IPC, and mock
+HTTP activity to stop before the source-card click. The default run uses one
+warm-up and five measured iterations.
+
+The click starts the renderer clock. The first visible channel row on the
+source's All channels route marks `clickToFirstChannelMs`. The probe also
+records two boundaries on that route:
+
+- `clickToFirstFavoriteMs` is the first visible favorite row after
+  `store.m3u-publish-favorites` publishes the three favorites.
+- `clickToFullListMs` is the first visible non-favorite row in All channels
+  after `store.m3u-publish-channels` publishes all 380,000 entries. The list is
+  virtualized, so this boundary requires one ordinary row in view.
+
+`renderer.catalogBuildsOnOpen` counts successful
+`store.m3u-build-catalog-index` phases with non-empty input between the click
+and the full-list boundary. The probe stamps the DOM boundaries in its
+mutation observer and requires all three samples before writing an iteration.
+The summary under
+`journeys.open-m3u` contains the counter, per-iteration evidence, and P50
+timings. Use the same fixture for the before and after runs, with snapshots
+already populated when measuring the snapshot path. J5 has no CI ratchet.
 
 ## `renderer.initialBytes`
 
