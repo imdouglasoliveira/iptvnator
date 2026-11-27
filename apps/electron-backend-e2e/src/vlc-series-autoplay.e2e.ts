@@ -164,7 +164,11 @@ test('@electron @playback M3U series advance in the same VLC window', async ({
         );
         await importM3uPlaylistFromNativeDialog(app, playlist);
         await waitForM3uCatalog(page);
-        const playlistId = new URL(page.url()).pathname.split('/')[3];
+        const playlistRoute = new URL(page.url()).pathname.match(
+            /\/workspace\/playlists\/([^/]+)\/all$/
+        );
+        if (!playlistRoute) throw new Error('Expected the M3U catalog route');
+        const playlistId = decodeURIComponent(playlistRoute[1]);
         await openWorkspaceSection(page, 'Series');
         await page
             .locator('app-grid-list mat-card')
