@@ -5,14 +5,27 @@ import {
 } from './playlist-auto-update';
 
 const mockFetchPlaylistFromFile = jest.fn();
-const mockFetchPlaylistFromUrl = jest.fn();
+const mockFetchPlaylistFromUrlConditional = jest.fn();
+const mockPrepareConditionalRefresh = jest.fn();
+const mockRecordConditionalRefreshSuccess = jest.fn();
+const mockRecordConditionalRefreshFailure = jest.fn();
 
 jest.mock('./playlist-source', () => ({
     ...jest.requireActual('./playlist-source'),
     fetchPlaylistFromFile: (...args: unknown[]) =>
         mockFetchPlaylistFromFile(...args),
-    fetchPlaylistFromUrl: (...args: unknown[]) =>
-        mockFetchPlaylistFromUrl(...args),
+    fetchPlaylistFromUrlConditional: (...args: unknown[]) =>
+        mockFetchPlaylistFromUrlConditional(...args),
+}));
+
+jest.mock('./m3u-refresh-state', () => ({
+    ...jest.requireActual('./m3u-refresh-state'),
+    prepareConditionalRefresh: (...args: unknown[]) =>
+        mockPrepareConditionalRefresh(...args),
+    recordConditionalRefreshSuccess: (...args: unknown[]) =>
+        mockRecordConditionalRefreshSuccess(...args),
+    recordConditionalRefreshFailure: (...args: unknown[]) =>
+        mockRecordConditionalRefreshFailure(...args),
 }));
 
 function createPlaylist(overrides: Partial<Playlist> = {}): Playlist {
@@ -59,7 +72,18 @@ describe('autoUpdatePlaylists', () => {
 
     beforeEach(() => {
         mockFetchPlaylistFromFile.mockReset();
-        mockFetchPlaylistFromUrl.mockReset();
+        mockFetchPlaylistFromUrlConditional.mockReset();
+        mockPrepareConditionalRefresh.mockReset().mockResolvedValue({
+            enabled: true,
+            forceFullDownload: false,
+            state: null,
+        });
+        mockRecordConditionalRefreshSuccess
+            .mockReset()
+            .mockResolvedValue(undefined);
+        mockRecordConditionalRefreshFailure
+            .mockReset()
+            .mockResolvedValue(undefined);
         consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
         consoleLogSpy = jest.spyOn(console, 'log').mockImplementation();
         consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation();
@@ -73,10 +97,18 @@ describe('autoUpdatePlaylists', () => {
 
     it('refreshes the remaining playlists while an unresponsive source is still pending', async () => {
         const unresponsive = createPendingFetch();
-        mockFetchPlaylistFromUrl.mockImplementation((url: string) =>
+        mockFetchPlaylistFromUrlConditional.mockImplementation((url: string) =>
             url === 'https://unresponsive.test/list.m3u'
-                ? unresponsive.promise
-                : Promise.resolve(createPlaylist({ title: 'Refreshed' }))
+                ? unresponsive.promise.then((playlist) => ({
+                      status: 'updated',
+                      playlist,
+                      bodySha256: 'hash-slow',
+                  }))
+                : Promise.resolve({
+                      status: 'updated',
+                      playlist: createPlaylist({ title: 'Refreshed' }),
+                      bodySha256: 'hash-fast',
+                  })
         );
 
         const updatePromise = autoUpdatePlaylists([
@@ -89,10 +121,13 @@ describe('autoUpdatePlaylists', () => {
 
         await flushMicrotasks();
 
-        expect(mockFetchPlaylistFromUrl).toHaveBeenCalledWith(
+        expect(mockFetchPlaylistFromUrlConditional).toHaveBeenCalledWith(
             'https://reachable.test/list.m3u',
             'reachable',
-            {}
+            expect.objectContaining({
+                forceFullDownload: false,
+                refreshState: null,
+            })
         );
 
         unresponsive.resolve(createPlaylist({ title: 'Slow but refreshed' }));
@@ -109,10 +144,14 @@ describe('autoUpdatePlaylists', () => {
     });
 
     it('keeps the playlists that succeeded when another source fails', async () => {
-        mockFetchPlaylistFromUrl.mockImplementation((url: string) =>
+        mockFetchPlaylistFromUrlConditional.mockImplementation((url: string) =>
             url === 'https://broken.test/list.m3u'
                 ? Promise.reject(new Error('timeout of 30000ms exceeded'))
-                : Promise.resolve(createPlaylist({ title: 'Refreshed' }))
+                : Promise.resolve({
+                      status: 'updated',
+                      playlist: createPlaylist({ title: 'Refreshed' }),
+                      bodySha256: 'hash-ok',
+                  })
         );
 
         const result = await autoUpdatePlaylists([
@@ -123,12 +162,15 @@ describe('autoUpdatePlaylists', () => {
         expect(result.playlists).toEqual([
             expect.objectContaining({ _id: 'reachable' }),
         ]);
-        // The dropped playlist must still be reported, otherwise the renderer
-        // cannot tell a partial run from a complete one.
         expect(result.outcomes).toEqual([
             { playlistId: 'broken', status: 'failed', title: 'broken' },
             { playlistId: 'reachable', status: 'updated', title: 'reachable' },
         ]);
+        expect(mockRecordConditionalRefreshFailure).toHaveBeenCalledWith(
+            'broken',
+            null,
+            undefined
+        );
         expect(consoleErrorSpy).toHaveBeenCalledWith(
             'Failed to update playlist "broken":',
             expect.objectContaining({
@@ -143,8 +185,12 @@ describe('autoUpdatePlaylists', () => {
             createPendingFetch
         );
         let startedFetches = 0;
-        mockFetchPlaylistFromUrl.mockImplementation(
-            () => pendingFetches[startedFetches++].promise
+        mockFetchPlaylistFromUrlConditional.mockImplementation(() =>
+            pendingFetches[startedFetches++].promise.then((playlist) => ({
+                status: 'updated',
+                playlist,
+                bodySha256: 'hash',
+            }))
         );
 
         const updatePromise = autoUpdatePlaylists(
@@ -218,21 +264,29 @@ describe('autoUpdatePlaylists', () => {
     });
 
     it('downloads startup refreshes with each playlist’s own User-Agent', async () => {
-        mockFetchPlaylistFromUrl.mockResolvedValue(createPlaylist());
+        mockFetchPlaylistFromUrlConditional.mockResolvedValue({
+            status: 'updated',
+            playlist: createPlaylist(),
+            bodySha256: 'hash-ua',
+        });
         const playlist = createPlaylist({
             url: 'https://example.test/list.m3u',
             userAgent: 'IPTVnator-Test/1.0',
         });
         await autoUpdatePlaylists([playlist]);
-        expect(mockFetchPlaylistFromUrl).toHaveBeenCalledWith(
+        expect(mockFetchPlaylistFromUrlConditional).toHaveBeenCalledWith(
             playlist.url,
             playlist.title,
-            { userAgent: playlist.userAgent }
+            expect.objectContaining({ userAgent: playlist.userAgent })
         );
     });
 
     it('skips playlists without a usable source and forwards trust options', async () => {
-        mockFetchPlaylistFromUrl.mockResolvedValue(createPlaylist());
+        mockFetchPlaylistFromUrlConditional.mockResolvedValue({
+            status: 'updated',
+            playlist: createPlaylist(),
+            bodySha256: 'hash-trust',
+        });
 
         const result = await autoUpdatePlaylists(
             [
@@ -251,8 +305,6 @@ describe('autoUpdatePlaylists', () => {
         );
 
         expect(result.playlists).toHaveLength(1);
-        // A playlist with no source was never refreshable, so it is reported as
-        // skipped rather than failed.
         expect(result.outcomes).toEqual([
             { playlistId: 'no-source', status: 'skipped', title: 'No source' },
             { playlistId: 'reachable', status: 'updated', title: 'reachable' },
@@ -260,15 +312,21 @@ describe('autoUpdatePlaylists', () => {
         expect(consoleWarnSpy).toHaveBeenCalledWith(
             'Skipping playlist "No source": no URL or file path found'
         );
-        expect(mockFetchPlaylistFromUrl).toHaveBeenCalledWith(
+        expect(mockFetchPlaylistFromUrlConditional).toHaveBeenCalledWith(
             'https://reachable.test/list.m3u',
             'reachable',
-            { trustedInsecureTlsHosts: ['self-signed.test'] }
+            expect.objectContaining({
+                trustedInsecureTlsHosts: ['self-signed.test'],
+            })
         );
     });
 
     it('redacts playlist credentials from the refresh log', async () => {
-        mockFetchPlaylistFromUrl.mockResolvedValue(createPlaylist());
+        mockFetchPlaylistFromUrlConditional.mockResolvedValue({
+            status: 'updated',
+            playlist: createPlaylist(),
+            bodySha256: 'hash-redacted',
+        });
 
         await autoUpdatePlaylists([
             createUrlPlaylist(
@@ -291,5 +349,53 @@ describe('autoUpdatePlaylists', () => {
                 message.includes('Updating playlist "xtream" from URL:')
             )
         ).toBe(true);
+    });
+
+    it('reports unchanged outcome without returning playlist for persistence', async () => {
+        mockFetchPlaylistFromUrlConditional.mockResolvedValue({
+            status: 'unchanged',
+            bodySha256: 'same-hash',
+            etag: '"e1"',
+            fromNotModified: true,
+        });
+
+        const result = await autoUpdatePlaylists([
+            createUrlPlaylist('same', 'https://example.test/same.m3u'),
+        ]);
+
+        expect(result.playlists).toEqual([]);
+        expect(result.outcomes).toEqual([
+            { playlistId: 'same', status: 'unchanged', title: 'same' },
+        ]);
+        expect(mockRecordConditionalRefreshSuccess).toHaveBeenCalled();
+    });
+
+    it('defers automatic check while failure backoff nextCheckAt is in the future', async () => {
+        const future = new Date(Date.now() + 180_000).toISOString();
+        mockPrepareConditionalRefresh.mockResolvedValue({
+            enabled: true,
+            forceFullDownload: false,
+            state: {
+                bodySha256: 'prev',
+                itemsRevision: 1,
+                checkedAt: new Date().toISOString(),
+                nextCheckAt: future,
+                failures: 1,
+            },
+        });
+
+        const result = await autoUpdatePlaylists([
+            createUrlPlaylist('backed-off', 'https://example.test/slow.m3u'),
+        ]);
+
+        expect(mockFetchPlaylistFromUrlConditional).not.toHaveBeenCalled();
+        expect(result.playlists).toEqual([]);
+        expect(result.outcomes).toEqual([
+            {
+                playlistId: 'backed-off',
+                status: 'unchanged',
+                title: 'backed-off',
+            },
+        ]);
     });
 });

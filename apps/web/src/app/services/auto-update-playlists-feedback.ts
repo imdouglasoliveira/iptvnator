@@ -11,6 +11,7 @@ export const AUTO_UPDATE_PLAYLISTS_MESSAGE_KEYS = {
         'HOME.PLAYLISTS.AUTO_REFRESH_UPDATE_PARTIAL_WITH_SKIPPED',
     skipped: 'HOME.PLAYLISTS.AUTO_REFRESH_UPDATE_SKIPPED',
     success: 'HOME.PLAYLISTS.AUTO_REFRESH_UPDATE_SUCCESS',
+    unchanged: 'HOME.PLAYLISTS.PLAYLIST_UPDATE_UNCHANGED',
 } as const;
 
 export interface AutoUpdatePlaylistsFeedback {
@@ -46,6 +47,14 @@ export function buildAutoUpdatePlaylistsFeedback(
         };
     }
 
+    if (summary.updated === 0 && summary.unchanged > 0) {
+        return {
+            messageKey: AUTO_UPDATE_PLAYLISTS_MESSAGE_KEYS.unchanged,
+            params: summary,
+            isError: false,
+        };
+    }
+
     return {
         messageKey: AUTO_UPDATE_PLAYLISTS_MESSAGE_KEYS.success,
         params: summary,
@@ -53,13 +62,8 @@ export function buildAutoUpdatePlaylistsFeedback(
     };
 }
 
-/**
- * Every playlist the user was not told about looks like an unexplained
- * remainder, so a batch that both failed and skipped needs a message that
- * accounts for all three counts — `partial` alone leaves `total` unreconciled.
- */
 function resolveFailureMessageKey(summary: AutoUpdatePlaylistsSummary): string {
-    if (summary.updated === 0) {
+    if (summary.updated === 0 && summary.unchanged === 0) {
         return AUTO_UPDATE_PLAYLISTS_MESSAGE_KEYS.failed;
     }
 

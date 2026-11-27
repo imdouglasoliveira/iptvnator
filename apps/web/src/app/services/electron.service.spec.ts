@@ -803,7 +803,7 @@ describe('ElectronService', () => {
             );
             expect(translateService.instant).toHaveBeenCalledWith(
                 'HOME.PLAYLISTS.AUTO_REFRESH_UPDATE_SUCCESS',
-                { total: 2, updated: 2, failed: 0, skipped: 0 }
+                { total: 2, updated: 2, unchanged: 0, failed: 0, skipped: 0 }
             );
             expect(snackBar.open).toHaveBeenCalledWith(
                 'HOME.PLAYLISTS.AUTO_REFRESH_UPDATE_SUCCESS',
@@ -829,7 +829,7 @@ describe('ElectronService', () => {
             );
             expect(translateService.instant).toHaveBeenCalledWith(
                 'HOME.PLAYLISTS.AUTO_REFRESH_UPDATE_PARTIAL',
-                { total: 2, updated: 1, failed: 1, skipped: 0 }
+                { total: 2, updated: 1, unchanged: 0, failed: 1, skipped: 0 }
             );
             expect(snackBar.open).toHaveBeenCalledWith(
                 'HOME.PLAYLISTS.AUTO_REFRESH_UPDATE_PARTIAL',
@@ -855,7 +855,7 @@ describe('ElectronService', () => {
             // would leave the skipped playlist unexplained.
             expect(translateService.instant).toHaveBeenCalledWith(
                 'HOME.PLAYLISTS.AUTO_REFRESH_UPDATE_PARTIAL_WITH_SKIPPED',
-                { total: 3, updated: 1, failed: 1, skipped: 1 }
+                { total: 3, updated: 1, unchanged: 0, failed: 1, skipped: 1 }
             );
             expect(snackBar.open).toHaveBeenCalledWith(
                 'HOME.PLAYLISTS.AUTO_REFRESH_UPDATE_PARTIAL_WITH_SKIPPED',
@@ -875,7 +875,7 @@ describe('ElectronService', () => {
 
             expect(translateService.instant).toHaveBeenCalledWith(
                 'HOME.PLAYLISTS.AUTO_REFRESH_UPDATE_FAILED',
-                { total: 2, updated: 0, failed: 2, skipped: 0 }
+                { total: 2, updated: 0, unchanged: 0, failed: 2, skipped: 0 }
             );
             expect(snackBar.open).toHaveBeenCalledWith(
                 'HOME.PLAYLISTS.AUTO_REFRESH_UPDATE_FAILED',
@@ -895,10 +895,28 @@ describe('ElectronService', () => {
 
             expect(translateService.instant).toHaveBeenCalledWith(
                 'HOME.PLAYLISTS.AUTO_REFRESH_UPDATE_SKIPPED',
-                { total: 2, updated: 1, failed: 0, skipped: 1 }
+                { total: 2, updated: 1, unchanged: 0, failed: 0, skipped: 1 }
             );
             expect(snackBar.open).toHaveBeenCalledWith(
                 'HOME.PLAYLISTS.AUTO_REFRESH_UPDATE_SKIPPED',
+                undefined,
+                SUCCESS_TOAST
+            );
+        });
+
+        it('notifies unchanged and skips persisting when auto-update reports only unchanged playlists', async () => {
+            await runAutoUpdate({
+                playlists: [],
+                outcomes: [outcome('first', 'First', 'unchanged')],
+            });
+
+            expect(store.dispatch).not.toHaveBeenCalled();
+            expect(translateService.instant).toHaveBeenCalledWith(
+                'HOME.PLAYLISTS.PLAYLIST_UPDATE_UNCHANGED',
+                { total: 1, updated: 0, unchanged: 1, failed: 0, skipped: 0 }
+            );
+            expect(snackBar.open).toHaveBeenCalledWith(
+                'HOME.PLAYLISTS.PLAYLIST_UPDATE_UNCHANGED',
                 undefined,
                 SUCCESS_TOAST
             );

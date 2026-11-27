@@ -227,6 +227,7 @@
             "MY_PLAYLISTS": "Minhas listas de reprodução",
             "MY_PLAYLISTS_SUBTITLE": "todas as listas de reprodução disponíveis",
             "PLAYLIST_UPDATE_SUCCESS": "A lista de reprodução foi atualizada com sucesso.",
+            "PLAYLIST_UPDATE_UNCHANGED": "Lista sem mudanças",
             "PLAYLIST_UPDATE_ERROR": "Erro ao atualizar detalhes da lista de reprodução.",
             "PLAYLIST_UPDATE_FAILED": "Não foi possível atualizar a lista de reprodução.",
             "PLAYLIST_UPDATE_FILE_NOT_FOUND": "Falha ao atualizar a lista de reprodução. O arquivo local não está mais disponível. Verifique o caminho do arquivo ou reimporte a lista de reprodução.",

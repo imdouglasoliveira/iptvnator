@@ -52,9 +52,7 @@ import {
     XtreamBackupRecentlyViewedItem,
 } from './playlist-backup.interface';
 import {
-    PlaylistRefreshCancelledResult,
-    PlaylistRefreshEvent,
-    PlaylistRefreshPayload,
+    PlaylistRefreshCancelledResult, PlaylistRefreshEvent, PlaylistRefreshPayload, PlaylistRefreshUnchangedResult,
 } from './playlist-refresh.interface';
 import { Playlist } from './playlist.interface';
 import type { PlaylistUrlImportOptions, PlaylistUrlImportResult } from './playlist-url-import';
@@ -1076,7 +1074,7 @@ export interface ElectronBridgeApi extends ExternalPlaybackEventSubscriptions {
     ) => Promise<ElectronBridgeXtreamProbeResult>;
     refreshPlaylist: (
         payload: PlaylistRefreshPayload
-    ) => Promise<Playlist | PlaylistRefreshCancelledResult>;
+    ) => Promise<Playlist | PlaylistRefreshCancelledResult | PlaylistRefreshUnchangedResult>;
     cancelPlaylistRefresh: (
         operationId: string
     ) => Promise<ElectronBridgeResult>;

@@ -49,6 +49,7 @@ export type ValidatedAxiosRequestConfig = Omit<
      * proxy's, and its handshake proves nothing about the portal.
      */
     onConnect?: () => void;
+    acceptNotModified?: boolean;
 };
 
 /**
@@ -255,6 +256,7 @@ export async function requestWithValidatedRedirects<T = unknown>(
         onConnect,
         headersForUnsafeRedirect,
         getAfterHead,
+        acceptNotModified,
         ...config
     }: ValidatedAxiosRequestConfig = {},
     policy: RemoteUrlPolicy = {},
@@ -262,7 +264,9 @@ export async function requestWithValidatedRedirects<T = unknown>(
 ): Promise<ValidatedAxiosResponse<T>> {
     const originalValidateStatus =
         config.validateStatus ??
-        ((status: number) => status >= 200 && status < 300);
+        ((status: number) =>
+            (status >= 200 && status < 300) ||
+            (acceptNotModified === true && status === 304));
     let currentUrl = rawUrl;
     let requestConfig = { ...config };
     let initialOrigin: string | undefined;

@@ -279,11 +279,9 @@ export class ElectronService extends DataService {
                     data,
                     this.settingsStore.getTrustOptions()
                 );
-                this.store.dispatch(
-                    PlaylistActions.updateManyPlaylists({
-                        playlists: result.playlists,
-                    })
-                );
+                if (result.playlists.length > 0) {
+                    this.store.dispatch(PlaylistActions.updateManyPlaylists({ playlists: result.playlists }));
+                }
                 this.reportAutoUpdatePlaylistsResult(result);
                 return result as T;
             } finally {
@@ -298,9 +296,7 @@ export class ElectronService extends DataService {
     private reportAutoUpdatePlaylistsResult(
         result: AutoUpdatePlaylistsResult
     ): void {
-        const unresolved = result.outcomes.filter(
-            (outcome) => outcome.status !== 'updated'
-        );
+        const unresolved = result.outcomes.filter((o) => o.status !== 'updated' && o.status !== 'unchanged');
         if (unresolved.length > 0) {
             this.logger.warn(
                 'Playlist auto-refresh did not update every playlist:',

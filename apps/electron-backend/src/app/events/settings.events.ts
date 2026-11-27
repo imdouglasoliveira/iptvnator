@@ -12,6 +12,7 @@ import {
     EMBEDDED_MPV_FRAME_COPY,
     MPV_PLAYER_ARGUMENTS,
     MPV_REUSE_INSTANCE,
+    M3U_CONDITIONAL_REFRESH_ENABLED,
     PARENTAL_LOCK_ENABLED,
     STARTUP_WINDOW_MODE,
     PORTAL_CONNECTIVITY_GUARD,
@@ -21,6 +22,7 @@ import {
 } from '../services/store.service';
 import { httpServer } from '../server/http-server';
 import { setHostConnectivityGuardEnabled } from '../util/host-connectivity-guard';
+import { setConditionalRefreshSettingEnabled } from './m3u-refresh-state';
 import { applyParentalLockState } from './parental-lock.events';
 import { persistAppUpdateChannel } from '../services/app-update-channel';
 
@@ -28,6 +30,9 @@ export default class SettingsEvents {
     static bootstrapSettingsEvents(): Electron.IpcMain {
         setHostConnectivityGuardEnabled(
             store.get(PORTAL_CONNECTIVITY_GUARD, true) !== false
+        );
+        setConditionalRefreshSettingEnabled(
+            store.get(M3U_CONDITIONAL_REFRESH_ENABLED, true) !== false
         );
         return ipcMain;
     }
@@ -43,6 +48,12 @@ ipcMain.handle('SETTINGS_UPDATE', (_event, arg) => {
         const enabled = arg.portalConnectivityGuard !== false;
         store.set(PORTAL_CONNECTIVITY_GUARD, enabled);
         setHostConnectivityGuardEnabled(enabled);
+    }
+
+    if (arg.optimizations?.conditionalRefresh !== undefined) {
+        const enabled = arg.optimizations.conditionalRefresh !== false;
+        store.set(M3U_CONDITIONAL_REFRESH_ENABLED, enabled);
+        setConditionalRefreshSettingEnabled(enabled);
     }
 
     // Mirrored so the database worker and a reloaded renderer start locked

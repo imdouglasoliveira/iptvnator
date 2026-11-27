@@ -85,4 +85,27 @@ describe('PlaylistRefreshService', () => {
             expect(result).toHaveProperty('userAgent', userAgent);
         }
     );
+
+    it('returns unchanged result without mutating it as a playlist', async () => {
+        const unchanged = {
+            operationId: payload.operationId,
+            playlistId: payload.playlistId,
+            type: 'playlist-refresh-unchanged' as const,
+        };
+        Object.defineProperty(window, 'electron', {
+            configurable: true,
+            writable: true,
+            value: {
+                refreshPlaylist: jest.fn().mockResolvedValue(unchanged),
+            },
+        });
+        const result = await runInInjectionContext(
+            createEnvironmentInjector(
+                [],
+                Injector.NULL as unknown as EnvironmentInjector
+            ),
+            () => new PlaylistRefreshService()
+        ).refreshPlaylist(payload);
+        expect(result).toEqual(unchanged);
+    });
 });

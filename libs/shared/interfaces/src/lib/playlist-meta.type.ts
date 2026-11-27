@@ -6,6 +6,7 @@ export type PlaylistMeta = Pick<
     | 'title'
     | 'filename'
     | '_id'
+    | 'itemsRevision'
     | 'url'
     | 'importDate'
     | 'userAgent'

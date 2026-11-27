@@ -8,7 +8,11 @@ import { Playlist } from './playlist.interface';
  * - `skipped`: the playlist has neither a URL nor a file path, so there is
  *   nothing to refresh from (a configuration problem, not a failure)
  */
-export type AutoUpdatePlaylistStatus = 'updated' | 'failed' | 'skipped';
+export type AutoUpdatePlaylistStatus =
+    | 'updated'
+    | 'unchanged'
+    | 'failed'
+    | 'skipped';
 
 export interface AutoUpdatePlaylistOutcome {
     playlistId: string;
@@ -17,15 +21,14 @@ export interface AutoUpdatePlaylistOutcome {
 }
 
 export interface AutoUpdatePlaylistsResult {
-    /** Only the playlists that were refreshed successfully. */
     playlists: Playlist[];
-    /** One entry per requested playlist, in request order. */
     outcomes: AutoUpdatePlaylistOutcome[];
 }
 
 export interface AutoUpdatePlaylistsSummary {
     total: number;
     updated: number;
+    unchanged: number;
     failed: number;
     skipped: number;
 }
@@ -36,6 +39,8 @@ export function summarizeAutoUpdateOutcomes(
     return {
         total: outcomes.length,
         updated: outcomes.filter((outcome) => outcome.status === 'updated')
+            .length,
+        unchanged: outcomes.filter((outcome) => outcome.status === 'unchanged')
             .length,
         failed: outcomes.filter((outcome) => outcome.status === 'failed')
             .length,

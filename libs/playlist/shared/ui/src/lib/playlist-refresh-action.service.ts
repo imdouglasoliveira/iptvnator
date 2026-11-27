@@ -17,6 +17,7 @@ import {
 import { ChannelActions, PlaylistActions } from '@iptvnator/m3u-state';
 import {
     ELECTRON_BRIDGE_SECURITY_ERROR_CODES,
+    isPlaylistRefreshUnchangedResult,
     normalizeHost,
     parseSecurityPolicyError,
     PLAYLIST_UPDATE,
@@ -222,11 +223,20 @@ export class PlaylistRefreshActionService {
                     title: item.title,
                     url: item.url,
                     ...(item.userAgent ? { userAgent: item.userAgent } : {}),
+                    ...(item.itemsRevision !== undefined
+                        ? { itemsRevision: item.itemsRevision }
+                        : {}),
                     filePath: item.filePath,
                     trustedInsecureTlsHosts:
                         this.settingsStore.getTrustOptions()
                             .trustedInsecureTlsHosts,
                 });
+            if (isPlaylistRefreshUnchangedResult(refreshedPlaylist)) {
+                this.notifications.success(
+                    'HOME.PLAYLISTS.PLAYLIST_UPDATE_UNCHANGED'
+                );
+                return 'refreshed';
+            }
 
             // Saved before it is published, as the browser refresh does, so
             // success means the channels are stored and a write failure is

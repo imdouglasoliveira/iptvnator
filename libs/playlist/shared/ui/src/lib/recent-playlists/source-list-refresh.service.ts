@@ -14,6 +14,7 @@ import {
     SourceActivityService,
 } from '@iptvnator/services';
 import {
+    isPlaylistRefreshUnchangedResult,
     PLAYLIST_UPDATE,
     PlaylistMeta,
     PlaylistRefreshEvent,
@@ -188,6 +189,9 @@ export class SourceListRefreshService {
                     title: item.title,
                     url: item.url,
                     ...(item.userAgent ? { userAgent: item.userAgent } : {}),
+                    ...(item.itemsRevision !== undefined
+                        ? { itemsRevision: item.itemsRevision }
+                        : {}),
                     filePath: item.filePath,
                 },
                 {
@@ -195,6 +199,12 @@ export class SourceListRefreshService {
                         this.track(item._id, this.toBusyEvent(event)),
                 }
             );
+            if (isPlaylistRefreshUnchangedResult(refreshed)) {
+                this.notifications.success(
+                    'HOME.PLAYLISTS.PLAYLIST_UPDATE_UNCHANGED'
+                );
+                return;
+            }
             this.store.dispatch(
                 PlaylistActions.updatePlaylist({
                     playlist: { ...refreshed, _id: item._id },

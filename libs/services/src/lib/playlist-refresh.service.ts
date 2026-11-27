@@ -2,9 +2,11 @@ import { SourceHealthEvidenceService } from './source-health-evidence.service';
 import { Injectable, inject } from '@angular/core';
 import {
     isPlaylistRefreshCancelledResult,
+    isPlaylistRefreshUnchangedResult,
     Playlist,
     PlaylistRefreshEvent,
     PlaylistRefreshPayload,
+    PlaylistRefreshUnchangedResult,
 } from '@iptvnator/shared/interfaces';
 
 export interface PlaylistRefreshOptions {
@@ -21,7 +23,7 @@ export class PlaylistRefreshService {
     async refreshPlaylist(
         payload: PlaylistRefreshPayload,
         options?: PlaylistRefreshOptions
-    ): Promise<Playlist> {
+    ): Promise<Playlist | PlaylistRefreshUnchangedResult> {
         if (!window.electron?.refreshPlaylist) {
             throw new Error('Playlist refresh is only available in Electron');
         }
@@ -44,6 +46,9 @@ export class PlaylistRefreshService {
                 );
                 error.name = 'AbortError';
                 throw error;
+            }
+            if (isPlaylistRefreshUnchangedResult(result)) {
+                return result;
             }
             const refreshed = {
                 ...result,

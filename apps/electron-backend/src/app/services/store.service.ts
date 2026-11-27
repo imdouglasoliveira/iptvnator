@@ -35,6 +35,10 @@ export const STARTUP_WINDOW_MODE = 'STARTUP_WINDOW_MODE';
 /** Desktop portal request cooldown; absent means enabled. */
 export const PORTAL_CONNECTIVITY_GUARD = 'PORTAL_CONNECTIVITY_GUARD';
 
+/** Conditional M3U refresh setting mirrored from renderer; absent means enabled. */
+export const M3U_CONDITIONAL_REFRESH_ENABLED =
+    'M3U_CONDITIONAL_REFRESH_ENABLED';
+
 /**
  * Parental lock feature switch, mirrored from the renderer's settings by the
  * SETTINGS_UPDATE handler. Read when the database worker starts and when a
@@ -103,6 +107,7 @@ export type StoreType = {
     [EMBEDDED_MPV_AUTO_RECONNECT]: boolean;
     [STARTUP_WINDOW_MODE]: StartupWindowMode;
     [PORTAL_CONNECTIVITY_GUARD]: boolean;
+    [M3U_CONDITIONAL_REFRESH_ENABLED]: boolean;
     [PARENTAL_LOCK_ENABLED]: boolean;
     [APP_UPDATE_CHANNEL]: AppUpdateChannel;
     [APP_UPDATE_CHECK_ON_STARTUP]: boolean;

@@ -43,6 +43,7 @@ const mockParse = jest.fn();
 const mockCreatePlaylistObject = jest.fn();
 const mockGetFilenameFromUrl = jest.fn();
 const mockResolveWorkerRuntimeBootstrap = jest.fn();
+const mockDatabaseWorkerRequest = jest.fn();
 const mockWorkerInstances: MockWorker[] = [];
 const PERF_CAPTURE_ENV = 'IPTVNATOR_PERF_CAPTURE';
 const originalPerformanceCaptureValue = process.env[PERF_CAPTURE_ENV];
@@ -109,6 +110,12 @@ jest.mock('../workers/worker-runtime-paths', () => ({
         mockResolveWorkerRuntimeBootstrap(...args),
 }));
 
+jest.mock('../services/database-worker-client', () => ({
+    databaseWorkerClient: {
+        request: (...args: unknown[]) => mockDatabaseWorkerRequest(...args),
+    },
+}));
+
 function createPlaylist(overrides: Partial<Playlist> = {}): Playlist {
     return {
         _id: 'playlist-new',
@@ -161,6 +168,7 @@ describe('playlist IPC events', () => {
         mockParse.mockReset();
         mockCreatePlaylistObject.mockReset();
         mockGetFilenameFromUrl.mockReset();
+        mockDatabaseWorkerRequest.mockReset().mockResolvedValue(null);
         mockResolveWorkerRuntimeBootstrap.mockReset().mockReturnValue({
             nativeModuleSearchPaths: ['/mock/native/modules'],
             workerPath: '/mock/workers/playlist-refresh.worker.js',
@@ -572,6 +580,7 @@ describe('playlist IPC events', () => {
             })
         );
 
+        await new Promise((resolve) => setImmediate(resolve));
         worker.emit('message', { type: 'ready' });
         expect(worker.postMessage).toHaveBeenCalledWith({
             payload,
@@ -770,6 +779,116 @@ describe('playlist IPC events', () => {
         });
 
         await rejectedRefresh;
+    });
+
+    it('reads app_state for PLAYLIST:REFRESH, forwards conditional state, and returns unchanged', async () => {
+        const storedState = {
+            etag: '"etag-1"',
+            bodySha256: 'abc123',
+            itemsRevision: 3,
+            checkedAt: new Date().toISOString(),
+            nextCheckAt: new Date().toISOString(),
+            failures: 0,
+        };
+        mockDatabaseWorkerRequest.mockImplementation(
+            async (op: string, reqPayload: { key?: string }) => {
+                if (
+                    op === 'DB_GET_APP_STATE' &&
+                    reqPayload.key === 'm3u-refresh-state:pl-cond'
+                ) {
+                    return JSON.stringify(storedState);
+                }
+                return null;
+            }
+        );
+
+        const payload: PlaylistRefreshPayload = {
+            operationId: 'refresh-cond',
+            playlistId: 'pl-cond',
+            title: 'Conditional playlist',
+            url: 'https://example.test/cond.m3u',
+            itemsRevision: 3,
+        };
+        const refreshPromise = getHandler(PLAYLIST_REFRESH)(
+            createIpcEvent(),
+            payload
+        );
+        await new Promise((resolve) => setImmediate(resolve));
+        const worker = mockWorkerInstances[0];
+
+        worker.emit('message', { type: 'ready' });
+        expect(worker.postMessage).toHaveBeenCalledWith({
+            type: 'request',
+            payload,
+            conditionalRefresh: {
+                state: storedState,
+                forceFullDownload: false,
+            },
+        });
+
+        worker.emit('message', {
+            type: 'response',
+            success: true,
+            result: {
+                operationId: payload.operationId,
+                playlistId: payload.playlistId,
+                type: 'playlist-refresh-unchanged',
+            },
+            refreshMeta: {
+                unchanged: true,
+                etag: '"etag-1"',
+                bodySha256: 'abc123',
+                fromNotModified: true,
+            },
+        });
+
+        await expect(refreshPromise).resolves.toEqual({
+            operationId: payload.operationId,
+            playlistId: payload.playlistId,
+            type: 'playlist-refresh-unchanged',
+        });
+        expect(mockDatabaseWorkerRequest).toHaveBeenCalledWith(
+            'DB_SET_APP_STATE',
+            expect.objectContaining({
+                key: 'm3u-refresh-state:pl-cond',
+            })
+        );
+    });
+
+    it('records failure backoff in app_state when PLAYLIST:REFRESH fails for a URL', async () => {
+        const payload: PlaylistRefreshPayload = {
+            operationId: 'refresh-url-fail',
+            playlistId: 'pl-fail',
+            title: 'Failing playlist',
+            url: 'https://example.test/fail.m3u',
+            itemsRevision: 1,
+        };
+        const refreshPromise = getHandler(PLAYLIST_REFRESH)(
+            createIpcEvent(),
+            payload
+        );
+        await new Promise((resolve) => setImmediate(resolve));
+        const worker = mockWorkerInstances[0];
+
+        const rejected = expect(refreshPromise).rejects.toThrow('Network error');
+        worker.emit('message', {
+            type: 'response',
+            success: false,
+            error: { message: 'Network error' },
+        });
+        await rejected;
+
+        const setCall = mockDatabaseWorkerRequest.mock.calls.find(
+            ([op, arg]) =>
+                op === 'DB_SET_APP_STATE' &&
+                arg?.key === 'm3u-refresh-state:pl-fail'
+        );
+        expect(setCall).toBeDefined();
+        const saved = JSON.parse(setCall[1].value);
+        expect(saved.failures).toBe(1);
+        expect(
+            Date.parse(saved.nextCheckAt) - Date.parse(saved.checkedAt)
+        ).toBe(180_000);
     });
 
     it('returns save dialog paths and writes files through the filesystem handler', async () => {

@@ -21,6 +21,7 @@ import {
     PlaylistRefreshCancelledResult,
     PlaylistRefreshEvent,
     PlaylistRefreshPayload,
+    PlaylistRefreshUnchangedResult,
     summarizeAutoUpdateOutcomes,
 } from '@iptvnator/shared/interfaces';
 import { resolveWorkerRuntimeBootstrap } from '../workers/worker-runtime-paths';
@@ -28,6 +29,12 @@ import type {
     PlaylistRefreshWorkerMessage,
     PlaylistRefreshWorkerResponseMessage,
 } from '../workers/playlist-refresh.worker.types';
+import {
+    finalizeConditionalRefreshSuccess,
+    prepareConditionalRefresh,
+    recordConditionalRefreshFailure,
+    type PreparedConditionalRefresh,
+} from './m3u-refresh-state';
 import { autoUpdatePlaylists } from './playlist-auto-update';
 import {
     derivePlaylistTitleFromFilePath,
@@ -190,7 +197,7 @@ ipcMain.handle(
         const summary = summarizeAutoUpdateOutcomes(result.outcomes);
 
         console.log(
-            `Auto-update completed: ${summary.updated} updated, ${summary.failed} failed, ${summary.skipped} skipped`
+            `Auto-update completed: ${summary.updated} updated, ${summary.unchanged} unchanged, ${summary.failed} failed, ${summary.skipped} skipped`
         );
         return result;
     }
@@ -200,9 +207,22 @@ ipcMain.handle(
     PLAYLIST_REFRESH,
     async (event, payload: PlaylistRefreshPayload) => {
         const worker = resolvePlaylistRefreshWorker();
+        let prepared: PreparedConditionalRefresh | null = null;
+        const preparedPromise = payload.url
+            ? prepareConditionalRefresh(
+                  payload.playlistId,
+                  payload.itemsRevision
+              ).then((value) => {
+                  prepared = value;
+                  return value;
+              })
+            : Promise.resolve(null);
 
-        return await new Promise<Playlist | PlaylistRefreshCancelledResult>(
-            (resolve, reject) => {
+        return await new Promise<
+            | Playlist
+            | PlaylistRefreshCancelledResult
+            | PlaylistRefreshUnchangedResult
+        >((resolve, reject) => {
                 let cleanupPromise: Promise<void> | null = null;
                 let lastPhase: PlaylistRefreshEvent['phase'] = payload.url
                     ? 'fetching'
@@ -230,8 +250,7 @@ ipcMain.handle(
                             operationId: payload.operationId,
                         });
                     } catch {
-                        // Termination below is authoritative even if cooperative
-                        // cancellation cannot be delivered.
+                        // Termination below is authoritative.
                     }
 
                     await cleanup();
@@ -252,15 +271,34 @@ ipcMain.handle(
 
                 worker.on(
                     'message',
-                    async (message: PlaylistRefreshWorkerMessage<Playlist>) => {
+                    async (
+                        message: PlaylistRefreshWorkerMessage<
+                            Playlist | PlaylistRefreshUnchangedResult
+                        >
+                    ) => {
                         if (settled) {
                             return;
                         }
 
                         if (message.type === 'ready') {
+                            const readyState = prepared ?? (await preparedPromise);
+                            if (settled) {
+                                return;
+                            }
+                            const conditionalRefresh =
+                                readyState?.enabled && readyState.state
+                                    ? {
+                                          state: readyState.state,
+                                          forceFullDownload:
+                                              readyState.forceFullDownload,
+                                      }
+                                    : undefined;
                             worker.postMessage({
                                 type: 'request',
                                 payload,
+                                ...(conditionalRefresh
+                                    ? { conditionalRefresh }
+                                    : {}),
                             });
                             return;
                         }
@@ -278,10 +316,33 @@ ipcMain.handle(
                         await cleanup();
 
                         const response =
-                            message as PlaylistRefreshWorkerResponseMessage<Playlist>;
+                            message as PlaylistRefreshWorkerResponseMessage<
+                                Playlist | PlaylistRefreshUnchangedResult
+                            >;
+                        const readyState = prepared ?? (await preparedPromise);
                         if (response.success && response.result) {
+                            if (payload.url && response.refreshMeta) {
+                                await finalizeConditionalRefreshSuccess(
+                                    payload.playlistId,
+                                    readyState,
+                                    response.refreshMeta,
+                                    payload.itemsRevision
+                                );
+                            }
                             resolve(response.result);
                             return;
+                        }
+
+                        if (
+                            payload.url &&
+                            readyState?.enabled &&
+                            response.error?.name !== 'AbortError'
+                        ) {
+                            await recordConditionalRefreshFailure(
+                                payload.playlistId,
+                                readyState.state,
+                                payload.itemsRevision
+                            );
                         }
 
                         reject(

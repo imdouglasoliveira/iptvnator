@@ -4,6 +4,7 @@ import {
     getFilenameFromUrl,
 } from '@iptvnator/shared/m3u-utils';
 import { parse } from 'iptv-playlist-parser';
+import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { basename } from 'node:path';
 import { createPlaylistAgentFactory } from '../util/secure-https';
@@ -13,6 +14,7 @@ import {
     isInvalidTlsCertificateError,
 } from '../util/security-errors';
 import { requestWithValidatedRedirects } from '../util/validated-axios';
+import type { M3uRefreshState } from './m3u-refresh-state';
 import type { M3uImportPerformanceCapture } from './playlist-import-performance';
 import { M3U_IMPORT_PERFORMANCE_PHASE } from '@iptvnator/shared/interfaces';
 
@@ -21,6 +23,29 @@ export interface PlaylistFetchOptions {
     performanceCapture?: M3uImportPerformanceCapture | null;
     trustedInsecureTlsHosts?: readonly string[];
 }
+
+export interface ConditionalPlaylistFetchOptions extends PlaylistFetchOptions {
+    refreshState?: M3uRefreshState | null;
+    forceFullDownload?: boolean;
+    signal?: AbortSignal;
+}
+
+export type ConditionalPlaylistFetchResult =
+    | {
+          status: 'unchanged';
+          etag?: string;
+          lastModified?: string;
+          bodySha256: string;
+          fromNotModified: boolean;
+      }
+    | {
+          status: 'updated';
+          playlist: Playlist;
+          etag?: string;
+          lastModified?: string;
+          bodySha256: string;
+          fromNotModified: false;
+      };
 
 /**
  * Idle timeout for every playlist download hop. Without it a host that accepts
@@ -85,13 +110,57 @@ function readResponseContentLength(response: unknown): number | undefined {
     }
 }
 
-export async function fetchPlaylistFromUrl(
+export function hashPlaylistBody(body: string): string {
+    return createHash('sha256').update(body, 'utf8').digest('hex');
+}
+
+function readResponseHeader(
+    response: unknown,
+    name: string
+): string | undefined {
+    try {
+        if (typeof response !== 'object' || response === null) {
+            return undefined;
+        }
+        const headers = Reflect.get(response, 'headers');
+        if (typeof headers !== 'object' || headers === null) {
+            return undefined;
+        }
+        const directValue = Reflect.get(headers, name);
+        const getHeader = Reflect.get(headers, 'get');
+        const value =
+            directValue ??
+            (typeof getHeader === 'function'
+                ? Reflect.apply(getHeader, headers, [name])
+                : undefined);
+        if (typeof value === 'string' && value.trim().length > 0) {
+            return value.trim();
+        }
+        return undefined;
+    } catch {
+        return undefined;
+    }
+}
+
+export async function fetchPlaylistFromUrlConditional(
     url: string,
     title?: string,
-    options: PlaylistFetchOptions = {}
-): Promise<Playlist> {
+    options: ConditionalPlaylistFetchOptions = {}
+): Promise<ConditionalPlaylistFetchResult> {
     const performanceCapture = options.performanceCapture;
     const userAgent = options.userAgent?.trim() || undefined;
+    const refreshState = options.refreshState ?? null;
+    const useValidators = Boolean(refreshState && !options.forceFullDownload);
+    const headers: Record<string, string> = {};
+    if (userAgent) {
+        headers['User-Agent'] = userAgent;
+    }
+    if (useValidators && refreshState?.etag) {
+        headers['If-None-Match'] = refreshState.etag;
+    }
+    if (useValidators && refreshState?.lastModified) {
+        headers['If-Modified-Since'] = refreshState.lastModified;
+    }
     const request = () =>
         requestWithValidatedRedirects<string>(
             url,
@@ -100,7 +169,9 @@ export async function fetchPlaylistFromUrl(
                     trustedInsecureTlsHosts: options.trustedInsecureTlsHosts,
                 }),
                 method: 'GET',
-                ...(userAgent ? { headers: { 'User-Agent': userAgent } } : {}),
+                ...(Object.keys(headers).length > 0 ? { headers } : {}),
+                ...(options.signal ? { signal: options.signal } : {}),
+                ...(useValidators ? { acceptNotModified: true } : {}),
                 timeout: PLAYLIST_FETCH_TIMEOUT_MS,
             },
             { allowPrivateNetworks: true }
@@ -125,13 +196,44 @@ export async function fetchPlaylistFromUrl(
         throw error;
     }
 
+    const etag = readResponseHeader(result, 'etag') ?? refreshState?.etag;
+    const lastModified =
+        readResponseHeader(result, 'last-modified') ??
+        refreshState?.lastModified;
+
+    if (result.status === 304) {
+        return {
+            status: 'unchanged',
+            etag,
+            lastModified,
+            bodySha256: refreshState?.bodySha256 ?? '',
+            fromNotModified: true,
+        };
+    }
+
+    const body =
+        typeof result.data === 'string'
+            ? result.data
+            : String(result.data ?? '');
+    const bodySha256 = hashPlaylistBody(body);
+
+    if (refreshState?.bodySha256 && refreshState.bodySha256 === bodySha256) {
+        return {
+            status: 'unchanged',
+            etag,
+            lastModified,
+            bodySha256,
+            fromNotModified: false,
+        };
+    }
+
     const parsedPlaylist = performanceCapture
         ? performanceCapture.measure(
               M3U_IMPORT_PERFORMANCE_PHASE.PARSE_M3U,
-              () => parse(result.data),
+              () => parse(body),
               (parsed) => ({ itemCount: countPlaylistItems(parsed) })
           )
-        : parse(result.data);
+        : parse(body);
     const normalize = (): Playlist => {
         const extractedName =
             url && url.length > 1 ? getFilenameFromUrl(url) : '';
@@ -152,15 +254,36 @@ export async function fetchPlaylistFromUrl(
         return playlist;
     };
 
-    return performanceCapture
+    const playlist = performanceCapture
         ? performanceCapture.measure(
               M3U_IMPORT_PERFORMANCE_PHASE.NORMALIZE,
               normalize,
-              (playlist) => ({
-                  itemCount: countNormalizedPlaylistItems(playlist),
+              (normalized) => ({
+                  itemCount: countNormalizedPlaylistItems(normalized),
               })
           )
         : normalize();
+
+    return {
+        status: 'updated',
+        playlist,
+        etag,
+        lastModified,
+        bodySha256,
+        fromNotModified: false,
+    };
+}
+
+export async function fetchPlaylistFromUrl(
+    url: string,
+    title?: string,
+    options: PlaylistFetchOptions = {}
+): Promise<Playlist> {
+    const fetched = await fetchPlaylistFromUrlConditional(url, title, options);
+    if (fetched.status !== 'updated') {
+        throw new Error('Unexpected unchanged result on unconditional fetch');
+    }
+    return fetched.playlist;
 }
 
 export async function fetchPlaylistFromFile(

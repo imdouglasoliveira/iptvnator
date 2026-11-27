@@ -28,6 +28,7 @@ const STORE_KEYS = {
     EMBEDDED_MPV_FRAME_COPY: 'EMBEDDED_MPV_FRAME_COPY',
     MPV_PLAYER_ARGUMENTS: 'MPV_PLAYER_ARGUMENTS',
     MPV_REUSE_INSTANCE: 'MPV_REUSE_INSTANCE',
+    M3U_CONDITIONAL_REFRESH_ENABLED: 'M3U_CONDITIONAL_REFRESH_ENABLED',
     STARTUP_WINDOW_MODE: 'STARTUP_WINDOW_MODE',
     PORTAL_CONNECTIVITY_GUARD: 'PORTAL_CONNECTIVITY_GUARD',
     VLC_PLAYER_ARGUMENTS: 'VLC_PLAYER_ARGUMENTS',
@@ -58,6 +59,7 @@ jest.mock('../services/store.service', () => ({
     EMBEDDED_MPV_FRAME_COPY: STORE_KEYS.EMBEDDED_MPV_FRAME_COPY,
     MPV_PLAYER_ARGUMENTS: STORE_KEYS.MPV_PLAYER_ARGUMENTS,
     MPV_REUSE_INSTANCE: STORE_KEYS.MPV_REUSE_INSTANCE,
+    M3U_CONDITIONAL_REFRESH_ENABLED: STORE_KEYS.M3U_CONDITIONAL_REFRESH_ENABLED,
     STARTUP_WINDOW_MODE: STORE_KEYS.STARTUP_WINDOW_MODE,
     PORTAL_CONNECTIVITY_GUARD: STORE_KEYS.PORTAL_CONNECTIVITY_GUARD,
     VLC_PLAYER_ARGUMENTS: STORE_KEYS.VLC_PLAYER_ARGUMENTS,
@@ -142,6 +144,50 @@ describe('SETTINGS_UPDATE', () => {
             STORE_KEYS.PORTAL_CONNECTIVITY_GUARD,
             false
         );
+    });
+
+    it('mirrors optimizations.conditionalRefresh and restores it on bootstrap', async () => {
+        mockStoreGet.mockImplementation((key: string, fallback: unknown) =>
+            key === STORE_KEYS.M3U_CONDITIONAL_REFRESH_ENABLED
+                ? false
+                : fallback
+        );
+        const settingsEvents = (await import('./settings.events')).default;
+        settingsEvents.bootstrapSettingsEvents();
+        const refreshState = await import('./m3u-refresh-state');
+        expect(refreshState.isConditionalRefreshEnabled()).toBe(false);
+
+        settingsUpdateHandler(
+            {},
+            {
+                optimizations: {
+                    catalogSnapshot: true,
+                    priorityOpen: true,
+                    conditionalRefresh: true,
+                },
+            }
+        );
+        expect(mockStoreSet).toHaveBeenCalledWith(
+            STORE_KEYS.M3U_CONDITIONAL_REFRESH_ENABLED,
+            true
+        );
+        expect(refreshState.isConditionalRefreshEnabled()).toBe(true);
+
+        settingsUpdateHandler(
+            {},
+            {
+                optimizations: {
+                    catalogSnapshot: true,
+                    priorityOpen: true,
+                    conditionalRefresh: false,
+                },
+            }
+        );
+        expect(mockStoreSet).toHaveBeenCalledWith(
+            STORE_KEYS.M3U_CONDITIONAL_REFRESH_ENABLED,
+            false
+        );
+        expect(refreshState.isConditionalRefreshEnabled()).toBe(false);
     });
 
     it('mirrors the parental lock switch and releases the worker only on switch-off', () => {

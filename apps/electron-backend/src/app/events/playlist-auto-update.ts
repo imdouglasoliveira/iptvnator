@@ -5,67 +5,122 @@ import type {
 } from '@iptvnator/shared/interfaces';
 import { redactSensitiveData } from '@iptvnator/shared/logging';
 import {
+    isRefreshDeferred,
+    prepareConditionalRefresh,
+    readCurrentM3uRevisionCounter,
+    recordConditionalRefreshFailure,
+    recordConditionalRefreshSuccess,
+} from './m3u-refresh-state';
+import {
     fetchPlaylistFromFile,
-    fetchPlaylistFromUrl,
+    fetchPlaylistFromUrlConditional,
     preserveAutoUpdatedPlaylistFields,
     type PlaylistFetchOptions,
 } from './playlist-source';
 
-/**
- * How many playlists the startup auto-update refreshes at the same time.
- * Refreshing sequentially let a single slow or unreachable host delay every
- * remaining playlist (issue #931), while an unbounded fan-out would download
- * and parse arbitrarily many large M3U files in the main process at once.
- */
 export const AUTO_UPDATE_CONCURRENCY = 3;
 
-/**
- * Refreshes a single playlist from its original source.
- * Returns `null` when the playlist carries neither a URL nor a file path.
- */
+type RefreshPlaylistOutcome =
+    | { status: 'updated'; playlist: Playlist }
+    | { status: 'unchanged' }
+    | { status: 'skipped' };
+
 async function refreshPlaylist(
     playlist: Playlist,
     options: PlaylistFetchOptions
-): Promise<Playlist | null> {
-    let playlistObject: Playlist;
-
+): Promise<RefreshPlaylistOutcome> {
     if (playlist.importDate && playlist.url) {
+        const prepared = await prepareConditionalRefresh(
+            playlist._id,
+            playlist.itemsRevision
+        );
+        if (prepared.enabled && isRefreshDeferred(prepared.state)) {
+            return { status: 'unchanged' };
+        }
         console.log(
             `Updating playlist "${playlist.title}" from URL: ${redactSensitiveData(playlist.url)}`
         );
-        playlistObject = await fetchPlaylistFromUrl(
-            playlist.url,
-            playlist.title,
-            { ...options, userAgent: playlist.userAgent }
-        );
-    } else if (playlist.filePath) {
+        try {
+            const fetched = await fetchPlaylistFromUrlConditional(
+                playlist.url,
+                playlist.title,
+                {
+                    ...options,
+                    userAgent: playlist.userAgent,
+                    refreshState: prepared.state,
+                    forceFullDownload: prepared.forceFullDownload,
+                }
+            );
+            if (fetched.status === 'unchanged') {
+                if (prepared.enabled) {
+                    await recordConditionalRefreshSuccess(
+                        playlist._id,
+                        prepared.state,
+                        fetched,
+                        playlist.itemsRevision
+                    );
+                }
+                console.log(`Playlist "${playlist.title}" unchanged`);
+                return { status: 'unchanged' };
+            }
+            if (prepared.enabled) {
+                const counter = await readCurrentM3uRevisionCounter();
+                const nextRevision =
+                    counter !== null
+                        ? counter + 1
+                        : playlist.itemsRevision !== undefined
+                          ? playlist.itemsRevision + 1
+                          : undefined;
+                await recordConditionalRefreshSuccess(
+                    playlist._id,
+                    prepared.state,
+                    fetched,
+                    nextRevision
+                );
+            }
+            console.log(`Successfully updated playlist "${playlist.title}"`);
+            return {
+                status: 'updated',
+                playlist: preserveAutoUpdatedPlaylistFields(
+                    fetched.playlist,
+                    playlist
+                ),
+            };
+        } catch (error) {
+            if (prepared.enabled) {
+                await recordConditionalRefreshFailure(
+                    playlist._id,
+                    prepared.state,
+                    playlist.itemsRevision
+                );
+            }
+            throw error;
+        }
+    }
+    if (playlist.filePath) {
         console.log(
             `Updating playlist "${playlist.title}" from file: ${playlist.filePath}`
         );
-        playlistObject = await fetchPlaylistFromFile(
+        const playlistObject = await fetchPlaylistFromFile(
             playlist.filePath,
             playlist.title
         );
-    } else {
-        console.warn(
-            `Skipping playlist "${playlist.title}": no URL or file path found`
-        );
-        return null;
+        console.log(`Successfully updated playlist "${playlist.title}"`);
+        return {
+            status: 'updated',
+            playlist: preserveAutoUpdatedPlaylistFields(
+                playlistObject,
+                playlist
+            ),
+        };
     }
 
-    console.log(`Successfully updated playlist "${playlist.title}"`);
-    return preserveAutoUpdatedPlaylistFields(playlistObject, playlist);
+    console.warn(
+        `Skipping playlist "${playlist.title}": no URL or file path found`
+    );
+    return { status: 'skipped' };
 }
 
-/**
- * Refreshes the given playlists with bounded concurrency, isolating every
- * failure so one broken source never withholds the playlists that did update.
- * The returned playlists keep the order of the requested ones.
- *
- * Because failures are isolated, they are also reported: every requested
- * playlist gets an outcome, so the renderer can tell the user what actually
- * happened instead of assuming the whole run succeeded.
- */
 export async function autoUpdatePlaylists(
     playlists: readonly Playlist[],
     options: PlaylistFetchOptions = {}
@@ -85,9 +140,11 @@ export async function autoUpdatePlaylists(
             const playlist = playlists[index];
 
             try {
-                const refreshed = await refreshPlaylist(playlist, options);
-                results[index] = refreshed;
-                statuses[index] = refreshed ? 'updated' : 'skipped';
+                const outcome = await refreshPlaylist(playlist, options);
+                if (outcome.status === 'updated') {
+                    results[index] = outcome.playlist;
+                }
+                statuses[index] = outcome.status;
             } catch (error) {
                 console.error(
                     `Failed to update playlist "${playlist.title}":`,
@@ -112,8 +169,6 @@ export async function autoUpdatePlaylists(
         outcomes: playlists.map((playlist, index) => ({
             playlistId: playlist._id,
             title: playlist.title,
-            // Every index is visited above; an unresolved slot could only mean
-            // the refresh never completed, which is a failure, not a success.
             status: statuses[index] ?? 'failed',
         })),
     };

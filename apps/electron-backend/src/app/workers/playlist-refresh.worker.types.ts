@@ -2,11 +2,26 @@ import type {
     PlaylistRefreshEvent,
     PlaylistRefreshPayload,
 } from '@iptvnator/shared/interfaces';
+import type { M3uRefreshState } from '../events/m3u-refresh-state';
 import type { WorkerPerformanceCaptureResult } from './worker-performance-capture';
+
+export interface PlaylistRefreshWorkerConditionalContext {
+    state: M3uRefreshState | null;
+    forceFullDownload: boolean;
+}
+
+export interface PlaylistRefreshWorkerMeta {
+    unchanged: boolean;
+    etag?: string;
+    lastModified?: string;
+    bodySha256: string;
+    fromNotModified: boolean;
+}
 
 export interface PlaylistRefreshWorkerRequestMessage {
     type: 'request';
     payload: PlaylistRefreshPayload;
+    conditionalRefresh?: PlaylistRefreshWorkerConditionalContext;
 }
 
 export interface PlaylistRefreshWorkerCancelMessage {
@@ -27,6 +42,7 @@ export interface PlaylistRefreshWorkerResponseMessage<TResult = unknown> {
     type: 'response';
     success: boolean;
     result?: TResult;
+    refreshMeta?: PlaylistRefreshWorkerMeta;
     error?: {
         name?: string;
         message: string;
