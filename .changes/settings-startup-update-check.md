@@ -3,4 +3,4 @@ type: feature
 area: settings
 ---
 
-Automatic update checks are off by default in the desktop app. You can enable them in Settings → About or check for updates manually there.
+The desktop app leaves startup update checks off by default. In Settings → About, turn on Check for updates on startup or use Check now to look for updates manually.

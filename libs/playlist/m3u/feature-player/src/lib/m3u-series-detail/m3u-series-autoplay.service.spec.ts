@@ -12,6 +12,7 @@ import { M3uEpisodeAccessService } from './m3u-episode-access.service';
 import { toSeasonRecord } from './m3u-series-episode.adapter';
 import { M3uSeriesPositionsService } from './m3u-series-positions.service';
 import type { M3uSeriesAutoplayService } from './m3u-series-autoplay.service';
+import type { AutoplayStreakService } from '@iptvnator/ui/playback';
 import { M3uSeriesExternalAutoplay } from './m3u-series-external-autoplay';
 
 jest.unstable_mockModule('video.js', () => ({ default: jest.fn() }));
@@ -36,13 +37,10 @@ const [third] = seasons['2'];
 
 describe('M3uSeriesAutoplayService', () => {
     let serviceType: typeof M3uSeriesAutoplayService;
-    let streakType: typeof import('@iptvnator/ui/playback').AutoplayStreakService;
 
     beforeAll(async () => {
         ({ M3uSeriesAutoplayService: serviceType } =
             await import('./m3u-series-autoplay.service'));
-        ({ AutoplayStreakService: streakType } =
-            await import('@iptvnator/ui/playback'));
     });
 
     function setup(current = first) {
@@ -107,7 +105,8 @@ describe('M3uSeriesAutoplayService', () => {
             mountEpisode,
             isWithheld,
             requestAccess,
-            streak: TestBed.inject(streakType),
+            streak: (service as unknown as { streak: AutoplayStreakService })
+                .streak,
         };
     }
 

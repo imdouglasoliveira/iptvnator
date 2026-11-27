@@ -611,6 +611,7 @@ routes such a request through the Up Next rail selection
 (`upNextEpisodeSelected`) whenever `seriesNavigation.canNext` is false, which
 plays the next season's first episode; either path keeps fullscreen exactly
 like the transport button.
+
 The card is a glass surface that stays visible when the controls auto-hide
 (`showControls` is the host's input, not the idle state); the compact dock
 uses a smaller variant without the trailing icon. After
@@ -627,6 +628,27 @@ Plumbing mirrors `mediaTitle`: `PortalInlinePlayerComponent.playerUpNext`
 derives the item after the playing one from its `upNextEpisodes` input
 (episodes only, and only while `playerUpNextCard` is not `false`) → `WebPlayerViewComponent.upNext` → the four engine hosts →
 `app-player-controls`. Movie and live hosts pass nothing.
+
+#### M3U series autoplay
+
+The M3U series detail route supplies episode metadata and the ordered Up Next
+rail to the shared inline player. With `seriesAutoplay` enabled, a built-in web
+player or Embedded MPV advances on playback end. The next episode in the
+current season is selected through `playbackEnded`. At a season boundary the
+inline player selects the first episode of the next season through
+`upNextEpisodeSelected`. The M3U route checks the next episode's group before
+opening it. A locked successor appears in Up next by episode number alone.
+Cancelling the PIN leaves the ended episode mounted.
+
+For an M3U series launched in VLC, the desktop app records episode progress
+and treats a stop within five seconds of the known duration as completion.
+Autoplay checks access to the successor, then uses VLC's remote control to
+clear the queue and add the next episode in the same window, even when VLC
+instance reuse is disabled. An unavailable remote-control connection ends the
+handoff. External MPV can open an episode at its saved offset. Automatic
+handoff is limited to players with an episode-end signal, which external MPV
+lacks. Inline HLS VOD also needs a finite playlist with `#EXT-X-ENDLIST` for
+the player to emit `ended`.
 
 ### Settings panel
 

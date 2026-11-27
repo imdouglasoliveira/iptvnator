@@ -3,4 +3,4 @@ type: feature
 area: m3u
 ---
 
-M3U series advance to the next episode or season in the app player and embedded MPV when series autoplay is enabled. Use the Up next card or episode controls to switch manually. Locked episodes still require a PIN.
+With series autoplay enabled, the app player and Embedded MPV advance to the next M3U episode, including the first episode of the next season. With shared controls, the Up next card shows the next episode and a countdown. Locked episodes still require a PIN.
