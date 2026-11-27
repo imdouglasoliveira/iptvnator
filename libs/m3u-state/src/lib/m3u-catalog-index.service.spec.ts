@@ -172,6 +172,46 @@ describe('M3uCatalogIndexService', () => {
     });
 
     describe('sectionsOf', () => {
+        beforeEach(() => localStorage.clear());
+
+        it('answers from the remembered sections before the rows are known', () => {
+            localStorage.setItem(
+                'm3u-catalog-sections-v1',
+                JSON.stringify({ 'pl-b': { movies: true, series: true } })
+            );
+            channels.set([LIVE]);
+
+            expect(
+                TestBed.inject(M3uCatalogIndexService).sectionsOf('pl-b')
+            ).toEqual({ movies: true, series: true });
+        });
+
+        it('remembers a live-only playlist as both sections off', () => {
+            channels.set([LIVE]);
+            TestBed.inject(M3uCatalogIndexService).sectionsOf('pl-a');
+
+            expect(
+                JSON.parse(
+                    localStorage.getItem('m3u-catalog-sections-v1') ?? '{}'
+                )
+            ).toEqual({ 'pl-a': { movies: false, series: false } });
+        });
+
+        it('updates the memory when a refresh empties a section', () => {
+            channels.set([LIVE, MOVIE]);
+            const service = TestBed.inject(M3uCatalogIndexService);
+            service.sectionsOf('pl-a');
+
+            channels.set([LIVE]);
+            service.sectionsOf('pl-a');
+
+            expect(
+                JSON.parse(
+                    localStorage.getItem('m3u-catalog-sections-v1') ?? '{}'
+                )['pl-a']
+            ).toEqual({ movies: false, series: false });
+        });
+
         it('answers from the rows while they belong to that playlist', () => {
             channels.set([LIVE, MOVIE]);
             const service = TestBed.inject(M3uCatalogIndexService);

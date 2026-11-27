@@ -18,6 +18,7 @@ import {
 } from '@iptvnator/portal/shared/util';
 import {
     m3uCatalogSource,
+    readRememberedM3uSections,
     selectAllPlaylistsMeta,
 } from '@iptvnator/m3u-state';
 import { APP_ICONS } from '@iptvnator/ui/components/app-icons';
@@ -74,6 +75,7 @@ export class WorkspaceShellRouteStateService {
         // M3U route, where the rail follows the active playlist).
         return (
             m3uCatalogSource()?.sectionsOf(playlistId) ??
+            readRememberedM3uSections(playlistId) ??
             NO_M3U_CATALOG_SECTIONS
         );
     }

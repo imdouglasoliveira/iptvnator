@@ -38,6 +38,7 @@ describe('WorkspaceShellRouteStateService — M3U catalog sections', () => {
     }
 
     beforeEach(() => {
+        localStorage.clear();
         loading.set(false);
         rowsPlaylistId.set('pl-a');
         known.clear();
@@ -170,6 +171,32 @@ describe('WorkspaceShellRouteStateService — M3U catalog sections', () => {
         counts.set({ movie: 0, episode: 0 });
 
         expect(sections(state)).toEqual(['vod']);
+    });
+
+    it('offers the remembered sections before the index exists', () => {
+        localStorage.setItem(
+            'm3u-catalog-sections-v1',
+            JSON.stringify({ 'pl-a': { movies: true, series: true } })
+        );
+        m3uCatalogSource.set(null);
+
+        expect(sections(service())).toEqual(['vod', 'series']);
+    });
+
+    it('offers the remembered sections while the index does not know the playlist', () => {
+        localStorage.setItem(
+            'm3u-catalog-sections-v1',
+            JSON.stringify({ 'pl-a': { movies: false, series: true } })
+        );
+        loading.set(true);
+
+        expect(sections(service())).toEqual(['series']);
+    });
+
+    it('offers nothing for a playlist with no memory and no index', () => {
+        m3uCatalogSource.set(null);
+
+        expect(sections(service())).toEqual([]);
     });
 
     it('offers nothing when the sections are turned off', () => {
