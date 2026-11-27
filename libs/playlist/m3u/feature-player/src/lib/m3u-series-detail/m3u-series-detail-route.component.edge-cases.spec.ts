@@ -120,7 +120,13 @@ describe('M3uSeriesDetailRouteComponent edge cases', () => {
                     provide: TmdbEnrichmentService,
                     useValue: { isEnabled: () => false, enrichTv: jest.fn() },
                 },
-                { provide: M3uSeriesCatalogService, useValue: { seriesById } },
+                {
+                    provide: M3uSeriesCatalogService,
+                    useValue: {
+                        seriesById,
+                        seriesForPlayback: (id: number) => seriesById().get(id),
+                    },
+                },
             ],
         }).overrideComponent(M3uSeriesDetailRouteComponent, {
             // `set` for the imports too: the real ones pull video.js in.
@@ -320,7 +326,7 @@ describe('M3uSeriesDetailRouteComponent edge cases', () => {
     it('logs a failed MPV or VLC launch instead of rejecting unhandled', async () => {
         portalPlayer.isEmbeddedPlayer.mockReturnValue(false);
         portalPlayer.openResolvedPlayback.mockRejectedValue(
-            new Error('player missing')
+            new Error('Failed to open https://streams.example/episode.mp4')
         );
         const warn = jest.spyOn(console, 'warn').mockImplementation();
         try {
@@ -332,8 +338,7 @@ describe('M3uSeriesDetailRouteComponent edge cases', () => {
             expect(page.playback()).toBeNull();
             expect(warn).toHaveBeenCalledWith(
                 '[M3uSeriesDetail]',
-                'External episode launch failed',
-                expect.anything()
+                'External episode launch failed'
             );
         } finally {
             warn.mockRestore();

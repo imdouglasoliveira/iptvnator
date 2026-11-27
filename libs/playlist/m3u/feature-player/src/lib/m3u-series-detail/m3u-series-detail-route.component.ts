@@ -2,7 +2,6 @@ import {
     ChangeDetectionStrategy,
     Component,
     computed,
-    DestroyRef,
     effect,
     inject,
     linkedSignal,
@@ -31,7 +30,10 @@ import {
     SeasonContainerSeriesPlaybackToggleRequest,
     VodMoreMenuComponent,
 } from '@iptvnator/ui/components';
-import { PortalInlinePlayerComponent } from '@iptvnator/ui/playback';
+import {
+    PortalInlinePlayerComponent,
+    type UpNextRailItem,
+} from '@iptvnator/ui/playback';
 import {
     Channel,
     hasReachedPlaybackStart,
@@ -40,7 +42,7 @@ import {
     ResolvedPortalPlayback,
     XtreamSerieEpisode,
 } from '@iptvnator/shared/interfaces';
-import { createLogger, PORTAL_PLAYER } from '@iptvnator/portal/shared/util';
+import { PORTAL_PLAYER } from '@iptvnator/portal/shared/util';
 import { M3uSeries } from '@iptvnator/shared/m3u-utils/series';
 import {
     createPlaybackSessionKey,
@@ -49,45 +51,16 @@ import {
 import { buildM3uPlaybackPayload } from '../m3u-playback-payload.util';
 import { readStoredM3uVolume } from '../m3u-stored-volume.util';
 import { M3uEpisodeAccessService } from './m3u-episode-access.service';
+import { m3uEpisodePlayerOverride } from './m3u-episode-player-override.util';
 import {
-    m3uEpisodePlayerOverride,
-    m3uEpisodeStaysInline,
-} from './m3u-episode-player-override.util';
-import { resumeOffsetOf } from './m3u-episode-resume.util';
-import {
-    channelOfM3uEpisode,
-    toSeasonRecord,
-} from './m3u-series-episode.adapter';
+    M3uSeriesAutoplayService,
+    type PlayingEpisode,
+} from './m3u-series-autoplay.service';
+import { toSeasonRecord } from './m3u-series-episode.adapter';
 import { M3uSeriesMenuService } from './m3u-series-menu.service';
 import { M3uSeriesMetadataService } from './m3u-series-metadata.service';
 import { M3uSeriesPositionsService } from './m3u-series-positions.service';
 
-interface PlayingEpisode {
-    readonly episode: XtreamSerieEpisode;
-    /**
-     * The playlist row, captured when the episode was chosen. Sync and
-     * refresh re-publish the rows and a lock flip rebuilds the catalog; a
-     * row looked up again would give the player a new payload each time,
-     * and it would remount at the offset the episode was opened at.
-     */
-    readonly channel: Channel;
-    /** Seconds to open at; `undefined` starts from the beginning. */
-    readonly startTime: number | undefined;
-}
-
-/**
- * The detail page for one aggregated M3U series.
- *
- * It fills the portal shell the Xtream and Stalker series pages already
- * use — nothing in `PortalDetailShellComponent`, `SeasonContainerComponent`
- * or `PortalInlinePlayerComponent` is changed or forked. Everything those
- * components need is already an input; the work is producing their shapes.
- *
- * Modelled on the M3U movie detail rather than on the Xtream series page:
- * that page needs six collaborator services for downloads, similar items,
- * multi-source pins and a provider `info` payload, none of which an M3U
- * playlist has.
- */
 @Component({
     selector: 'app-m3u-series-detail-route',
     imports: [
@@ -102,6 +75,7 @@ interface PlayingEpisode {
     templateUrl: './m3u-series-detail-route.component.html',
     providers: [
         M3uEpisodeAccessService,
+        M3uSeriesAutoplayService,
         M3uSeriesMenuService,
         M3uSeriesMetadataService,
         M3uSeriesPositionsService,
@@ -109,7 +83,6 @@ interface PlayingEpisode {
     changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class M3uSeriesDetailRouteComponent {
-    private readonly logger = createLogger('M3uSeriesDetail');
     private readonly route = inject(ActivatedRoute);
     private readonly router = inject(Router);
     private readonly store = inject(Store);
@@ -119,18 +92,14 @@ export class M3uSeriesDetailRouteComponent {
     private readonly portalPlayer = inject(PORTAL_PLAYER);
     private readonly access = inject(M3uEpisodeAccessService);
     private readonly settingsStore = inject(SettingsStore);
+    protected readonly autoplay = inject(M3uSeriesAutoplayService);
     protected readonly menu = inject(M3uSeriesMenuService);
     private readonly seasonContainer =
         viewChild<SeasonContainerComponent>('seasonContainer');
 
     private readonly playlist = this.store.selectSignal(selectActivePlaylist);
 
-    /**
-     * The playlist fields playback reads (its default request headers).
-     * Recording an episode in Recently viewed rewrites the playlist meta;
-     * a payload rebuilt from that would look like a new source to the
-     * player and remount it mid-episode.
-     */
+    // Keep the payload stable when a Recently viewed write republishes playlist metadata.
     private readonly playbackPlaylist = computed<PlaylistMeta | null>(
         () => {
             const playlist = this.playlist();
@@ -178,15 +147,7 @@ export class M3uSeriesDetailRouteComponent {
         () => this.series()?.episodeCount ?? 0
     );
 
-    /**
-     * The episode currently mounted in the inline player, if any, together
-     * with the offset it was opened at.
-     *
-     * The offset is captured once, at selection, rather than read live from
-     * the positions map. The map is patched by this episode's own progress
-     * ticks, so a live read would feed the player a `startTime` that chases
-     * playback and re-seeks it on every tick.
-     */
+    // Capture the episode and its resume offset once to avoid re-seeking on progress ticks.
     private readonly playing = signal<PlayingEpisode | null>(null);
     /** Latches once the mounted episode reaches its resume point. */
     private resumeSettled = false;
@@ -217,17 +178,10 @@ export class M3uSeriesDetailRouteComponent {
                     channel,
                     target: channel,
                     playlistMeta: this.playbackPlaylist(),
-                    // An episode is a finished file, never a live edge;
-                    // this is what gives the player a seekable timeline and
-                    // a resume position instead of live semantics.
                     isLive: false,
                     startTime: playing.startTime,
                 }),
-                // Which episode is on screen. The shared player offers its
-                // fullscreen episode panel only for a playback that says
-                // so; the seasons and positions it is handed are not
-                // enough on their own. Inline only: an external launch
-                // stays untracked, as before.
+                // The episode identity enables the fullscreen episode panel.
                 contentInfo: {
                     playlistId: this.playlistId(),
                     contentXtreamId: Number(playing.episode.id),
@@ -240,23 +194,13 @@ export class M3uSeriesDetailRouteComponent {
         }
     );
 
-    /**
-     * Identifies the mounted content for the player. Changing it tears the
-     * engine down, so it has to move exactly when the episode does — not
-     * when unrelated series state changes.
-     */
+    // Changing this key remounts the engine.
     protected readonly playbackSessionKey = computed(() =>
         this.sessionKeyOf(this.playingEpisodeId())
     );
 
     private readonly tmdb = computed(() => this.metadata.state().details);
 
-    /**
-     * Provider data renders immediately and TMDB patches the same view when
-     * it lands, so a missing or failed match simply leaves the thin
-     * provider presentation in place — no layout jump, no spinner over
-     * content that is already correct.
-     */
     protected readonly seriesTitle = computed(
         () => this.tmdb()?.name?.trim() || this.series()?.title || ''
     );
@@ -275,21 +219,33 @@ export class M3uSeriesDetailRouteComponent {
 
     constructor() {
         this.menu.connect(this.seasonContainer);
-        inject(DestroyRef).onDestroy(() => (this.destroyed = true));
+        this.autoplay.connect({
+            playback: this.playback,
+            seasons: this.seasons,
+            playbackPositions: this.playbackPositions,
+            series: () => this.catalog.seriesForPlayback(this.seriesId()),
+            visibleSeries: this.series,
+            seriesId: this.seriesId,
+            playlistId: this.playlistId,
+            playbackPlaylist: this.playbackPlaylist,
+            sessionKeyOf: (episodeId) => this.sessionKeyOf(episodeId),
+            mountEpisode: (playing) => {
+                this.resumeSettled = false;
+                this.playing.set(playing);
+                this.positions.releaseProgressThrottle();
+            },
+            closePlayer: () => this.onPlayerClosed(),
+        });
 
-        // Reads the ids only, not the series: a catalog rebuild must not
-        // re-read the positions, which also releases the progress throttle.
+        // Catalog rebuilds must not re-read positions or release the progress throttle.
         effect(() => {
             const playlistId = this.playlistId();
             const seriesId = this.seriesId();
             untracked(() => {
-                // The component is reused when only `:seriesId` changes.
-                // The episode playing belongs to the series being left:
-                // kept, it would remount on the way back without a click,
-                // and its late ticks would be filed under the new series.
                 const key = `${playlistId}\u0000${seriesId}`;
                 if (key !== this.shownSeriesKey) {
                     this.shownSeriesKey = key;
+                    this.autoplay.cancelPending();
                     this.playing.set(null);
                 }
                 void this.positions.load(playlistId, seriesId);
@@ -307,11 +263,7 @@ export class M3uSeriesDetailRouteComponent {
             });
         });
 
-        // A relock, or a lock added while an episode plays, stops it: the
-        // inline player is this page's own state, which the app-wide
-        // enforcement (it watches the store's active channel) never sees.
-        // Asked of the row the episode was opened with: the series can be
-        // momentarily empty while the rows reload, which is not a lock.
+        // Check the mounted row for relocks even while the catalog is reloading.
         effect(() => {
             this.access.lockVersion();
             const playing = this.playing();
@@ -339,19 +291,13 @@ export class M3uSeriesDetailRouteComponent {
         );
     }
 
-    /**
-     * Progress ticks from the inline player. The episode currently mounted
-     * is the one they belong to; a tick that arrives after the viewer moved
-     * on would otherwise be filed against the wrong episode.
-     */
     protected onTimeUpdate(update: PlaybackPositionUpdate): void {
         const playing = this.playing();
         const episode = playing?.episode;
         if (!episode || !Number.isFinite(update.currentTime)) {
             return;
         }
-        // A tick at ~0 before the seek to `startTime` would overwrite the
-        // saved point; once reached, a seek back is saved as usual.
+        // Ignore initial ticks until the engine seeks to the saved point.
         if (!this.resumeSettled) {
             if (!hasReachedPlaybackStart(update, playing.startTime ?? 0)) {
                 return;
@@ -373,8 +319,6 @@ export class M3uSeriesDetailRouteComponent {
                     : undefined,
                 playlistId: this.playlistId(),
             },
-            // A pause or seek holds still, and a checkpoint is a verified
-            // final position: write them now, as the portals do.
             update.playing === false || update.checkpoint === true
         );
     }
@@ -386,28 +330,19 @@ export class M3uSeriesDetailRouteComponent {
             undefined
     );
 
-    /**
-     * The level the viewer left the M3U player at, re-read for each episode
-     * as the `:view` player re-reads it per channel; the inline player's
-     * own default is full volume.
-     */
+    // Restore the last M3U volume when opening another episode.
     protected readonly volume = linkedSignal({
         source: () => this.playing(),
         computation: () => readStoredM3uVolume(),
     });
 
-    /**
-     * "Open in MPV/VLC" from the player's failure overlay. Sent without the
-     * episode identity: an external launch stays untracked, like one made
-     * from the episode card.
-     */
     protected onExternalFallbackRequested(
         request: PlaybackFallbackRequest
     ): void {
+        this.autoplay.cancelPending();
         const playback = { ...request.playback };
         delete playback.contentInfo;
-        // The inline attempt's history write waits on its session key, which
-        // an external player never confirms; MPV/VLC confirm by URL.
+        // MPV and VLC confirm the history entry by URL.
         const channel = this.playing()?.channel;
         if (channel) {
             this.access.recordWhenPlayed(this.playlistId(), channel, null);
@@ -417,106 +352,21 @@ export class M3uSeriesDetailRouteComponent {
         );
     }
 
-    /** An episode chosen in the player's fullscreen panel. */
-    protected onPanelEpisodeSelected(item: { episode: unknown }): void {
-        this.onEpisodeClicked(item.episode as XtreamSerieEpisode);
+    protected onPanelEpisodeSelected(
+        item: UpNextRailItem & { autoplaySignal?: AbortSignal }
+    ): void {
+        void this.autoplay.onUpNextSelected(item);
     }
 
     private shownSeriesKey = '';
-    private destroyed = false;
-
-    /**
-     * Whether an answer that arrives later (the positions read, the PIN
-     * prompt) still belongs to the page it was asked on. Leaving the page
-     * does not move `shownSeriesKey`, so its destruction is checked too:
-     * an MPV/VLC launch would otherwise open after the viewer left.
-     */
-    private isStillShown(key: string): boolean {
-        return !this.destroyed && key === this.shownSeriesKey;
-    }
 
     /** "Play from beginning" on an episode with saved progress. */
     protected onEpisodeRestartRequested(episode: XtreamSerieEpisode): void {
-        this.openEpisode(episode, true);
+        void this.autoplay.openEpisode(episode, { fromStart: true });
     }
 
     protected onEpisodeClicked(episode: XtreamSerieEpisode): void {
-        // The resume point comes from the positions map, and a click can
-        // beat the read that fills it. Wait for the read rather than start
-        // at zero and let the first tick overwrite what was saved.
-        const pending = this.positions.whenLoaded();
-        if (!pending) {
-            this.openEpisode(episode);
-            return;
-        }
-
-        const key = this.shownSeriesKey;
-        void pending.then(() => {
-            if (this.isStillShown(key)) {
-                this.openEpisode(episode);
-            }
-        });
-    }
-
-    private openEpisode(episode: XtreamSerieEpisode, fromStart = false): void {
-        const channel = channelOfM3uEpisode(this.series(), episode.id);
-        if (!channel) {
-            return;
-        }
-        const playlistId = this.playlistId();
-        if (!this.access.isWithheld(playlistId, channel)) {
-            this.play(episode, channel, playlistId, fromStart);
-            return;
-        }
-
-        // A locked group asks for the PIN first, as the channel list does;
-        // the answer can arrive after the viewer has moved on.
-        const key = this.shownSeriesKey;
-        void this.access.requestAccess(playlistId, channel).then((granted) => {
-            if (granted && this.isStillShown(key)) {
-                this.play(episode, channel, playlistId, fromStart);
-            }
-        });
-    }
-
-    private play(
-        episode: XtreamSerieEpisode,
-        channel: Channel,
-        playlistId: string,
-        fromStart: boolean
-    ): void {
-        const startTime = fromStart
-            ? undefined
-            : resumeOffsetOf(this.playbackPositions().get(Number(episode.id)));
-        if (this.playsExternally(channel)) {
-            this.onPlayerClosed();
-            this.access.recordWhenPlayed(playlistId, channel, null);
-            void this.portalPlayer
-                .openResolvedPlayback(
-                    buildM3uPlaybackPayload({
-                        channel,
-                        target: channel,
-                        playlistMeta: this.playbackPlaylist(),
-                        isLive: false,
-                        startTime,
-                    }),
-                    true
-                )
-                .catch((error: unknown) =>
-                    // The error can carry the configured player path.
-                    this.logger.warn('External episode launch failed', error)
-                );
-            return;
-        }
-
-        this.resumeSettled = false;
-        this.access.recordWhenPlayed(
-            playlistId,
-            channel,
-            this.sessionKeyOf(Number(episode.id))
-        );
-        this.playing.set({ episode, channel, startTime });
-        this.positions.releaseProgressThrottle();
+        void this.autoplay.openEpisode(episode);
     }
 
     /** The playback session of one episode, scoped to its playlist. */
@@ -530,31 +380,15 @@ export class M3uSeriesDetailRouteComponent {
     }
 
     protected onPlayerClosed(): void {
+        this.autoplay.cancelPending();
         this.playing.set(null);
         this.positions.releaseProgressThrottle();
     }
 
     protected onBack(): void {
-        // Relative to the PARENT, not to this route: `series/:seriesId` is a
-        // two-segment path, so `..` from here lands on `/series` and adding
-        // `series` again would ask for `/series/series` — which the generic
-        // `:view` player route answers, not the catalog.
+        // Navigate from the playlist route to avoid appending a second series segment.
         void this.router.navigate(['series'], {
             relativeTo: this.route.parent,
         });
-    }
-
-    /**
-     * MPV and VLC have no inline engine: mounting the inline player for them
-     * gives an empty stage and launches nothing. They get the episode the
-     * way the `:view` player hands them a channel. DASH and any row with
-     * DRM — stated, or kept in the raw block by older imports — stay inline
-     * under every setting: the external players cannot carry KODIPROP keys.
-     */
-    private playsExternally(channel: Channel): boolean {
-        return (
-            !this.portalPlayer.isEmbeddedPlayer() &&
-            !m3uEpisodeStaysInline(channel)
-        );
     }
 }

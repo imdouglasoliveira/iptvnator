@@ -2299,6 +2299,15 @@ coordinate holds dozens of rows.
 - Inline episode playback carries `contentInfo` (the episode's id and
   coordinates), which is what makes the shared inline player offer its
   fullscreen episode panel; a pick there arrives as `upNextEpisodeSelected`.
+  The route-scoped `M3uSeriesAutoplayService` supplies episode metadata, transport
+  navigation and the Up Next rail. With `seriesAutoplay` enabled, playback
+  advances within a season through `playbackEnded` and across seasons through
+  the shared player's automatic rail selection. Both paths check the episode's
+  group lock before opening it. Cancelling the PIN keeps the current episode
+  mounted and releases the autoplay claim. Navigation uses the full order so
+  it stops for a PIN at a withheld successor. The episode list stays filtered,
+  and the immediate withheld successor appears in Up Next with its episode
+  number alone.
   An external-player launch carries none and stays untracked.
   The series page also hands the inline player the stored M3U volume and
   answers its `externalFallbackRequested` (the failure overlay's "open in

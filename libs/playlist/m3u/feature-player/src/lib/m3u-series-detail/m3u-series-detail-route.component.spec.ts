@@ -21,8 +21,20 @@ import {
     TmdbEnrichmentService,
 } from '@iptvnator/services';
 import { PORTAL_PLAYER } from '@iptvnator/portal/shared/util';
-import { Channel, VideoPlayer } from '@iptvnator/shared/interfaces';
-import { buildM3uSeriesCatalog } from '@iptvnator/shared/m3u-utils/series';
+import {
+    Channel,
+    type ResolvedPortalPlayback,
+    VideoPlayer,
+} from '@iptvnator/shared/interfaces';
+import {
+    buildM3uSeriesCatalog,
+    withholdM3uSeriesGroups,
+} from '@iptvnator/shared/m3u-utils/series';
+import type {
+    SeriesEpisodeMetadata,
+    SeriesPlaybackNavigation,
+    UpNextRailItem,
+} from '@iptvnator/ui/playback';
 import type { M3uSeriesDetailRouteComponent as ComponentType } from './m3u-series-detail-route.component';
 import { M3uEpisodeAccessService } from './m3u-episode-access.service';
 
@@ -131,14 +143,23 @@ class StubDetailMetaDirective {
 })
 class StubInlinePlayerComponent {
     readonly playbackSessionKey = input<string>('');
-    readonly playback = input<unknown>(null);
+    readonly playback = input<ResolvedPortalPlayback | null>(null);
     readonly playerOverride = input<VideoPlayer | null>(null);
     readonly seriesTitle = input<string | null>(null);
+    readonly seriesNavigation = input<SeriesPlaybackNavigation | null>(null);
+    readonly episodeMetadata = input<SeriesEpisodeMetadata | null>(null);
+    readonly upNextEpisodes = input<UpNextRailItem[]>([]);
     readonly seriesEpisodes = input<unknown>(null);
     readonly episodePlaybackPositions = input<Map<number, unknown>>(new Map());
     readonly closed = output<void>();
     readonly timeUpdate = output<{ currentTime: number; duration: number }>();
-    readonly upNextEpisodeSelected = output<{ episode: unknown }>();
+    readonly playbackEnded = output<void>();
+    readonly playbackFailed = output<void>();
+    readonly nextEpisodeRequested = output<void>();
+    readonly previousEpisodeRequested = output<void>();
+    readonly upNextEpisodeSelected = output<
+        UpNextRailItem & { autoplaySignal?: AbortSignal }
+    >();
     readonly volume = input(1);
     readonly externalFallbackRequested = output<unknown>();
 }
@@ -234,6 +255,7 @@ describe('M3uSeriesDetailRouteComponent', () => {
     const lockVersion = signal(0);
     const activePlaylist = signal<Record<string, unknown>>({ _id: 'pl-1' });
     const seriesById = signal<Map<number, unknown>>(new Map());
+    const fullSeriesById = signal<Map<number, unknown> | null>(null);
     const access = {
         lockVersion,
         isWithheld: jest.fn<boolean, [string, Channel]>(() => false),
@@ -282,7 +304,11 @@ describe('M3uSeriesDetailRouteComponent', () => {
                 },
                 {
                     provide: M3uSeriesCatalogService,
-                    useValue: { seriesById },
+                    useValue: {
+                        seriesById,
+                        seriesForPlayback: (id: number) =>
+                            (fullSeriesById() ?? seriesById()).get(id),
+                    },
                 },
             ],
         }).overrideComponent(M3uSeriesDetailRouteComponent, {
@@ -320,6 +346,7 @@ describe('M3uSeriesDetailRouteComponent', () => {
         navigate.mockReset();
         activePlaylist.set({ _id: 'pl-1' });
         seriesById.set(new Map(CATALOG.map((s) => [s.id, s])));
+        fullSeriesById.set(null);
         access.isWithheld.mockReset().mockReturnValue(false);
         access.requestAccess.mockReset().mockResolvedValue(true);
         access.recordWhenPlayed.mockReset();
@@ -532,6 +559,44 @@ describe('M3uSeriesDetailRouteComponent', () => {
         });
     });
 
+    it('advances on the inline player end event and handles navigation controls', async () => {
+        const fixture = await render();
+        const grid = fixture.debugElement
+            .query(By.directive(StubSeasonContainerComponent))
+            .injector.get(StubSeasonContainerComponent);
+        const [first, second] = grid.seasons()['1'] as { id: string }[];
+        grid.episodeClicked.emit(first);
+        fixture.detectChanges();
+
+        const player = fixture.debugElement
+            .query(By.directive(StubInlinePlayerComponent))
+            .injector.get(StubInlinePlayerComponent);
+        expect(player.seriesNavigation()).toEqual({
+            canPrevious: false,
+            canNext: true,
+            autoplayEnabled: true,
+        });
+        expect(player.upNextEpisodes().map((item) => item.label)).toEqual([
+            'S01E01',
+            'S01E02',
+            'S02E01',
+        ]);
+
+        player.playbackEnded.emit();
+        fixture.detectChanges();
+
+        expect(player.episodeMetadata()?.label).toBe('S01E02');
+        expect(grid.playingEpisodeId()).toBe(Number(second.id));
+
+        player.previousEpisodeRequested.emit();
+        fixture.detectChanges();
+        expect(player.episodeMetadata()?.label).toBe('S01E01');
+
+        player.nextEpisodeRequested.emit();
+        fixture.detectChanges();
+        expect(player.episodeMetadata()?.label).toBe('S01E02');
+    });
+
     it('plays the episode picked in the episode panel of the player', async () => {
         const fixture = await render();
         const component = fixture.componentInstance as unknown as {
@@ -542,13 +607,65 @@ describe('M3uSeriesDetailRouteComponent', () => {
         component.onEpisodeClicked(component.seasons()['1'][0]);
         fixture.detectChanges();
 
-        fixture.debugElement
+        const player = fixture.debugElement
             .query(By.directive(StubInlinePlayerComponent))
-            .componentInstance.upNextEpisodeSelected.emit({
-                episode: component.seasons()['2'][0],
-            });
+            .injector.get(StubInlinePlayerComponent);
+        player.upNextEpisodeSelected.emit(player.upNextEpisodes()[2]);
 
         expect(component.playback()?.title).toBe('SHOW S2 E1');
+    });
+
+    it('requests a PIN for a withheld successor without exposing its details', async () => {
+        const lockedGroup = 'Locked example group';
+        const catalog = buildM3uSeriesCatalog(
+            [
+                row('EXAMPLE S1 E1'),
+                {
+                    ...row('EXAMPLE S2 E1 Private title'),
+                    group: { title: lockedGroup },
+                } as Channel,
+            ],
+            'pl-1'
+        );
+        const [full] = catalog;
+        const [visible] = withholdM3uSeriesGroups(catalog, new Set([lockedGroup]));
+        params.next({ get: () => String(full.id) });
+        seriesById.set(new Map([[visible.id, visible]]));
+        fullSeriesById.set(new Map([[full.id, full]]));
+        access.isWithheld.mockImplementation(
+            (_playlistId, channel) => channel.group?.title === lockedGroup
+        );
+        access.requestAccess.mockResolvedValueOnce(false);
+
+        const fixture = await render();
+        const grid = fixture.debugElement
+            .query(By.directive(StubSeasonContainerComponent))
+            .injector.get(StubSeasonContainerComponent);
+        expect(Object.keys(grid.seasons())).toEqual(['1']);
+        grid.episodeClicked.emit(grid.seasons()['1'][0]);
+        fixture.detectChanges();
+
+        const player = fixture.debugElement
+            .query(By.directive(StubInlinePlayerComponent))
+            .injector.get(StubInlinePlayerComponent);
+        const [, next] = player.upNextEpisodes();
+        expect(next).toMatchObject({
+            label: 'S02E01',
+            title: '',
+            thumbnailUrl: null,
+            progressPercent: null,
+            episode: { direct_source: '' },
+        });
+        player.upNextEpisodeSelected.emit({
+            ...next,
+            autoplaySignal: new AbortController().signal,
+        });
+        await settle();
+        fixture.detectChanges();
+
+        expect(access.requestAccess).toHaveBeenCalledTimes(1);
+        expect(player.episodeMetadata()?.label).toBe('S01E01');
+        expect(access.recordWhenPlayed).toHaveBeenCalledTimes(1);
     });
 
     it('plays the row of the episode clicked when two rows share a URL', async () => {

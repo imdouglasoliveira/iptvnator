@@ -65,4 +65,9 @@ export class M3uSeriesCatalogService {
         computed(
             () => new Map(this.series().map((series) => [series.id, series]))
         );
+
+    /** Resolves playback order before the caller authorizes the chosen row. */
+    seriesForPlayback(seriesId: number): M3uSeries<Channel> | undefined {
+        return this.allSeries().find((series) => series.id === seriesId);
+    }
 }
