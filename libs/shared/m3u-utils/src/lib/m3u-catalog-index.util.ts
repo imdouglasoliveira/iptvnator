@@ -8,15 +8,6 @@ import {
  * A derived view of one playlist: its rows split by content kind, and each
  * kind's rows bucketed by `group-title`.
  *
- * ## Why this is derived rather than stored
- *
- * M3U channels live in a single JSON payload column, and the whole array is
- * already held in memory once a playlist route loads. Measured on a large
- * playlist (~63k rows) the complete index costs well under the 120 ms
- * budget, so there is nothing to gain from a schema migration, a background
- * worker or a cached copy — and a derived index works identically in
- * Electron and in the PWA, which a SQLite-backed one would not.
- *
  * ## Why groups are bucketed per kind
  *
  * Groups mix kinds. Providers routinely file a streaming-brand group (say
@@ -56,6 +47,8 @@ export interface M3uCatalogIndex<T> {
 
 const KINDS: readonly M3uContentKind[] = ['live', 'movie', 'episode', 'radio'];
 
+export const M3U_CLASSIFIER_VERSION = 1;
+
 /**
  * Builds the index in one pass.
  *
@@ -67,13 +60,21 @@ const KINDS: readonly M3uContentKind[] = ['live', 'movie', 'episode', 'radio'];
 export function buildM3uCatalogIndex<T extends M3uCatalogEntry>(
     channels: readonly T[] | null | undefined
 ): M3uCatalogIndex<T> {
+    return indexM3uCatalogRows<T>(channels ?? [], classifyM3uEntry);
+}
+
+export function indexM3uCatalogRows<T extends M3uCatalogEntry>(
+    channels: readonly T[],
+    kindOf: (channel: T, position: number) => M3uContentKind
+): M3uCatalogIndex<T> {
     const byKind = emptyKindRecord<T[]>(() => []);
     const liveChannels: T[] = [];
     const groupOrder = emptyKindRecord<string[]>(() => []);
     const groupRows = emptyKindRecord<Map<string, T[]>>(() => new Map());
 
-    for (const channel of channels ?? []) {
-        const kind = classifyM3uEntry(channel);
+    let position = 0;
+    for (const channel of channels) {
+        const kind = kindOf(channel, position++);
         byKind[kind].push(channel);
         if (kind === 'live' || kind === 'radio') {
             liveChannels.push(channel);
@@ -85,8 +86,6 @@ export function buildM3uCatalogIndex<T extends M3uCatalogEntry>(
         if (!rows) {
             rows = [];
             buckets.set(title, rows);
-            // Group order follows first appearance, so the rail keeps the
-            // provider's own ordering until a sort mode says otherwise.
             groupOrder[kind].push(title);
         }
         rows.push(channel);

@@ -23,6 +23,7 @@ export interface Playlist {
     /** Retry an accepted URL definition whose local channel download failed. */
     sourceSyncPending?: boolean;
     _id: string;
+    itemsRevision?: number;
     title: string;
     filename?: string;
     playlist?: any;

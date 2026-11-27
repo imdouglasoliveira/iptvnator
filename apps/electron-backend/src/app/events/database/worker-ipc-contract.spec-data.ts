@@ -1,3 +1,4 @@
+import type { M3uActivityMutationRequest } from '@iptvnator/shared/interfaces';
 import { DbWorkerOperation } from '../../workers/database-worker.types';
 
 type WorkerIpcContractCase = {
@@ -11,6 +12,15 @@ export const playlistId = 'playlist-1';
 export const operationId = 'operation-1';
 const playlist = { id: playlistId, name: 'Playlist', type: 'xtream' };
 const playlists = [playlist];
+const m3uPlaylist = { _id: playlistId, title: 'Playlist', playlist: { items: [] } };
+const m3uActivityRequest: M3uActivityMutationRequest = {
+    playlistId,
+    command: {
+        kind: 'favorites.setMembership',
+        url: 'https://example.test/channel.ts',
+        present: true,
+    },
+};
 const playlistUpdates = { name: 'Updated playlist' };
 const categories = [{ category_id: '10', category_name: 'Live' }];
 export const streams = [{ stream_id: 42, name: 'Channel' }];
@@ -92,6 +102,16 @@ export const workerIpcContractCases: WorkerIpcContractCase[] = [
         payload: playlist,
     },
     {
+        operation: 'DB_UPSERT_APP_PLAYLIST_KEEP_ACTIVITY',
+        args: [m3uPlaylist],
+        payload: m3uPlaylist,
+    },
+    {
+        operation: 'DB_MUTATE_M3U_ACTIVITY',
+        args: [m3uActivityRequest],
+        payload: m3uActivityRequest,
+    },
+    {
         operation: 'DB_MIGRATE_APP_PLAYLISTS',
         args: [playlists],
         payload: { playlists },
@@ -113,6 +133,11 @@ export const workerIpcContractCases: WorkerIpcContractCase[] = [
     },
     {
         operation: 'DB_GET_APP_PLAYLIST',
+        args: [playlistId],
+        payload: { playlistId },
+    },
+    {
+        operation: 'DB_GET_M3U_CATALOG_SNAPSHOT',
         args: [playlistId],
         payload: { playlistId },
     },

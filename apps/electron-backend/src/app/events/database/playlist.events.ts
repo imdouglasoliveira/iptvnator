@@ -67,6 +67,9 @@ handleWorkerRequest(
         playlistId,
     })
 );
+handleWorkerRequest('DB_GET_M3U_CATALOG_SNAPSHOT', (playlistId: string) => ({
+    playlistId,
+}));
 handleWorkerRequest('DB_GET_PLAYLIST', (playlistId: string) => ({
     playlistId,
 }));

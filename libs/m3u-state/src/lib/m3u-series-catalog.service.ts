@@ -7,6 +7,7 @@ import {
     withholdM3uSeriesGroups,
 } from '@iptvnator/shared/m3u-utils/series';
 import { M3uCatalogIndexService } from './m3u-catalog-index.service';
+import { seriesFromM3uSnapshot } from './m3u-catalog-snapshot.reader';
 import { selectActivePlaylistId } from './selectors';
 
 /**
@@ -41,12 +42,13 @@ export class M3uSeriesCatalogService {
      */
     /** Every series, episodes of locked groups included. */
     private readonly allSeries: Signal<readonly M3uSeries<Channel>[]> =
-        computed(() =>
-            buildM3uSeriesCatalog(
-                this.catalogIndex.allEpisodes(),
-                this.playlistId()
-            )
-        );
+        computed(() => {
+            const playlistId = this.playlistId();
+            const prepared = this.catalogIndex.snapshotForSeries(playlistId);
+            return prepared
+                ? seriesFromM3uSnapshot(prepared.snapshot, prepared.channels)
+                : buildM3uSeriesCatalog(this.catalogIndex.allEpisodes(), playlistId);
+        });
 
     /**
      * The series the viewer may see: aggregated from every row, then with

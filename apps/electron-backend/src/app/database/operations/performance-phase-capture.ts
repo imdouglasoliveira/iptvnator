@@ -1,16 +1,19 @@
 import type {
     PerformancePhaseMetadata,
+    DatabaseWorkerPerformancePhase,
     XtreamDatabasePerformancePhase,
 } from '@iptvnator/shared/interfaces';
 
-export interface DatabaseOperationPerformancePhaseCapture {
+export interface DatabaseOperationPerformancePhaseCapture<
+    TPhase extends DatabaseWorkerPerformancePhase = XtreamDatabasePerformancePhase,
+> {
     captureAsync: <TResult>(
-        phase: XtreamDatabasePerformancePhase,
+        phase: TPhase,
         execute: () => Promise<TResult>,
         metadata?: (result: TResult) => PerformancePhaseMetadata
     ) => Promise<TResult>;
     captureSync: <TResult>(
-        phase: XtreamDatabasePerformancePhase,
+        phase: TPhase,
         execute: () => TResult,
         metadata?: (result: TResult) => PerformancePhaseMetadata
     ) => TResult;

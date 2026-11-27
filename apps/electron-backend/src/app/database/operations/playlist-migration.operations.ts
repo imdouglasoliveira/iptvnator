@@ -1,7 +1,14 @@
 import { eq } from 'drizzle-orm';
 import * as schema from '@iptvnator/shared/database/schema';
 import type { AppDatabase } from '../database.types';
-import { buildPlaylistRow } from './playlist.operations';
+import { buildPlaylistRow } from '@iptvnator/shared/database/app-playlist';
+import {
+    afterM3uDocumentWrite,
+    captureM3uDocumentWrite,
+    m3uCatalogSnapshotEnabled,
+    type ScheduleM3uSnapshot,
+    type SnapshotJob,
+} from './m3u-catalog-snapshot.operations';
 
 export const PLAYLIST_MIGRATION_KEY = 'm3u-playlists-indexeddb-to-sqlite-v1';
 export const LEGACY_PROFILE_MIGRATION_KEY =
@@ -11,10 +18,12 @@ export const LEGACY_PROFILE_MIGRATION_KEY =
 export function migrateAppPlaylists(
     db: AppDatabase,
     playlists: Record<string, unknown>[],
-    key = PLAYLIST_MIGRATION_KEY
+    key = PLAYLIST_MIGRATION_KEY,
+    schedule: ScheduleM3uSnapshot = afterM3uDocumentWrite
 ): { success: boolean; count: number } {
     try {
-        return db.transaction((tx) => {
+        const jobs: SnapshotJob[] = [];
+        const result = db.transaction((tx) => {
             if (
                 tx
                     .select()
@@ -49,13 +58,16 @@ export function migrateAppPlaylists(
                     dateCreated: existing?.dateCreated ?? row.dateCreated,
                     lastUpdated: row.lastUpdated ?? existing?.lastUpdated,
                 };
-                tx.insert(schema.playlists)
-                    .values(merged)
-                    .onConflictDoUpdate({
-                        target: schema.playlists.id,
-                        set: merged,
-                    })
-                    .run();
+                const job = captureM3uDocumentWrite(tx, merged, playlist, () => {
+                    tx.insert(schema.playlists)
+                        .values(merged)
+                        .onConflictDoUpdate({
+                            target: schema.playlists.id,
+                            set: merged,
+                        })
+                        .run();
+                });
+                if (job) jobs.push(job);
                 count++;
             }
             tx.insert(schema.appState)
@@ -66,7 +78,9 @@ export function migrateAppPlaylists(
                 })
                 .run();
             return { success: true, count };
-        });
+        }, m3uCatalogSnapshotEnabled() ? { behavior: 'immediate' } : undefined);
+        for (const job of jobs) schedule(db, job);
+        return result;
     } catch {
         // Drizzle errors can include SQL parameter values (portal credentials).
         throw new Error(

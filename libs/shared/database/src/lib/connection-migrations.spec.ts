@@ -1,4 +1,5 @@
 import { __databaseConnectionTestHooks } from './connection';
+import { M3U_ITEMS_REVISION_TRIGGERS } from './m3u-items-revision';
 import {
     ensurePlaylistsPayloadLast,
     playlistsTableSql,
@@ -128,6 +129,7 @@ describe('runMigrations error tolerance', () => {
 
         expect(executedStatements).toEqual([
             ...columnMigrationStatements.map(compactSql),
+            ...M3U_ITEMS_REVISION_TRIGGERS.map(compactSql),
             ...indexMigrationStatements.map(compactSql),
         ]);
         expect(warnSpy).not.toHaveBeenCalled();
@@ -154,7 +156,8 @@ describe('runMigrations error tolerance', () => {
             expect.stringContaining('disk I/O error')
         );
         expect(exec).toHaveBeenCalledTimes(
-            columnMigrationStatements.length + indexMigrationStatements.length
+            columnMigrationStatements.length + M3U_ITEMS_REVISION_TRIGGERS.length +
+                indexMigrationStatements.length
         );
     });
 });
@@ -429,6 +432,7 @@ describe('ensurePlaylistsPayloadLast', () => {
         'favorites',
         'recently_viewed',
         'last_usage',
+        'items_revision',
         'payload',
     ];
     /** A pre-0.19 table after its ALTER TABLE migrations. */
@@ -519,7 +523,7 @@ describe('ensurePlaylistsPayloadLast', () => {
         expect(rebuildStatements(prepare)).toEqual([
             'DROP TABLE IF EXISTS playlists_payload_rebuild',
             expect.stringMatching(
-                /^CREATE TABLE IF NOT EXISTS playlists_payload_rebuild \( id TEXT PRIMARY KEY,.* last_usage TEXT, payload TEXT \)$/
+                /^CREATE TABLE IF NOT EXISTS playlists_payload_rebuild \( id TEXT PRIMARY KEY,.* last_usage TEXT, items_revision INTEGER NOT NULL DEFAULT 0, payload TEXT \)$/
             ),
             `INSERT INTO playlists_payload_rebuild (${quoted}) SELECT ${quoted} FROM playlists`,
             "SELECT sql FROM sqlite_master WHERE tbl_name = 'playlists' AND type IN ('index', 'trigger') AND sql IS NOT NULL ORDER BY type = 'trigger', name",

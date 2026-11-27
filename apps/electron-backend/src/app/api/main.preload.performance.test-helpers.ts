@@ -25,6 +25,7 @@ export interface MockIpcRenderer {
     off: jest.Mock;
     on: jest.Mock;
     send: jest.Mock;
+    sendSync: jest.Mock;
 }
 
 export interface PreloadPerformanceHarness {
@@ -102,6 +103,7 @@ export function createPreloadPerformanceHarness(): PreloadPerformanceHarness {
         off: jest.fn(),
         on: jest.fn(),
         send: jest.fn(),
+        sendSync: jest.fn().mockReturnValue(true),
     };
 
     function getSentPayloads<T>(channel: string): T[] {

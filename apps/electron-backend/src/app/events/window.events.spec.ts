@@ -104,6 +104,7 @@ describe('WindowEvents', () => {
 
     it('registers handlers for all window control channels', () => {
         expect([...mockHandlers.keys()].sort()).toEqual([
+            'M3U_CATALOG_SNAPSHOT_ENABLED',
             'WINDOW:CLOSE',
             'WINDOW:GET_STATE',
             'WINDOW:GET_ZOOM_LEVEL',

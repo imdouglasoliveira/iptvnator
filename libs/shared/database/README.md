@@ -98,6 +98,18 @@ its worker. Disconnecting returns to the retained standalone database.
 
 ## Upgrade Compatibility And Migrations
 
+M3U catalog snapshots are optional, derived rows in `m3u_catalog_snapshots`.
+Playlist deletion cascades to the snapshot. `playlists.items_revision` stays before
+`payload` and defaults to zero for historical rows. After the payload-last
+rebuild, idempotent triggers assign revisions from a database-wide sequence
+when a document's item array changes. Metadata-only writes preserve the
+revision, and deleting and reimporting a playlist cannot reuse its old revision.
+With the snapshot kill switch on at startup, migration drops the revision
+triggers and clears derived snapshots in one transaction. Playlist documents
+and the sequence are preserved. After re-enabling, migration reinstalls the
+triggers and the next read can rebuild from the current document, including
+edits made while revision tracking was suspended.
+
 Xtream startup refresh records the latest server order in nullable
 `categories.provider_order` so retained categories can keep their SQLite IDs.
 The additive migration leaves existing rows with NULL and reads them in

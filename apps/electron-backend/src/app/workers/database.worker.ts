@@ -15,6 +15,11 @@ import { migrateAppPlaylists } from '../database/operations/playlist-migration.o
 import { decodeAppPlaylistWritePayload } from '../database/operations/app-playlist-json-write';
 import { readStandaloneSources } from '../database/operations/standalone-sources.operations';
 import {
+    afterM3uDocumentWrite,
+    getM3uCatalogSnapshot,
+    type ScheduleM3uSnapshot,
+} from '../database/operations/m3u-catalog-snapshot.operations';
+import {
     Database,
     closeWorkerDatabase,
     flushWorkerSqlStatementCount,
@@ -90,8 +95,6 @@ import {
     getAppState,
     getPlaylist,
     setAppState,
-    type AppPlaylistGetPhaseCapture,
-    type AppPlaylistUpsertPhaseCapture,
     updatePlaylist,
     upsertAppPlaylist,
     upsertAppPlaylists,
@@ -148,11 +151,7 @@ import {
     startWorkerPerformanceCapture,
     type WorkerPerformanceCapture,
 } from './worker-performance-capture';
-import {
-    captureWorkerPerformancePhase,
-    captureWorkerPerformancePhaseAsync,
-    createWorkerPerformancePhaseAdapter,
-} from './worker-performance-phase';
+import { createWorkerPerformancePhaseAdapter } from './worker-performance-phase';
 import {
     handleDatabaseWorkerPostGcHeapRequest,
     isDatabaseWorkerPostGcHeapRequest,
@@ -440,6 +439,7 @@ function releasePreRegisteredOperation(
 
 async function executeRequest(
     message: DbWorkerRequestMessage,
+    scheduleM3uSnapshot: ScheduleM3uSnapshot,
     preRegisteredState?: ActiveOperationState,
     performanceCapture: WorkerPerformanceCapture | null = null
 ) {
@@ -737,29 +737,12 @@ async function executeRequest(
         }
 
         case 'DB_UPSERT_APP_PLAYLIST': {
-            const capturePhase: AppPlaylistUpsertPhaseCapture | undefined =
-                performanceCapture
-                    ? {
-                          captureAsync: (phase, execute, metadata) =>
-                              captureWorkerPerformancePhaseAsync(
-                                  performanceCapture,
-                                  phase,
-                                  execute,
-                                  metadata
-                              ),
-                          captureSync: (phase, execute, metadata) =>
-                              captureWorkerPerformancePhase(
-                                  performanceCapture,
-                                  phase,
-                                  execute,
-                                  metadata
-                              ),
-                      }
-                    : undefined;
+            const capturePhase = createWorkerPerformancePhaseAdapter(performanceCapture);
             return upsertAppPlaylist(
                 db,
                 decodeAppPlaylistWritePayload(message.payload),
-                capturePhase
+                capturePhase,
+                scheduleM3uSnapshot
             );
         }
 
@@ -768,13 +751,19 @@ async function executeRequest(
                 playlists: Record<string, unknown>[];
                 key?: string;
             };
-            return migrateAppPlaylists(db, payload.playlists, payload.key);
+            return migrateAppPlaylists(
+                db,
+                payload.playlists,
+                payload.key,
+                scheduleM3uSnapshot
+            );
         }
 
         case 'DB_UPSERT_APP_PLAYLISTS': {
             return upsertAppPlaylists(
                 db,
-                message.payload as Record<string, unknown>[]
+                message.payload as Record<string, unknown>[],
+                scheduleM3uSnapshot
             );
         }
 
@@ -792,25 +781,7 @@ async function executeRequest(
                 playlistId: string;
                 format?: 'json';
             };
-            const capturePhase: AppPlaylistGetPhaseCapture | undefined =
-                performanceCapture
-                    ? {
-                          captureAsync: (phase, execute, metadata) =>
-                              captureWorkerPerformancePhaseAsync(
-                                  performanceCapture,
-                                  phase,
-                                  execute,
-                                  metadata
-                              ),
-                          captureSync: (phase, execute, metadata) =>
-                              captureWorkerPerformancePhase(
-                                  performanceCapture,
-                                  phase,
-                                  execute,
-                                  metadata
-                              ),
-                      }
-                    : undefined;
+            const capturePhase = createWorkerPerformancePhaseAdapter(performanceCapture);
             const playlist = await getAppPlaylist(
                 db,
                 payload.playlistId,
@@ -820,6 +791,13 @@ async function executeRequest(
                 ? JSON.stringify(playlist)
                 : playlist;
         }
+
+        case 'DB_GET_M3U_CATALOG_SNAPSHOT':
+            return getM3uCatalogSnapshot(
+                db,
+                (message.payload as { playlistId: string }).playlistId,
+                scheduleM3uSnapshot
+            );
 
         case 'DB_GET_APP_PLAYLIST_FAVORITE_CHANNELS': {
             const payload = message.payload as { playlistId: string };
@@ -858,7 +836,8 @@ async function executeRequest(
         case 'DB_UPSERT_APP_PLAYLIST_KEEP_ACTIVITY':
             return upsertAppPlaylistKeepingActivity(
                 db,
-                message.payload as Record<string, unknown>
+                message.payload as Record<string, unknown>,
+                scheduleM3uSnapshot
             );
 
         case 'DB_UPDATE_PLAYLIST': {
@@ -1437,6 +1416,10 @@ parentPort.on('message', async (message: DbWorkerIncomingMessage) => {
     }
 
     const preRegisteredOperation = preRegisterCancellableOperation(message);
+    const afterResponse: (() => void)[] = [];
+    const scheduleM3uSnapshot: ScheduleM3uSnapshot = (db, job) => {
+        if (job) afterResponse.push(() => afterM3uDocumentWrite(db, job));
+    };
     let performanceCapture: WorkerPerformanceCapture | null = null;
     const execution = await (async () => {
         try {
@@ -1457,6 +1440,7 @@ parentPort.on('message', async (message: DbWorkerIncomingMessage) => {
                 () =>
                     executeRequest(
                         message,
+                        scheduleM3uSnapshot,
                         preRegisteredOperation?.state,
                         performanceCapture
                     )
@@ -1481,6 +1465,7 @@ parentPort.on('message', async (message: DbWorkerIncomingMessage) => {
                 execution.performance
             ),
         });
+        for (const callback of afterResponse) callback();
     } else {
         console.error(
             loggerLabel,

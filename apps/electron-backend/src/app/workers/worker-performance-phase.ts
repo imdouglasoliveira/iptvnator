@@ -172,7 +172,7 @@ function appendPhaseEvent(
 
 export function createWorkerPerformancePhaseAdapter(
     capture: WorkerPerformanceCapture | null
-): DatabaseOperationPerformancePhaseCapture | undefined {
+): DatabaseOperationPerformancePhaseCapture<DatabaseWorkerPerformancePhase> | undefined {
     if (!capture?.requestId) {
         return undefined;
     }

@@ -44,6 +44,7 @@ const PLAYLISTS_COLUMNS: readonly (readonly [
     ['favorites', 'TEXT'],
     ['recently_viewed', 'TEXT'],
     ['last_usage', 'TEXT'],
+    ['items_revision', 'INTEGER NOT NULL DEFAULT 0'],
     ['payload', 'TEXT'],
 ];
 

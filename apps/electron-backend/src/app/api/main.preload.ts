@@ -9,6 +9,7 @@ import {
     EXTERNAL_PLAYBACK_ENDED,
 } from '@iptvnator/shared/interfaces';
 import { createAppMenuListener } from './app-menu-listener';
+import { preloadPlaylistReads } from './preload-playlist-reads';
 import type {
     ElectronBridgeFavoriteReorderUpdate,
     XtreamFavoriteRemovalRef,
@@ -910,17 +911,7 @@ const electronApi: ElectronBridgeApi = {
         ipcRenderer.invoke('DB_RECOVER_LEGACY_PLAYLISTS'),
     dbUpsertAppPlaylists: (playlists: Playlist[]) =>
         ipcRenderer.invoke('DB_UPSERT_APP_PLAYLISTS', playlists),
-    dbGetAppPlaylists: () => ipcRenderer.invoke('DB_GET_APP_PLAYLISTS'),
-    dbGetAppPlaylistMetas: () =>
-        ipcRenderer.invoke('DB_GET_APP_PLAYLIST_METAS'),
-    dbGetAppPlaylist: (playlistId: string, _operationId?: string) =>
-        ipcRenderer.invoke('DB_GET_APP_PLAYLIST', playlistId),
-    dbGetAppPlaylistJson: (playlistId: string, _operationId?: string) =>
-        ipcRenderer.invoke('DB_GET_APP_PLAYLIST', playlistId, {
-            format: 'json',
-        }),
-    dbGetAppPlaylistFavoriteChannels: (playlistId: string) =>
-        ipcRenderer.invoke('DB_GET_APP_PLAYLIST_FAVORITE_CHANNELS', playlistId),
+    ...preloadPlaylistReads,
     dbUpdatePlaylist: (
         playlistId: string,
         updates: Partial<Playlist> | ElectronBridgePlaylistInput

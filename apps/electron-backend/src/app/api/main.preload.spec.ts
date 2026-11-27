@@ -69,7 +69,10 @@ describe('main preload DB IPC contract', () => {
             on: jest.fn(),
             off: jest.fn(),
             send: jest.fn(),
-            sendSync: jest.fn().mockReturnValue(1.5),
+            sendSync: jest.fn(
+                (channel: string) =>
+                    channel === 'M3U_CATALOG_SNAPSHOT_ENABLED' ? true : 1.5
+            ),
         };
         mockWebFrame = {
             getZoomLevel: jest.fn().mockReturnValue(0),
@@ -203,6 +206,36 @@ describe('main preload DB IPC contract', () => {
         }
     );
 
+    it('omits the snapshot bridge method when the kill switch is on', async () => {
+        jest.resetModules();
+        mockIpcRenderer.sendSync
+            .mockClear()
+            .mockImplementation((channel: string) =>
+                channel === 'M3U_CATALOG_SNAPSHOT_ENABLED' ? false : 1.5
+            );
+        await import('./main.preload');
+
+        expect(getExposedApi().dbGetM3uCatalogSnapshot).toBeUndefined();
+        expect(mockIpcRenderer.sendSync).toHaveBeenCalledWith(
+            'M3U_CATALOG_SNAPSHOT_ENABLED'
+        );
+        expect(mockIpcRenderer.invoke).not.toHaveBeenCalled();
+    });
+
+    it('resolves the snapshot flag at preload startup and forwards opens asynchronously', async () => {
+        expect(mockIpcRenderer.sendSync.mock.calls).toContainEqual([
+            'M3U_CATALOG_SNAPSHOT_ENABLED',
+        ]);
+        mockIpcRenderer.sendSync.mockClear();
+        const { dbGetM3uCatalogSnapshot } = getExposedApi();
+        await dbGetM3uCatalogSnapshot?.('first');
+        await dbGetM3uCatalogSnapshot?.('second');
+        expect(mockIpcRenderer.sendSync).not.toHaveBeenCalled();
+        expect(mockIpcRenderer.invoke.mock.calls).toEqual([
+            ['DB_GET_M3U_CATALOG_SNAPSHOT', 'first'],
+            ['DB_GET_M3U_CATALOG_SNAPSHOT', 'second'],
+        ]);
+    });
     it.each(epgPreloadCases)(
         '$method invokes $channel with the expected arguments',
         async ({ method, args, channel, forwardedArgs }) => {

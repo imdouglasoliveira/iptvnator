@@ -3,6 +3,7 @@ import {
     type AppPlaylistUpsertPerformancePhase,
     type PerformancePhaseMetadata,
 } from '@iptvnator/shared/interfaces';
+import { M3U_CATALOG_SNAPSHOT_KILL_SWITCH } from '@iptvnator/shared/interfaces/ipc-commands';
 
 import type { AppDatabase } from '../database.types';
 import {
@@ -10,24 +11,32 @@ import {
     upsertAppPlaylist,
 } from './playlist.operations';
 
-function createDatabaseMock(runImplementation: () => unknown = () => ({})) {
-    const run = jest.fn(runImplementation);
-    const then = jest.fn(
-        (
-            onFulfilled: (value: unknown) => unknown,
-            onRejected: (error: unknown) => unknown
-        ) => Promise.resolve().then(run).then(onFulfilled, onRejected)
-    );
-    const onConflictDoUpdate = jest.fn(() => ({ run, then }));
+function createDatabaseMock() {
+    const run = jest.fn();
+    const onConflictDoUpdate = jest.fn(() => ({ run }));
     const values = jest.fn(() => ({ onConflictDoUpdate }));
     const insert = jest.fn(() => ({ values }));
+    const get = jest
+        .fn()
+        .mockReturnValueOnce({ revision: 6 })
+        .mockReturnValueOnce({ revision: 7 });
+    const where = jest.fn(() => ({ get }));
+    const from = jest.fn(() => ({ where }));
+    const select = jest.fn(() => ({ from }));
+    const tx = { insert, select };
+    const commit = jest.fn();
+    const transaction = jest.fn((execute: (database: typeof tx) => unknown) => {
+        const result = execute(tx);
+        commit();
+        return result;
+    });
 
     return {
-        db: { insert } as unknown as AppDatabase,
-        insert,
-        onConflictDoUpdate,
+        db: { insert, select, transaction } as unknown as AppDatabase,
+        commit,
+        get,
         run,
-        values,
+        transaction,
     };
 }
 
@@ -46,17 +55,30 @@ describe('app playlist upsert performance boundaries', () => {
         jest.restoreAllMocks();
     });
 
-    it('keeps the default path free of phase hooks and executes one autocommit run', async () => {
-        const { db, run } = createDatabaseMock();
-
-        await expect(upsertAppPlaylist(db, playlist)).resolves.toEqual({
-            success: true,
+    it('executes one autocommit run when snapshots are disabled', async () => {
+        jest.replaceProperty(process, 'env', {
+            ...process.env,
+            [M3U_CATALOG_SNAPSHOT_KILL_SWITCH]: '1',
         });
+        const { db, get, run, transaction } = createDatabaseMock();
+        const schedule = jest.fn();
+
+        await expect(
+            upsertAppPlaylist(db, playlist, undefined, schedule)
+        ).resolves.toEqual({ success: true });
         expect(run).toHaveBeenCalledTimes(1);
+        expect(transaction).not.toHaveBeenCalled();
+        expect(get).not.toHaveBeenCalled();
+        expect(schedule).not.toHaveBeenCalled();
     });
 
     it('separates row/JSON serialization from SQLite without rescanning the payload for metadata', async () => {
-        const { db, run } = createDatabaseMock();
+        jest.replaceProperty(process, 'env', {
+            ...process.env,
+            [M3U_CATALOG_SNAPSHOT_KILL_SWITCH]: '0',
+        });
+        const { db, commit, get, run, transaction } = createDatabaseMock();
+        const schedule = jest.fn();
         const byteLength = jest.spyOn(Buffer, 'byteLength');
         const phases: Array<{
             metadata: PerformancePhaseMetadata | undefined;
@@ -81,9 +103,9 @@ describe('app playlist upsert performance boundaries', () => {
             },
         };
 
-        await expect(upsertAppPlaylist(db, playlist, capture)).resolves.toEqual(
-            { success: true }
-        );
+        await expect(
+            upsertAppPlaylist(db, playlist, capture, schedule)
+        ).resolves.toEqual({ success: true });
 
         expect(phases).toEqual([
             {
@@ -97,5 +119,23 @@ describe('app playlist upsert performance boundaries', () => {
         ]);
         expect(byteLength).not.toHaveBeenCalled();
         expect(run).toHaveBeenCalledTimes(1);
+        expect(transaction).toHaveBeenCalledTimes(1);
+        expect(transaction).toHaveBeenCalledWith(expect.any(Function), {
+            behavior: 'immediate',
+        });
+        expect(get).toHaveBeenCalledTimes(2);
+        const [beforeWrite, afterWrite] = get.mock.invocationCallOrder;
+        expect(beforeWrite).toBeLessThan(run.mock.invocationCallOrder[0]);
+        expect(run.mock.invocationCallOrder[0]).toBeLessThan(afterWrite);
+        expect(afterWrite).toBeLessThan(commit.mock.invocationCallOrder[0]);
+        expect(schedule).toHaveBeenCalledTimes(1);
+        expect(schedule).toHaveBeenCalledWith(db, {
+            playlistId: playlist._id,
+            revision: 7,
+            channels: playlist.playlist.items,
+        });
+        expect(commit.mock.invocationCallOrder[0]).toBeLessThan(
+            schedule.mock.invocationCallOrder[0]
+        );
     });
 });

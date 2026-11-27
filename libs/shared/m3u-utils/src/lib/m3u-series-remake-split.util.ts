@@ -10,6 +10,8 @@ import {
     placeUnnumberedEpisode,
 } from './m3u-series-placement.util';
 
+const BATCH_SIZE = 2048;
+
 /**
  * The stage that decides which same-titled series are actually remakes.
  *
@@ -38,8 +40,20 @@ import {
 export function regroupM3uSeriesByYear<T extends M3uArtworkBearing>(
     accumulators: Iterable<M3uSeriesAccumulator<T>>
 ): M3uSeriesAccumulator<T>[] {
+    const regroup = regroupM3uSeriesByYearInBatches(accumulators);
+    for (let step = regroup.next(); ; step = regroup.next()) {
+        if (step.done) return step.value;
+    }
+}
+
+export function* regroupM3uSeriesByYearInBatches<T extends M3uArtworkBearing>(
+    accumulators: Iterable<M3uSeriesAccumulator<T>>
+): Generator<void, M3uSeriesAccumulator<T>[]> {
     const byBase = new Map<string, M3uSeriesAccumulator<T>[]>();
+    let processed = 0;
+    const batchComplete = () => ++processed % BATCH_SIZE === 0;
     for (const series of accumulators) {
+        if (batchComplete()) yield;
         const existing = byBase.get(series.baseKey);
         if (existing) {
             existing.push(series);
@@ -51,6 +65,7 @@ export function regroupM3uSeriesByYear<T extends M3uArtworkBearing>(
     const result: M3uSeriesAccumulator<T>[] = [];
 
     for (const [baseKey, parts] of byBase) {
+        if (batchComplete()) yield;
         const yeared = parts.filter((part) => part.yearHint !== null);
 
         if (yeared.length >= 2) {
@@ -78,7 +93,7 @@ export function regroupM3uSeriesByYear<T extends M3uArtworkBearing>(
 
         // One year at most: one series, keyed without the year so its ids
         // do not move when a provider later adds or drops the tag.
-        result.push(mergeParts(baseKey, parts));
+        result.push(yield* mergeParts(baseKey, parts, batchComplete));
     }
 
     return result;
@@ -115,9 +130,20 @@ function earliestStatedYear<T extends M3uArtworkBearing>(
 export function remintM3uEpisodeIds<T extends M3uArtworkBearing>(
     series: M3uSeriesAccumulator<T>
 ): void {
+    const remint = remintM3uEpisodeIdsInBatches(series);
+    while (!remint.next().done) {
+        // Drain the batches for synchronous callers.
+    }
+}
+
+export function* remintM3uEpisodeIdsInBatches<T extends M3uArtworkBearing>(
+    series: M3uSeriesAccumulator<T>
+): Generator<void> {
+    let processed = 0;
     const rowKeyUses = new Map<string, number>();
     for (const episodes of series.seasons.values()) {
         for (const { rowKey } of episodes.values()) {
+            if (++processed % BATCH_SIZE === 0) yield;
             if (rowKey !== undefined) {
                 rowKeyUses.set(rowKey, (rowKeyUses.get(rowKey) ?? 0) + 1);
             }
@@ -131,6 +157,7 @@ export function remintM3uEpisodeIds<T extends M3uArtworkBearing>(
     const identityUses = new Map<string, number>();
     for (const episodes of series.seasons.values()) {
         for (const episode of episodes.values()) {
+            if (++processed % BATCH_SIZE === 0) yield;
             if (episode.rowKey !== undefined) {
                 const identity = rowIdentity(episode, episode.rowKey);
                 identityUses.set(
@@ -146,6 +173,7 @@ export function remintM3uEpisodeIds<T extends M3uArtworkBearing>(
 
     for (const episodes of series.seasons.values()) {
         for (const [slot, episode] of episodes) {
+            if (++processed % BATCH_SIZE === 0) yield;
             const { rowKey } = episode;
             const coordinate = `${episode.seasonNumber}x${episode.episodeNumber}`;
             let identity = coordinate;
@@ -165,10 +193,11 @@ export function remintM3uEpisodeIds<T extends M3uArtworkBearing>(
     }
 }
 
-function mergeParts<T extends M3uArtworkBearing>(
+function* mergeParts<T extends M3uArtworkBearing>(
     baseKey: string,
-    parts: M3uSeriesAccumulator<T>[]
-): M3uSeriesAccumulator<T> {
+    parts: M3uSeriesAccumulator<T>[],
+    batchComplete: () => boolean
+): Generator<void, M3uSeriesAccumulator<T>> {
     const merged: M3uSeriesAccumulator<T> = {
         ...parts[0],
         key: baseKey,
@@ -189,6 +218,7 @@ function mergeParts<T extends M3uArtworkBearing>(
         // be read first — which is not necessarily where most of its
         // episodes live.
         for (const group of part.groups) {
+            if (batchComplete()) yield;
             if (!merged.groupCounts.has(group)) {
                 merged.groups.push(group);
             }
@@ -209,6 +239,7 @@ function mergeParts<T extends M3uArtworkBearing>(
                 merged.seasons.set(number, season);
             }
             for (const episode of episodes.values()) {
+                if (batchComplete()) yield;
                 if (episode.unnumbered) {
                     placeUnnumberedEpisode(season, episode);
                 } else {

@@ -1141,9 +1141,8 @@ export interface ElectronBridgeApi extends ExternalPlaybackEventSubscriptions {
         playlistId: string,
         operationId?: string
     ) => Promise<string | Playlist | null>;
-    dbGetAppPlaylistFavoriteChannels: (
-        playlistId: string
-    ) => Promise<M3uFavoriteChannel[]>;
+    dbGetAppPlaylistFavoriteChannels(id: string): Promise<M3uFavoriteChannel[]>;
+    dbGetM3uCatalogSnapshot?(playlistId: string): Promise<string | null>;
     dbUpdatePlaylist: (
         playlistId: string,
         updates: Partial<Playlist> | ElectronBridgePlaylistInput

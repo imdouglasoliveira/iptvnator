@@ -235,6 +235,7 @@ export function parseAppPlaylist(
     return {
         ...base,
         _id: row.id,
+        itemsRevision: row.itemsRevision,
         title:
             getStringValue(base['title']) ??
             getStringValue(base['name']) ??

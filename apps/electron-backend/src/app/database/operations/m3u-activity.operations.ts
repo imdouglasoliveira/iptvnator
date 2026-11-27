@@ -18,6 +18,12 @@ import {
 } from '@iptvnator/shared/interfaces';
 import type { AppDatabase } from '../database.types';
 import { playlistConflictUpdate } from './playlist-server-timezone.operations';
+import {
+    afterM3uDocumentWrite,
+    captureM3uDocumentWrite,
+    m3uCatalogSnapshotEnabled,
+    type ScheduleM3uSnapshot,
+} from './m3u-catalog-snapshot.operations';
 
 const stored = schema.playlists;
 const M3U_TYPES: ReadonlySet<string> = new Set([
@@ -201,25 +207,37 @@ export function mutateM3uActivity(
 // A refresh snapshot built before a tap must not bring old history back.
 export function upsertAppPlaylistKeepingActivity(
     db: AppDatabase,
-    playlist: Record<string, unknown>
+    playlist: Record<string, unknown>,
+    schedule: ScheduleM3uSnapshot = afterM3uDocumentWrite
 ): { success: boolean } {
     const row = buildPlaylistRow(playlist);
     if (!row) throw new Error('Playlist ID is required for upsert');
     const keepActivity = !m3uActivityPartialWriteDisabled();
-    db.insert(stored)
-        .values(row)
-        .onConflictDoUpdate({
-            target: stored.id,
-            set: {
-                ...playlistConflictUpdate(row, playlist),
-                ...(keepActivity
-                    ? {
-                          recentlyViewed: sql`${stored.recentlyViewed}`,
-                          favorites: sql`${stored.favorites}`,
-                      }
-                    : {}),
-            },
-        })
-        .run();
+    const write = (writer: Pick<AppDatabase, 'insert'>) => {
+        writer.insert(stored)
+            .values(row)
+            .onConflictDoUpdate({
+                target: stored.id,
+                set: {
+                    ...playlistConflictUpdate(row, playlist),
+                    ...(keepActivity
+                        ? {
+                              recentlyViewed: sql`${stored.recentlyViewed}`,
+                              favorites: sql`${stored.favorites}`,
+                          }
+                        : {}),
+                },
+            })
+            .run();
+    };
+    if (!m3uCatalogSnapshotEnabled()) {
+        write(db);
+        return { success: true };
+    }
+    const job = db.transaction(
+        (tx) => captureM3uDocumentWrite(tx, row, playlist, () => write(tx)),
+        { behavior: 'immediate' }
+    );
+    schedule(db, job);
     return { success: true };
 }

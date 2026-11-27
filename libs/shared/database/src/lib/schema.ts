@@ -22,6 +22,7 @@ import {
 // them so `import * as schema from './schema'` keeps a complete namespace.
 export * from './epg-mapping.schema';
 export * from './vod-source-pins.schema';
+export { m3uCatalogSnapshots } from './m3u-catalog-snapshots.schema';
 
 // Playlists table
 export const playlists = sqliteTable('playlists', {
@@ -55,6 +56,7 @@ export const playlists = sqliteTable('playlists', {
     favorites: text('favorites'),
     recentlyViewed: text('recently_viewed'),
     lastUsage: text('last_usage'),
+    itemsRevision: integer('items_revision').notNull().default(0),
     // Last on purpose: see PLAYLISTS_COLUMNS in connection.ts.
     payload: text('payload'),
 });

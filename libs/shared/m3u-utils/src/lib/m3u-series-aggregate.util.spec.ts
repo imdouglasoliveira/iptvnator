@@ -1,4 +1,5 @@
 import { buildM3uSeriesCatalog } from './m3u-series-aggregate.util';
+import { regroupM3uSeriesByYearInBatches } from './m3u-series-remake-split.util';
 
 const row = (name: string, group = 'Shows', logo?: string) => ({
     url: `http://h.example/series/u/p/${encodeURIComponent(name)}.mp4`,
@@ -12,6 +13,36 @@ const build = (names: string[], playlistId = 'pl-1') =>
         names.map((name) => row(name)),
         playlistId
     );
+
+it('pauses while grouping accumulators and preserves their first-seen order', () => {
+    let consumed = 0;
+    function* accumulators() {
+        for (let number = 0; number < 4096; number++) {
+            consumed++;
+            const title = `Synthetic ${number}`;
+            yield {
+                key: title,
+                baseKey: title,
+                title,
+                rawTitle: title,
+                languageTag: null,
+                yearHint: null,
+                groups: [],
+                groupCounts: new Map(),
+                seasons: new Map(),
+                posterUrl: null,
+            };
+        }
+    }
+    const regroup = regroupM3uSeriesByYearInBatches(accumulators());
+    let step = regroup.next();
+    expect(step.done).toBe(false);
+    expect(consumed).toBeLessThan(4096);
+    while (!step.done) step = regroup.next();
+    expect(step.value).toHaveLength(4096);
+    expect(step.value[0].key).toBe('Synthetic 0');
+    expect(step.value[4095].key).toBe('Synthetic 4095');
+});
 
 describe('buildM3uSeriesCatalog', () => {
     it('collapses episodes of one show into a single series', () => {

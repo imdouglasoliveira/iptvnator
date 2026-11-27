@@ -80,7 +80,8 @@ describe('PlaylistEffects updateFavorites$', () => {
 
         expect(transformPlaylistFavorites).toHaveBeenCalledWith(
             'p1',
-            expect.any(Function)
+            expect.any(Function),
+            { kind: 'favorites.setMembership', url: channel.url, present: true }
         );
         expect(storedFavorites).toEqual(['http://b', 'http://a']);
         expect(notifications.success).toHaveBeenCalledWith(

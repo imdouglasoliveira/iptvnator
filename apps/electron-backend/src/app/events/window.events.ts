@@ -7,6 +7,8 @@
 
 import { BrowserWindow, ipcMain } from 'electron';
 import {
+    M3U_CATALOG_SNAPSHOT_ENABLED,
+    M3U_CATALOG_SNAPSHOT_KILL_SWITCH,
     WINDOW_CLOSE,
     WINDOW_GET_STATE,
     WINDOW_GET_ZOOM_LEVEL,
@@ -110,6 +112,10 @@ ipcMain.handle(WINDOW_GET_STATE, (event): WindowState => {
 // first Angular paint.
 ipcMain.on(WINDOW_GET_ZOOM_LEVEL, (event) => {
     event.returnValue = readPersistedZoomLevel();
+});
+
+ipcMain.on(M3U_CATALOG_SNAPSHOT_ENABLED, (event) => {
+    event.returnValue = process.env[M3U_CATALOG_SNAPSHOT_KILL_SWITCH] !== '1';
 });
 
 // The preload applied the level with webFrame.setZoomLevel: from here on the

@@ -8,12 +8,18 @@ import {
 } from '@iptvnator/shared/logging';
 import {
     M3uCatalogIndex,
+    M3uCatalogSnapshot,
     M3uContentKind,
     M3uWithheldGroups,
     buildM3uCatalogIndex,
+    indexM3uCatalogRows,
     withholdM3uCatalogGroups,
 } from '@iptvnator/shared/m3u-utils/catalog';
 import { resolveAdjacentChannel } from './adjacent-channel.util';
+import {
+    indexFromM3uSnapshot,
+    readM3uCatalogSnapshot,
+} from './m3u-catalog-snapshot.reader';
 import {
     selectChannels,
     selectChannelsLoading,
@@ -42,7 +48,7 @@ export const selectChannelsPlaylistId = createSelector(
 // bundle.
 let emptyIndex: M3uCatalogIndex<Channel> | undefined;
 const emptyIndexOf = (): M3uCatalogIndex<Channel> =>
-    (emptyIndex ||= buildM3uCatalogIndex<Channel>([]));
+    (emptyIndex ||= indexM3uCatalogRows<Channel>([], () => 'live'));
 
 /**
  * Owns the derived catalog index for the loaded M3U playlist.
@@ -105,6 +111,45 @@ export class M3uCatalogIndexService implements M3uCatalogSectionsSource {
     );
 
     private readonly knownSections = new Map<string, M3uCatalogSectionFlags>();
+    private readonly snapshots = new WeakMap<
+        readonly Channel[],
+        M3uCatalogSnapshot
+    >();
+
+    private readonly snapshotEnabled = computed(
+        () => this.settingsStore.optimizations?.()?.catalogSnapshot !== false
+    );
+
+    prepareSnapshot(
+        playlistId: string,
+        revision: number | undefined,
+        channels: readonly Channel[]
+    ) {
+        const bridge = globalThis.window?.electron;
+        if (
+            revision === undefined ||
+            !bridge?.dbGetM3uCatalogSnapshot ||
+            !this.snapshotEnabled()
+        ) {
+            return;
+        }
+        return readM3uCatalogSnapshot(
+            bridge, playlistId, revision, channels.length
+        ).then((snapshot) => {
+            if (snapshot) this.snapshots.set(channels, snapshot);
+        });
+    }
+
+    private readonly currentSnapshot = computed(
+        () => this.snapshotEnabled() ? this.snapshots.get(this.channels()) : undefined
+    );
+
+    snapshotForSeries(playlistId: string) {
+        const snapshot = !this.loading() && this.rowsPlaylistId() === playlistId
+            ? this.currentSnapshot()
+            : undefined;
+        return snapshot ? { snapshot, channels: this.channels() } : undefined;
+    }
 
     /**
      * Which catalog sections a playlist has rows for, or null when it has
@@ -123,7 +168,8 @@ export class M3uCatalogIndexService implements M3uCatalogSectionsSource {
      */
     sectionsOf(playlistId: string): M3uCatalogSectionFlags | null {
         if (!this.loading() && this.rowsPlaylistId() === playlistId) {
-            const { movie, episode } = this.storedIndex().counts;
+            const { movie, episode } =
+                this.currentSnapshot()?.counts ?? this.storedIndex().counts;
             const sections = { movies: movie > 0, series: episode > 0 };
             this.knownSections.set(playlistId, sections);
             return sections;
@@ -135,6 +181,10 @@ export class M3uCatalogIndexService implements M3uCatalogSectionsSource {
     /** Index of whatever the store holds, current or not. */
     private readonly storedIndex: Signal<M3uCatalogIndex<Channel>> = computed(() => {
         const channels = this.channels();
+        if (channels.length === 0) return emptyIndexOf();
+        const snapshot = this.currentSnapshot();
+        const index = snapshot && indexFromM3uSnapshot(snapshot, channels);
+        if (index) return index;
         return measureRendererPerformancePhase(
             RENDERER_PERFORMANCE_PHASE.M3U_BUILD_CATALOG_INDEX,
             () => buildM3uCatalogIndex(channels),
@@ -195,9 +245,12 @@ export class M3uCatalogIndexService implements M3uCatalogSectionsSource {
     );
 
     /** True once the playlist holds something other than live channels. */
-    readonly hasNonLiveContent: Signal<boolean> = computed(
-        () => this.storedIndex().hasNonLiveContent
-    );
+    readonly hasNonLiveContent: Signal<boolean> = computed(() => {
+        const counts = this.currentSnapshot()?.counts;
+        return counts
+            ? counts.movie > 0 || counts.episode > 0
+            : this.storedIndex().hasNonLiveContent;
+    });
 
     /**
      * True when films and episodes have somewhere else to go, so the live

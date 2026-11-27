@@ -114,6 +114,10 @@ async function buildWorker() {
                 sourcemap: isPerformance || !isProduction,
                 minify: isProduction || isPerformance,
                 alias: {
+                    '@iptvnator/shared/interfaces/ipc-commands': path.join(
+                        __dirname,
+                        '../../libs/shared/interfaces/src/lib/ipc-commands.ts'
+                    ),
                     '@iptvnator/shared/interfaces/history-sync': path.join(
                         __dirname,
                         '../../libs/shared/interfaces/src/history-sync.ts'
@@ -146,6 +150,14 @@ async function buildWorker() {
                     '@iptvnator/shared/interfaces': path.join(
                         __dirname,
                         '../../libs/shared/interfaces/src/index.ts'
+                    ),
+                    '@iptvnator/shared/m3u-utils/catalog': path.join(
+                        __dirname,
+                        '../../libs/shared/m3u-utils/src/catalog.ts'
+                    ),
+                    '@iptvnator/shared/m3u-utils/series': path.join(
+                        __dirname,
+                        '../../libs/shared/m3u-utils/src/series.ts'
                     ),
                     '@iptvnator/shared/m3u-utils': path.join(
                         __dirname,

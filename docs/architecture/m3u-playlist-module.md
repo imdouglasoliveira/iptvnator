@@ -22,6 +22,30 @@ the active cache and removes deleted metadata without retaining another parsed
 payload. Shared hydration replaces the active channels while preserving local
 favorites and EPG preferences, and clears any previously retained entity payload.
 
+On Electron, the database worker queues a catalog snapshot after a committed
+M3U import, refresh, bulk write or legacy migration. Channel decoding on a cache
+miss, classification, series aggregation and serialization yield between
+batches. SQLite still returns the stored payload in one read. An individual
+stored channel over 1,048,576 UTF-16 code units skips the background rebuild.
+The snapshot stores kind codes by document position, group summaries and series
+episode positions. The read returns JSON
+text only when the saved item revision and classifier version match. A missing
+or obsolete snapshot queues a rebuild from the stored document. Serialization
+keeps the result within 10 MiB of UTF-8. It can omit kind codes and group summaries
+when series and counts fit, or skip persistence when they exceed the budget.
+The writers capture the item revision in an immediate transaction and schedule
+the snapshot after commit.
+
+The route keeps the existing loading state while it reads the snapshot. It
+matches the revision against the loaded document before publishing its rows.
+The catalog and series services use those same rows to resolve positions and
+apply the existing parental lock. A missing or invalid snapshot, an unavailable
+desktop bridge or a disabled optimization uses the local builders.
+`IPTVNATOR_DISABLE_M3U_CATALOG_SNAPSHOT=1` hides the read capability at preload
+startup, disables background builds, and restores autocommit for single writes
+and deferred transactions for batches. Changes to classification or series
+aggregation must bump `M3U_CLASSIFIER_VERSION`.
+
 ## Adding a URL source
 
 The Add playlist dialog acquires a definition through

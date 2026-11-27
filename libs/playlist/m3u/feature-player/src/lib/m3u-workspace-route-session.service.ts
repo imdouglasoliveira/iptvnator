@@ -136,6 +136,20 @@ export class M3uWorkspaceRouteSession {
                 return;
             }
 
+            const channels = playlist.playlist?.items ?? [];
+            const snapshot = this.catalogIndex.prepareSnapshot(
+                playlistId,
+                playlist.itemsRevision,
+                channels
+            );
+            if (snapshot) {
+                await snapshot;
+                if (
+                    !this.isCurrentLoadRequest(requestId, playlistId) ||
+                    this.catalogIndex.loading() === false
+                ) return;
+            }
+
             this.hydrateHiddenGroupTitles(
                 playlistId,
                 playlist.hiddenGroupTitles,
@@ -151,7 +165,6 @@ export class M3uWorkspaceRouteSession {
                     );
                 });
 
-            const channels = playlist.playlist?.items ?? [];
             measureRendererPerformancePhase(
                 RENDERER_PERFORMANCE_PHASE.M3U_PUBLISH_CHANNELS,
                 () =>

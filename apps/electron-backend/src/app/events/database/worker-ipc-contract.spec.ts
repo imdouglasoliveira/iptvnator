@@ -26,6 +26,7 @@ const mockGetDatabase = jest.fn();
 
 jest.mock('electron', () => ({
     ipcMain: {
+        on: jest.fn(),
         handle: jest.fn((channel: string, handler: IpcHandler) => {
             mockRegisteredHandlers.set(channel, handler);
         }),

@@ -13,13 +13,6 @@ import {
 } from '@iptvnator/shared/interfaces';
 import * as schema from '@iptvnator/shared/database/schema';
 import type { Channel, M3uFavoriteChannel } from '@iptvnator/shared/interfaces';
-import {
-    APP_PLAYLIST_GET_PERFORMANCE_PHASE,
-    APP_PLAYLIST_UPSERT_PERFORMANCE_PHASE,
-    type AppPlaylistGetPerformancePhase,
-    type AppPlaylistUpsertPerformancePhase,
-    type PerformancePhaseMetadata,
-} from '@iptvnator/shared/interfaces';
 import type { AppDatabase } from '../database.types';
 import type {
     XtreamCatalogStateCondition,
@@ -33,13 +26,10 @@ import {
     reportOperationProgress,
 } from './operation-control';
 import {
-    playlistConflictUpdate,
     readPayloadServerTimezone,
     serverTimezoneInvalidation,
 } from './playlist-server-timezone.operations';
 import {
-    buildPlaylistRow,
-    getPlaylistItemCount,
     parseAppPlaylist,
     parseJsonValue,
     PLAYLIST_TYPES,
@@ -54,31 +44,16 @@ export {
     parseAppPlaylist,
 } from '@iptvnator/shared/database/app-playlist';
 
-export interface AppPlaylistUpsertPhaseCapture {
-    captureAsync: <TResult>(
-        phase: AppPlaylistUpsertPerformancePhase,
-        execute: () => Promise<TResult>,
-        metadata?: (result: TResult) => PerformancePhaseMetadata
-    ) => Promise<TResult>;
-    captureSync: <TResult>(
-        phase: AppPlaylistUpsertPerformancePhase,
-        execute: () => TResult,
-        metadata?: (result: TResult) => PerformancePhaseMetadata
-    ) => TResult;
-}
+export {
+    upsertAppPlaylist,
+    upsertAppPlaylists,
+    type AppPlaylistUpsertPhaseCapture,
+} from './app-playlist-upsert.operations';
 
-export interface AppPlaylistGetPhaseCapture {
-    captureAsync: <TResult>(
-        phase: AppPlaylistGetPerformancePhase,
-        execute: () => Promise<TResult>,
-        metadata?: (result: TResult) => PerformancePhaseMetadata
-    ) => Promise<TResult>;
-    captureSync: <TResult>(
-        phase: AppPlaylistGetPerformancePhase,
-        execute: () => TResult,
-        metadata?: (result: TResult) => PerformancePhaseMetadata
-    ) => TResult;
-}
+export {
+    getAppPlaylist,
+    type AppPlaylistGetPhaseCapture,
+} from './app-playlist-read.operations';
 
 function getFavoriteChannelMatch(
     channel: Channel,
@@ -149,86 +124,6 @@ export async function createPlaylist(
     return { success: true };
 }
 
-export async function upsertAppPlaylist(
-    db: AppDatabase,
-    playlist: Record<string, unknown>,
-    capturePhase?: AppPlaylistUpsertPhaseCapture
-): Promise<{ success: boolean }> {
-    const row = capturePhase
-        ? capturePhase.captureSync(
-              APP_PLAYLIST_UPSERT_PERFORMANCE_PHASE.SERIALIZE_PLAYLIST,
-              () => buildPlaylistRow(playlist),
-              () => ({
-                  itemCount: getPlaylistItemCount(playlist),
-              })
-          )
-        : buildPlaylistRow(playlist);
-    if (!row) {
-        throw new Error('Playlist ID is required for upsert');
-    }
-
-    const write = async () => {
-        await db
-            .insert(schema.playlists)
-            .values(row)
-            .onConflictDoUpdate({
-                target: schema.playlists.id,
-                set: playlistConflictUpdate(row, playlist),
-            });
-    };
-    if (capturePhase) {
-        await capturePhase.captureAsync(
-            APP_PLAYLIST_UPSERT_PERFORMANCE_PHASE.SQLITE_WRITE,
-            write,
-            () => ({
-                itemCount: 1,
-            })
-        );
-    } else {
-        await write();
-    }
-
-    return { success: true };
-}
-
-export async function upsertAppPlaylists(
-    db: AppDatabase,
-    playlists: Record<string, unknown>[]
-): Promise<{ success: boolean; count: number }> {
-    if (!Array.isArray(playlists) || playlists.length === 0) {
-        return { success: true, count: 0 };
-    }
-
-    const rows = playlists
-        .map((playlist) => ({ playlist, row: buildPlaylistRow(playlist) }))
-        .filter(
-            (
-                entry
-            ): entry is {
-                playlist: Record<string, unknown>;
-                row: NonNullable<typeof entry.row>;
-            } => entry.row !== null
-        );
-
-    if (rows.length === 0) {
-        return { success: true, count: 0 };
-    }
-
-    await db.transaction((tx) => {
-        for (const { playlist, row } of rows) {
-            tx.insert(schema.playlists)
-                .values(row)
-                .onConflictDoUpdate({
-                    target: schema.playlists.id,
-                    set: playlistConflictUpdate(row, playlist),
-                })
-                .run();
-        }
-    });
-
-    return { success: true, count: rows.length };
-}
-
 export async function getAppPlaylists(db: AppDatabase) {
     const rows = await db.select().from(schema.playlists);
     return rows.map((row) => parseAppPlaylist(row));
@@ -265,6 +160,7 @@ export async function getAppPlaylistMetas(db: AppDatabase) {
             favorites: schema.playlists.favorites,
             recentlyViewed: schema.playlists.recentlyViewed,
             lastUsage: schema.playlists.lastUsage,
+            itemsRevision: schema.playlists.itemsRevision,
             hiddenStalkerCategories: sql<
                 string | null
             >`CASE WHEN ${schema.playlists.type} = 'stalker' THEN CASE WHEN json_valid(${schema.playlists.payload}) THEN CASE WHEN json_type(${schema.playlists.payload}, '$.hiddenStalkerCategories') = 'object' THEN json_extract(${schema.playlists.payload}, '$.hiddenStalkerCategories') END END END`,
@@ -293,37 +189,6 @@ export async function getAppPlaylistMetas(db: AppDatabase) {
                   }),
         };
     });
-}
-
-export async function getAppPlaylist(
-    db: AppDatabase,
-    playlistId: string,
-    capturePhase?: AppPlaylistGetPhaseCapture
-) {
-    const read = () =>
-        db
-            .select()
-            .from(schema.playlists)
-            .where(eq(schema.playlists.id, playlistId))
-            .limit(1);
-    const rows = capturePhase
-        ? await capturePhase.captureAsync(
-              APP_PLAYLIST_GET_PERFORMANCE_PHASE.SQLITE_READ,
-              read,
-              (value) => ({ itemCount: value.length })
-          )
-        : await read();
-    const deserialize = () => (rows[0] ? parseAppPlaylist(rows[0]) : null);
-
-    return capturePhase
-        ? capturePhase.captureSync(
-              APP_PLAYLIST_GET_PERFORMANCE_PHASE.DESERIALIZE_PLAYLIST,
-              deserialize,
-              (value) => ({
-                  itemCount: value ? (getPlaylistItemCount(value) ?? 0) : 0,
-              })
-          )
-        : deserialize();
 }
 
 export async function getAppPlaylistFavoriteChannels(

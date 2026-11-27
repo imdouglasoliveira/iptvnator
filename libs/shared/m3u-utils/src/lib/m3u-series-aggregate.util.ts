@@ -13,8 +13,8 @@ import {
     placeUnnumberedEpisode,
 } from './m3u-series-placement.util';
 import {
-    regroupM3uSeriesByYear,
-    remintM3uEpisodeIds,
+    regroupM3uSeriesByYearInBatches,
+    remintM3uEpisodeIdsInBatches,
 } from './m3u-series-remake-split.util';
 import { hasEpisodeMarker } from './m3u-vod-detection.util';
 import { splitM3uNameTag } from './m3u-name-tag-split.util';
@@ -50,6 +50,16 @@ export function buildM3uSeriesCatalog<T extends M3uArtworkBearing>(
     episodes: readonly T[] | null | undefined,
     playlistId: string
 ): readonly M3uSeries<T>[] {
+    const build = buildM3uSeriesCatalogInBatches(episodes ?? [], playlistId);
+    for (let step = build.next(); ; step = build.next()) {
+        if (step.done) return step.value;
+    }
+}
+
+export function* buildM3uSeriesCatalogInBatches<T extends M3uArtworkBearing>(
+    episodes: readonly T[],
+    playlistId: string
+): Generator<void, readonly M3uSeries<T>[]> {
     const accumulators = new Map<string, M3uSeriesAccumulator<T>>();
 
     const unnumbered: [M3uSeriesAccumulator<T>, T][] = [];
@@ -58,7 +68,9 @@ export function buildM3uSeriesCatalog<T extends M3uArtworkBearing>(
     // call: nothing is retained between playlists.
     const identities = new Map<string, SeriesIdentity>();
 
-    for (const channel of episodes ?? []) {
+    let processed = 0;
+    for (const channel of episodes) {
+        if (++processed % 2048 === 0) yield;
         let parsed = parseRow(channel.name, channel.group?.title);
         const memoKey = `${parsed.standalone ? 's' : 'n'}\u0000${parsed.seriesTitle}`;
         let identity = identities.get(memoKey);
@@ -105,13 +117,26 @@ export function buildM3uSeriesCatalog<T extends M3uArtworkBearing>(
     // After every numbered row, so a row with no number never takes the
     // coordinate a real episode states.
     for (const [series, channel] of unnumbered) {
+        if (++processed % 2048 === 0) yield;
         addUnnumberedEpisode(series, channel);
     }
 
-    return regroupM3uSeriesByYear(accumulators.values()).map((series) => {
-        remintM3uEpisodeIds(series);
-        return finalize(series);
-    });
+    const result: M3uSeries<T>[] = [];
+    const regrouped = yield* regroupM3uSeriesByYearInBatches(
+        accumulators.values()
+    );
+    processed = 0;
+    for (const series of regrouped) {
+        yield* remintM3uEpisodeIdsInBatches(series);
+        const finalized = yield* finalize(series);
+        result.push(finalized);
+        processed += finalized.episodeCount + series.groups.length + 1;
+        if (processed >= 2048) {
+            processed = 0;
+            yield;
+        }
+    }
+    return result;
 }
 
 interface SeriesIdentity {
@@ -300,11 +325,12 @@ function addUnnumberedEpisode<T extends M3uArtworkBearing>(
     });
 }
 
-function finalize<T extends M3uArtworkBearing>(
+function* finalize<T extends M3uArtworkBearing>(
     series: M3uSeriesAccumulator<T>
-): M3uSeries<T> {
+): Generator<void, M3uSeries<T>> {
     const seasons = new Map<number, readonly M3uSeriesEpisode<T>[]>();
     let episodeCount = 0;
+    let processed = 0;
 
     for (const [number, season] of [...series.seasons].sort(
         (a, b) => a[0] - b[0]
@@ -314,6 +340,11 @@ function finalize<T extends M3uArtworkBearing>(
         );
         seasons.set(number, episodes);
         episodeCount += episodes.length;
+        processed += episodes.length;
+        if (processed >= 2048) {
+            processed = 0;
+            yield;
+        }
     }
 
     // `groupCounts` was filled in first-seen order, the order of `groups`,
@@ -321,6 +352,7 @@ function finalize<T extends M3uArtworkBearing>(
     let primaryGroup = '';
     let best = -1;
     for (const [group, count] of series.groupCounts) {
+        if (++processed % 2048 === 0) yield;
         if (count > best) {
             best = count;
             primaryGroup = group;

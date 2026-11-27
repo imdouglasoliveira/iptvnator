@@ -198,6 +198,11 @@ export interface Settings {
      * they fall back to the playlist's own logos and titles.
      */
     m3uCatalogTabs?: boolean;
+    optimizations?: {
+        catalogSnapshot: boolean;
+        priorityOpen: boolean;
+        conditionalRefresh: boolean;
+    };
     /** Global programme guide opt-out; missing means enabled. */
     epgEnabled?: boolean;
     epgUrl: string[];

@@ -155,6 +155,12 @@ export const dbPreloadCases: PreloadInvokeCase[] = [
         forwardedArgs: [playlistId],
     },
     {
+        method: 'dbGetM3uCatalogSnapshot',
+        args: [playlistId],
+        channel: 'DB_GET_M3U_CATALOG_SNAPSHOT',
+        forwardedArgs: [playlistId],
+    },
+    {
         method: 'dbGetAppPlaylistFavoriteChannels',
         args: [playlistId],
         channel: 'DB_GET_APP_PLAYLIST_FAVORITE_CHANNELS',
