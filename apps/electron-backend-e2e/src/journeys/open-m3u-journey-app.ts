@@ -75,15 +75,30 @@ export async function seedOpenM3uJourneyProfile(
                                 window.electron.dbGetM3uFavoritesSnapshot;
                             if (readSnapshot) {
                                 const snapshot = await readSnapshot(id);
-                                return snapshot ? JSON.parse(snapshot).channels.length : 0;
+                                return snapshot
+                                    ? JSON.parse(snapshot).channels.length
+                                    : 0;
                             }
                             const favorites =
-                                await window.electron.dbGetAppPlaylistFavoriteChannels(id);
+                                await window.electron.dbGetAppPlaylistFavoriteChannels(
+                                    id
+                                );
                             return favorites.length;
                         }, playlistId),
                     { timeout: timeoutMs }
                 )
                 .toBe(OPEN_M3U_JOURNEY_FAVORITE_COUNT);
+            await expect
+                .poll(
+                    () =>
+                        page.evaluate(async (id) => {
+                            const read =
+                                window.electron.dbGetM3uCatalogSnapshot;
+                            return read ? (await read(id)) !== null : true;
+                        }, playlistId),
+                    { timeout: timeoutMs }
+                )
+                .toBe(true);
             await goToDashboard(page);
             return { directory, pathname };
         } finally {

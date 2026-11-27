@@ -148,7 +148,14 @@ export class M3uCatalogIndexService implements M3uCatalogSectionsSource {
         const snapshot = !this.loading() && this.rowsPlaylistId() === playlistId
             ? this.currentSnapshot()
             : undefined;
-        return snapshot ? { snapshot, channels: this.channels() } : undefined;
+        return snapshot && snapshot.series !== null
+            ? {
+                  snapshot: snapshot as M3uCatalogSnapshot & {
+                      series: NonNullable<M3uCatalogSnapshot['series']>;
+                  },
+                  channels: this.channels(),
+              }
+            : undefined;
     }
 
     /**

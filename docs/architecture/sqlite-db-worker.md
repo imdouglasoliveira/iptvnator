@@ -721,6 +721,8 @@ Xtream-only row shape:
 11. `DB_DELETE_ALL_PLAYLISTS`
 12. `DB_GET_APP_STATE`
 13. `DB_SET_APP_STATE`
+14. `DB_GET_M3U_CATALOG_SNAPSHOT`
+15. `DB_GET_M3U_FAVORITES_SNAPSHOT`
 
 `DB_UPSERT_APP_PLAYLIST(S)` write whole documents: the row built by the shared
 codec (`buildPlaylistRow` in `libs/shared/database`) replaces the stored one.
@@ -876,6 +878,53 @@ No callback crosses IPC.
 - Tests: `m3u-activity.sqlite.spec.ts` (real SQLite) and
   `playlists.service.m3u-activity.spec.ts` (zero whole-document calls per tap
   and per favorite toggle/reorder).
+
+## M3U Catalog Snapshots
+
+Large M3U playlists persist a derived catalog snapshot in SQLite so reopening a
+playlist does not reclassify every channel or rebuild series aggregations on the
+renderer thread.
+
+- **Schema (`m3u_catalog_snapshots`)**: Defined in
+  `libs/shared/database/src/lib/m3u-catalog-snapshots.schema.ts`. Keyed by
+  `playlist_id` (`REFERENCES playlists(id) ON DELETE CASCADE`), storing
+  `items_revision`, `classifier_version` (`M3U_CLASSIFIER_VERSION`), nullable
+  `favorites` JSON (for priority opening), `data` JSON (catalog snapshot), and
+  `updated_at`.
+- **`items_revision` counter and triggers**: `playlists.items_revision` (stored
+  before `payload`, defaulting to `0` for historical rows) is maintained by
+  idempotent SQLite triggers (`m3u_items_revision_insert` and
+  `m3u_items_revision_update` in `libs/shared/database/src/lib/m3u-items-revision.ts`)
+  backed by a database-wide sequence in `app_state` (`m3u-items-revision`). The
+  triggers fire only for `m3u-%` playlists when `$.playlist.items` inside
+  `payload` changes, so metadata-only writes preserve the revision and deleting
+  and reimporting a playlist cannot reuse an earlier revision.
+- **Chunked worker build and 10 MiB cap**:
+  `apps/electron-backend/src/app/database/operations/m3u-catalog-snapshot.operations.ts`
+  captures the revision inside the document write transaction
+  (`captureM3uDocumentWrite`) and queues a coalesced background job per playlist
+  after commit (`afterM3uDocumentWrite`). `DB_GET_M3U_CATALOG_SNAPSHOT` returns
+  `data` only when `items_revision` and `classifier_version` match; otherwise it
+  returns `null` and schedules a rebuild from `playlists.payload` (skipping the
+  rebuild if any stored channel exceeds 1,048,576 UTF-16 code units). Payload
+  decoding, classification, series aggregation, and JSON serialization
+  (`m3u-catalog-snapshot-serialization.ts`) yield between chunks via
+  `setImmediate` so the worker remains responsive to incoming requests.
+  Serialization enforces a 10 MiB UTF-8 ceiling (`SNAPSHOT_BYTES_LIMIT`): if
+  `kinds` and `groups` exceed the remaining budget while `series` and counts
+  fit, it falls back to omitting `kinds`/`groups`; if `series` alone exceeds the
+  cap, snapshot persistence is skipped. The final upsert re-checks
+  `items_revision` in an `IMMEDIATE` transaction and preserves a matching
+  `favorites` projection.
+- **Kill switch (`IPTVNATOR_DISABLE_M3U_CATALOG_SNAPSHOT=1`)**: Disables catalog
+  snapshot reads and background builds in the worker and hides the capability at
+  preload startup. When both `IPTVNATOR_DISABLE_M3U_CATALOG_SNAPSHOT=1` and
+  `IPTVNATOR_DISABLE_M3U_PRIORITY_OPEN=1` are set at startup,
+  `ensureM3uItemsRevisionTriggers` drops both revision triggers and clears
+  `m3u_catalog_snapshots` in one `IMMEDIATE` transaction (preserving playlist
+  documents and the `m3u-items-revision` sequence), and single/batch writes
+  revert to their original transaction behavior. Remove the kill switch within
+  two releases of its introduction.
 
 ## SQLite Concurrency Rules
 

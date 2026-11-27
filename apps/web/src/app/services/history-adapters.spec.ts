@@ -54,6 +54,29 @@ function fixture(provider: HistoryScope['provider']) {
         read: () => record,
     };
 }
+type HistoryOp = Parameters<typeof applyHistoryOperation>[1];
+type TouchOp = Extract<HistoryOp, { kind: 'touch' }>;
+type RemoveOp = Extract<HistoryOp, { kind: 'remove' }>;
+const seedTouch = (
+    f: ReturnType<typeof fixture>,
+    reference: TouchOp['reference'],
+    extra: Partial<Omit<TouchOp, 'kind' | 'reference'>> = {}
+) => {
+    f.read().base = applyHistoryOperation(f.read().base, {
+        kind: 'touch', reference, operationId: 'remote', deviceId: 'remote',
+        baseRevision: 0, viewedAt: 1, ...extra,
+    }).state;
+};
+const seedRemove = (
+    f: ReturnType<typeof fixture>,
+    reference: RemoveOp['reference'],
+    extra: Partial<Omit<RemoveOp, 'kind' | 'reference'>> = {}
+) => {
+    f.read().base = applyHistoryOperation(f.read().base, {
+        kind: 'remove', reference, operationId: 'remote', deviceId: 'remote',
+        baseRevision: 0, viewedAt: 1, ...extra,
+    }).state;
+};
 const locks = {
     active: () => false,
     withholdsEverything: () => false,
@@ -118,24 +141,18 @@ describe('history provider projections', () => {
                           kind: 'live' as const,
                           id: '42',
                       };
-            f.read().base = applyHistoryOperation(f.read().base, {
-                kind: 'touch',
-                reference,
+            seedTouch(f, reference, {
                 snapshot: { title: channel.name },
                 operationId: 'synthetic-touch',
                 deviceId: 'synthetic-device',
-                baseRevision: 0,
-                viewedAt: 1,
-            }).state;
+            });
             if (operation === 'remove')
-                f.read().base = applyHistoryOperation(f.read().base, {
-                    kind: 'remove',
-                    reference,
+                seedRemove(f, reference, {
                     operationId: 'synthetic-remove',
                     deviceId: 'synthetic-device',
                     baseRevision: f.read().base.revision,
                     viewedAt: 2,
-                }).state;
+                });
             const adapter = new HistoryPlaylistAdapter(
                 f.client,
                 async () => source
@@ -171,15 +188,16 @@ describe('history provider projections', () => {
         async (enabled) => {
             const f = fixture('stalker');
             for (const kind of ['live', 'movie'] as const)
-                f.read().base = applyHistoryOperation(f.read().base, {
-                    kind: 'touch',
-                    reference: { provider: 'stalker', kind, id: '42' },
-                    snapshot: { title: `Synthetic ${kind}` },
-                    operationId: `synthetic-${kind}`,
-                    deviceId: 'synthetic-device',
-                    baseRevision: f.read().base.revision,
-                    viewedAt: 1,
-                }).state;
+                seedTouch(
+                    f,
+                    { provider: 'stalker', kind, id: '42' },
+                    {
+                        snapshot: { title: `Synthetic ${kind}` },
+                        operationId: `synthetic-${kind}`,
+                        deviceId: 'synthetic-device',
+                        baseRevision: f.read().base.revision,
+                    }
+                );
             const source = {
                 ...playlist,
                 macAddress: 'synthetic-mac',
@@ -287,14 +305,10 @@ describe('history provider projections', () => {
             } as unknown as Playlist;
             const reference = await m3uFavoriteReference(channel.url);
             if (origin === 'received')
-                f.read().base = applyHistoryOperation(f.read().base, {
-                    kind: 'touch',
-                    reference,
-                    baseRevision: 0,
+                seedTouch(f, reference, {
                     operationId: 'synthetic-received',
                     deviceId: 'synthetic-device',
-                    viewedAt: 1,
-                }).state;
+                });
             const adapter = new HistoryPlaylistAdapter(
                 f.client,
                 async () => source
@@ -335,14 +349,11 @@ describe('history provider projections', () => {
         'keeps unresolved row IDs separate with sqlite=%s',
         async (sqlite) => {
             const f = fixture('xtream');
-            f.read().base = applyHistoryOperation(f.read().base, {
-                kind: 'touch',
-                reference: { provider: 'xtream', kind: 'live', id: '42' },
-                operationId: 'synthetic-touch',
-                deviceId: 'synthetic-device',
-                baseRevision: 0,
-                viewedAt: 1,
-            }).state;
+            seedTouch(
+                f,
+                { provider: 'xtream', kind: 'live', id: '42' },
+                { operationId: 'synthetic-touch', deviceId: 'synthetic-device' }
+            );
             const raw = {
                 getRecentItems: async () => [],
                 getContentByXtreamId: jest.fn().mockResolvedValue(null),
@@ -370,20 +381,20 @@ describe('history provider projections', () => {
         async (resolvedId) => {
             const f = fixture('xtream');
             const kind = resolvedId === 'conflict' ? 'movie' : 'live';
-            f.read().base = applyHistoryOperation(f.read().base, {
-                kind: 'touch',
-                reference: { provider: 'xtream', kind, id: '42' },
-                snapshot: {
-                    title: 'Synthetic received item',
-                    ...(resolvedId === 'conflict'
-                        ? { tmdbId: '101', releaseYear: '2020' }
-                        : {}),
-                },
-                operationId: 'synthetic-touch',
-                deviceId: 'synthetic-device',
-                baseRevision: 0,
-                viewedAt: 1,
-            }).state;
+            seedTouch(
+                f,
+                { provider: 'xtream', kind, id: '42' },
+                {
+                    snapshot: {
+                        title: 'Synthetic received item',
+                        ...(resolvedId === 'conflict'
+                            ? { tmdbId: '101', releaseYear: '2020' }
+                            : {}),
+                    },
+                    operationId: 'synthetic-touch',
+                    deviceId: 'synthetic-device',
+                }
+            );
             const raw = {
                 getRecentItems: async () => [],
                 getContentByXtreamId: async () => null,
@@ -751,15 +762,7 @@ describe('history provider projections', () => {
             { provider: 'stalker', kind: 'series', id: '42', mode: 'regular' },
             { provider: 'stalker', kind: 'series', id: '42', mode: 'lazy' },
         ] as const;
-        for (const reference of references)
-            f.read().base = applyHistoryOperation(f.read().base, {
-                kind: 'touch',
-                reference,
-                baseRevision: 0,
-                viewedAt: 1,
-                operationId: 'remote',
-                deviceId: 'remote',
-            }).state;
+        for (const reference of references) seedTouch(f, reference);
         const source = { ...playlist, macAddress: '00:1a:79:00:00:01' };
         const adapter = new HistoryPlaylistAdapter(f.client, async (p) => p);
         const rows = (await adapter.project(source))
@@ -783,15 +786,7 @@ describe('history provider projections', () => {
             kind: 'movie',
             id: '42',
         } as const;
-        f.read().base = applyHistoryOperation(f.read().base, {
-            kind: 'touch',
-            reference,
-            snapshot: { title: 'Synthetic remote' },
-            operationId: 'remote',
-            deviceId: 'remote',
-            baseRevision: 0,
-            viewedAt: 1,
-        }).state;
+        seedTouch(f, reference, { snapshot: { title: 'Synthetic remote' } });
         let warm = false;
         const row = {
             id: 42,
@@ -826,14 +821,12 @@ describe('history provider projections', () => {
         warm = false;
         raw.getContent.mockImplementation(async () => {
             warm = true;
-            f.read().base = applyHistoryOperation(f.read().base, {
-                kind: 'remove',
-                reference,
+            seedRemove(f, reference, {
                 operationId: 'remove',
                 deviceId: 'other',
                 baseRevision: 1,
                 viewedAt: 2,
-            }).state;
+            });
             return [row];
         });
         expect(await adapter.project(raw as never, 'source')).toEqual([]);
@@ -859,19 +852,13 @@ describe('history provider projections', () => {
             kind: 'movie',
             id: '42',
         } as const;
-        f.read().base = applyHistoryOperation(f.read().base, {
-            kind: 'touch',
-            reference,
+        seedTouch(f, reference, {
             snapshot: {
                 title: 'Synthetic saved',
                 tmdbId: '100',
                 releaseYear: '2024',
             },
-            operationId: 'remote',
-            deviceId: 'remote',
-            baseRevision: 0,
-            viewedAt: 1,
-        }).state;
+        });
         const raw = {
             getRecentItems: jest.fn().mockResolvedValue([]),
             getContentByXtreamId: jest.fn().mockResolvedValue({
@@ -940,18 +927,11 @@ describe('history provider projections', () => {
             viewed_at: new Date(1000 - index).toISOString(),
         }));
         for (let id = 1; id <= 100; id++)
-            f.read().base = applyHistoryOperation(f.read().base, {
-                kind: 'remove',
-                reference: {
-                    provider: 'xtream',
-                    kind: 'movie',
-                    id: String(id),
-                },
-                operationId: String(id),
-                deviceId: 'other',
-                baseRevision: 0,
-                viewedAt: 2000,
-            }).state;
+            seedRemove(
+                f,
+                { provider: 'xtream', kind: 'movie', id: String(id) },
+                { operationId: String(id), deviceId: 'other', viewedAt: 2000 }
+            );
         const raw = {
             getRecentItems: jest.fn(
                 async (_id: string, options?: { all: true }) =>
@@ -1008,18 +988,15 @@ describe('history provider projections', () => {
         async (sqlite) => {
             const f = fixture('xtream');
             for (let id = 1; id <= 101; id++)
-                f.read().base = applyHistoryOperation(f.read().base, {
-                    kind: 'touch',
-                    reference: {
+                seedTouch(
+                    f,
+                    {
                         provider: 'xtream',
                         kind: id === 1 ? 'series' : 'movie',
                         id: String(id),
                     },
-                    operationId: String(id),
-                    deviceId: 'other',
-                    baseRevision: 0,
-                    viewedAt: id,
-                }).state;
+                    { operationId: String(id), deviceId: 'other', viewedAt: id }
+                );
             let seriesWarm = sqlite;
             const row = (id: number) => ({
                 id,
@@ -1081,26 +1058,16 @@ describe('history provider projections', () => {
     it('stops after 100 eligible entries while overlaying all known archive keys', async () => {
         const f = fixture('xtream');
         for (let id = 1; id <= 200; id++)
-            f.read().base = applyHistoryOperation(f.read().base, {
-                kind: 'touch',
-                reference: {
-                    provider: 'xtream',
-                    kind: 'movie',
-                    id: String(id),
-                },
-                operationId: String(id),
-                deviceId: 'other',
-                baseRevision: 0,
-                viewedAt: id,
-            }).state;
-        f.read().base = applyHistoryOperation(f.read().base, {
-            kind: 'remove',
-            reference: { provider: 'xtream', kind: 'movie', id: '999' },
-            operationId: 'remove',
-            deviceId: 'other',
-            baseRevision: 0,
-            viewedAt: 201,
-        }).state;
+            seedTouch(
+                f,
+                { provider: 'xtream', kind: 'movie', id: String(id) },
+                { operationId: String(id), deviceId: 'other', viewedAt: id }
+            );
+        seedRemove(
+            f,
+            { provider: 'xtream', kind: 'movie', id: '999' },
+            { operationId: 'remove', deviceId: 'other', viewedAt: 201 }
+        );
         const raw = {
             getRecentItems: jest.fn().mockResolvedValue([
                 {
@@ -1131,18 +1098,15 @@ describe('history provider projections', () => {
     it('normalizes SQLite UTC archive times before the merged browsing cap', async () => {
         const f = fixture('xtream');
         for (let id = 1; id <= 100; id++)
-            f.read().base = applyHistoryOperation(f.read().base, {
-                kind: 'touch',
-                reference: {
-                    provider: 'xtream',
-                    kind: 'movie',
-                    id: String(id),
-                },
-                operationId: String(id),
-                deviceId: 'other',
-                baseRevision: 0,
-                viewedAt: Date.parse('2026-11-05T11:30:00Z') + id,
-            }).state;
+            seedTouch(
+                f,
+                { provider: 'xtream', kind: 'movie', id: String(id) },
+                {
+                    operationId: String(id),
+                    deviceId: 'other',
+                    viewedAt: Date.parse('2026-11-05T11:30:00Z') + id,
+                }
+            );
         const raw = {
             getRecentItems: jest.fn().mockResolvedValue([
                 {
@@ -1185,15 +1149,16 @@ describe('history provider projections', () => {
                 },
             ],
         } as Playlist;
-        f.read().base = applyHistoryOperation(f.read().base, {
-            kind: 'touch',
-            reference: { provider: 'stalker', kind: 'movie', id: '42' },
-            snapshot: { title: 'Synthetic shared item' },
-            operationId: 'shared',
-            deviceId: 'other',
-            baseRevision: 0,
-            viewedAt: Date.parse('2026-11-05T11:30:00Z'),
-        }).state;
+        seedTouch(
+            f,
+            { provider: 'stalker', kind: 'movie', id: '42' },
+            {
+                snapshot: { title: 'Synthetic shared item' },
+                operationId: 'shared',
+                deviceId: 'other',
+                viewedAt: Date.parse('2026-11-05T11:30:00Z'),
+            }
+        );
         const adapter = new HistoryPlaylistAdapter(f.client, async (p) => p);
         expect((await adapter.local(source)).items[0].viewedAt).toBe(
             Date.parse('2026-11-05T12:00:00Z')

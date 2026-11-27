@@ -43,7 +43,8 @@ function isSnapshot(value: M3uCatalogSnapshot, size: number): boolean {
         value.version !== 1 ||
         typeof value.kinds !== 'string' ||
         !Array.isArray(value.groups) ||
-        !Array.isArray(value.series) ||
+        (value.series !== null && !Array.isArray(value.series)) ||
+        (value.series === null && value.kinds === '' && size > 0) ||
         !value.counts ||
         !kinds.every((kind) => isCount(value.counts[kind])) ||
         kinds.reduce((sum, kind) => sum + value.counts[kind], 0) !== size
@@ -65,7 +66,9 @@ function isSnapshot(value: M3uCatalogSnapshot, size: number): boolean {
                 kinds.includes(group.kind) &&
                 isCount(group.count) &&
                 inRange(group.firstPosition)
-        ) && value.series.every((series) => validSeries(series, inRange))
+        ) &&
+        (value.series === null ||
+            value.series.every((series) => validSeries(series, inRange)))
     );
 }
 
@@ -128,7 +131,7 @@ export function indexFromM3uSnapshot(
 }
 
 export function seriesFromM3uSnapshot(
-    snapshot: M3uCatalogSnapshot,
+    snapshot: M3uCatalogSnapshot & { series: M3uSnapshotSeries[] },
     channels: readonly Channel[]
 ): readonly M3uSeries<Channel>[] {
     return snapshot.series.map(

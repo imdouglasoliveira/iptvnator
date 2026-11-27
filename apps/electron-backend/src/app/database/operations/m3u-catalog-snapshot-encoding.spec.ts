@@ -85,6 +85,24 @@ it('keeps the series when only the optional index puts the JSON over the byte ca
     expect(JSON.parse(encoded)).toEqual(snapshot);
 });
 
+it('keeps counts, kinds and groups with null series when series exceeds the byte cap', () => {
+    const title = 'é'.repeat(SNAPSHOT_BYTES_LIMIT / 2);
+    const input: M3uCatalogSnapshot = {
+        ...snapshot,
+        counts: { live: 1, movie: 1, episode: 1, radio: 0 },
+        kinds: 'lme',
+        groups: [
+            { kind: 'live', name: 'Live', count: 1, firstPosition: 0 },
+            { kind: 'movie', name: 'Movies', count: 1, firstPosition: 1 },
+            { kind: 'episode', name: 'Shows', count: 1, firstPosition: 2 },
+        ],
+        series: [{ ...series, title }],
+    };
+    const encoded = finish(serializeM3uCatalogSnapshot(input))!;
+    expect(Buffer.byteLength(encoded)).toBeLessThanOrEqual(SNAPSHOT_BYTES_LIMIT);
+    expect(JSON.parse(encoded)).toEqual({ ...input, series: null });
+});
+
 it('rejects a snapshot when the final JSON with series alone exceeds the byte cap', () => {
     const title = 'é'.repeat(SNAPSHOT_BYTES_LIMIT / 2);
     expect(

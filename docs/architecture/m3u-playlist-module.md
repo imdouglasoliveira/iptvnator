@@ -66,6 +66,45 @@ Workspace startup defaults to restoring the last available route. A saved
 since older settings stored the same value for default and explicit choices.
 Subsequent startup-view choices persist the migration marker with the setting.
 
+### Low-End Mode and Optimizations Settings
+
+On Electron, `apps/electron-backend/src/app/services/low-end-hardware.ts`
+detects weak hardware when total system memory is at most 4.5 GiB
+(`LOW_END_MAX_MEMORY_BYTES`) or logical CPU cores are at most 2
+(`LOW_END_MAX_CPU_CORES`), exposing the result to the renderer over the
+`LOW_END_HARDWARE` preload channel (`RuntimeCapabilitiesService.lowEndHardware`).
+
+`settings.lowEndMode` (`'auto' | 'on' | 'off'`, default `'auto'`) is configured
+under **Settings → Appearance**. `LowEndModeService` reactively toggles
+`body.low-end`, whose rules in `apps/web/src/_low-end.scss` keep layout and
+information intact while turning off:
+
+- `backdrop-filter` / `-webkit-backdrop-filter` blur effects
+- CSS animations and transitions (`0s`) and smooth scrolling (`auto`)
+- high-elevation shadows (`--app-elev-2..5` collapse to `--app-elev-1`)
+- hero backdrop images, keyart, and trailer backdrops
+- translucent player control panels (switched to `--pc-glass-bg-dense`)
+
+When effective low-end mode is active and `settings.lowEndPlayerMigrated` is not
+`true`, `LowEndModeService` checks `isVlcInstalled()` after settings load. If
+VLC is installed and neither the mode nor the migration flag changed during the
+probe, it switches `settings.player` to `VideoPlayer.VLC` once and persists
+`lowEndPlayerMigrated: true`.
+
+Desktop optimization toggles live under **Settings → General → Optimizations**
+(`settings.optimizations`, all default `true`):
+
+- `optimizations.catalogSnapshot` — reuse the worker-built M3U catalog snapshot
+  on open (kill switch: `IPTVNATOR_DISABLE_M3U_CATALOG_SNAPSHOT=1`).
+- `optimizations.priorityOpen` — show live M3U favorites from the SQLite
+  snapshot before loading the full document (kill switch:
+  `IPTVNATOR_DISABLE_M3U_PRIORITY_OPEN=1`).
+- `optimizations.conditionalRefresh` — skip re-parsing and saving unchanged
+  remote M3U playlists (kill switch: `IPTVNATOR_DISABLE_CONDITIONAL_REFRESH=1`).
+
+All three kill switches are temporary performance guards to be removed within
+two releases.
+
 ## Adding a URL source
 
 The Add playlist dialog acquires a definition through
@@ -542,6 +581,30 @@ dead source must never stall startup (issue #931):
 - Playlist URLs frequently carry Xtream-style `username`/`password` query parameters,
   so refresh logging goes through `redactSensitiveData()` from
   `@iptvnator/shared/logging`.
+
+### Conditional Refresh (Electron)
+
+Remote M3U refreshes avoid re-parsing and rewriting SQLite when the upstream
+playlist has not changed. `apps/electron-backend/src/app/events/m3u-refresh-state.ts`
+persists per-playlist state in `app_state` under `m3u-refresh-state:<playlistId>`
+(`etag`, `lastModified`, `bodySha256`, `itemsRevision`, `checkedAt`,
+`lastFullCheckAt`, `nextCheckAt`, `failures`).
+
+- **Validation**: Both explicit refresh (`playlist-refresh.worker.ts`) and
+  startup auto-update (`playlist-auto-update.ts`) send `If-None-Match` and
+  `If-Modified-Since` when cached validators exist and `itemsRevision` matches
+  the current playlist.
+- **Unchanged shortcut**: An HTTP `304 Not Modified` response or a downloaded
+  body whose SHA-256 digest matches `bodySha256` resolves as `unchanged`,
+  skipping M3U parsing and SQLite persistence and showing the translated
+  "Playlist unchanged" ("Lista sem mudanças") notification.
+- **Full-check cadence and backoff**: A full download is forced at least every
+  7 days (`FULL_REFRESH_INTERVAL_MS`). Network failures apply exponential
+  backoff starting at 3 minutes (`INITIAL_FAILURE_BACKOFF_MS`) up to 24 hours
+  (`MAX_FAILURE_BACKOFF_MS`) before retrying in auto-update.
+- **Controls**: Controlled by `settings.optimizations.conditionalRefresh`
+  (mirrored to main via `SETTINGS_UPDATE`) and kill switch
+  `IPTVNATOR_DISABLE_CONDITIONAL_REFRESH=1` (remove within two releases).
 
 ### Refresh Cancellation Performance Regression
 

@@ -9,24 +9,40 @@ export function* serializeM3uCatalogSnapshot({
     kinds,
     ...metadata
 }: M3uCatalogSnapshot): Generator<void, string | undefined> {
-    const header = JSON.stringify(metadata).slice(0, -1) + ',"series":';
-    const fallback = ',"kinds":"","groups":[]}';
+    const header = JSON.stringify(metadata).slice(0, -1);
     const available = SNAPSHOT_BYTES_LIMIT - Buffer.byteLength(header);
-    const encodedSeries = yield* encodeSection(
-        series,
-        available - Buffer.byteLength(fallback)
-    );
-    if (!encodedSeries) return undefined;
+    const indexFallback = ',"kinds":"","groups":[]';
+    const seriesFallback = ',"series":null}';
 
-    const tail = yield* encodeSection(
-        { kinds, groups },
-        available - encodedSeries.bytes
-    );
-    // Replacing the tail's opening brace with a comma keeps its byte length.
+    const encodedIndex =
+        kinds.length > 0
+            ? yield* encodeSection(
+                  { kinds, groups },
+                  available - Buffer.byteLength(seriesFallback)
+              )
+            : undefined;
+    // Replacing the index object's outer braces drops one byte overall.
+    const indexPart = encodedIndex
+        ? ',' + encodedIndex.text.slice(1, -1)
+        : indexFallback;
+    const indexBytes = encodedIndex
+        ? encodedIndex.bytes - 1
+        : Buffer.byteLength(indexFallback);
+
+    const seriesPrefix = ',"series":';
+    const seriesBudget =
+        available - indexBytes - Buffer.byteLength(seriesPrefix) - 1;
+    const encodedSeries =
+        series !== null && seriesBudget >= 2
+            ? yield* encodeSection(series, seriesBudget)
+            : undefined;
+
+    if (!encodedIndex && !encodedSeries) return undefined;
+
     return [
         header,
-        encodedSeries.text,
-        tail ? ',' + tail.text.slice(1) : fallback,
+        indexPart,
+        encodedSeries ? seriesPrefix + encodedSeries.text + '}' : seriesFallback,
     ].join('');
 }
 

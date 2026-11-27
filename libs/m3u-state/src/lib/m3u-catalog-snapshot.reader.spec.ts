@@ -4,6 +4,10 @@ import { Store } from '@ngrx/store';
 import { SettingsStore } from '@iptvnator/services';
 import type { Channel } from '@iptvnator/shared/interfaces';
 import {
+    RENDERER_PERFORMANCE_PHASE_HOOK_KEY,
+    type RendererPerformancePhaseEvent,
+} from '@iptvnator/shared/logging';
+import {
     buildM3uCatalogIndex,
     M3U_CLASSIFIER_VERSION,
 } from '@iptvnator/shared/m3u-utils/catalog';
@@ -190,6 +194,36 @@ describe('M3U catalog snapshot reader', () => {
         optIn.set(false);
         expect((await open()).index().counts).toEqual(payload.counts);
         expect(read).not.toHaveBeenCalled();
+    });
+
+    it('hydrates the catalog index without building when series was omitted by the size cap and builds series lazily', async () => {
+        const globals = globalThis as unknown as Record<symbol, unknown>;
+        const key = Symbol.for(RENDERER_PERFORMANCE_PHASE_HOOK_KEY);
+        const events: RendererPerformancePhaseEvent[] = [];
+        globals[key] = (event: RendererPerformancePhaseEvent) =>
+            events.push(event);
+        try {
+            read.mockResolvedValue(JSON.stringify({ ...payload, series: null }));
+            const index = await open();
+            expect(index.liveChannels()).toEqual(channels.slice(0, 2));
+            expect(index.index().counts).toEqual(payload.counts);
+            expect(buildM3uCatalogIndex).not.toHaveBeenCalled();
+            expect(
+                events.filter(
+                    (event) =>
+                        event.boundary === 'end' &&
+                        event.phase === 'store.m3u-build-catalog-index'
+                )
+            ).toEqual([]);
+            expect(
+                TestBed.inject(M3uSeriesCatalogService)
+                    .series()[0]
+                    .seasons.get(1)?.[0].channel
+            ).toBe(channels[3]);
+            expect(buildM3uSeriesCatalog).toHaveBeenCalledTimes(1);
+        } finally {
+            delete globals[key];
+        }
     });
 
     it('does not reuse positions when a new array is published', async () => {

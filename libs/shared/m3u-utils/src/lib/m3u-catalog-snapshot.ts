@@ -40,5 +40,5 @@ export interface M3uCatalogSnapshot {
     counts: Record<M3uContentKind, number>;
     groups: M3uSnapshotGroup[];
     kinds: string;
-    series: M3uSnapshotSeries[];
+    series: M3uSnapshotSeries[] | null;
 }

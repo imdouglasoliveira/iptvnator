@@ -4,6 +4,7 @@ import {
     M3U_CLASSIFIER_VERSION,
     M3U_KIND_CODES,
     type M3uCatalogSnapshot,
+    type M3uSnapshotSeries,
 } from '@iptvnator/shared/m3u-utils/catalog';
 import { buildM3uSeriesCatalogInBatches } from '@iptvnator/shared/m3u-utils/series';
 
@@ -14,6 +15,7 @@ export function* buildM3uCatalogSnapshot(
     playlistId: string,
     itemsRevision: number
 ): Generator<void, M3uCatalogSnapshot> {
+    const seriesList: M3uSnapshotSeries[] = [];
     const snapshot: M3uCatalogSnapshot = {
         version: 1,
         classifierVersion: M3U_CLASSIFIER_VERSION,
@@ -21,7 +23,7 @@ export function* buildM3uCatalogSnapshot(
         counts: { live: 0, movie: 0, episode: 0, radio: 0 },
         groups: [],
         kinds: '',
-        series: [],
+        series: seriesList,
     };
     const episodeRows: PositionedChannel[] = [];
     const groups = new Map<string, M3uCatalogSnapshot['groups'][number]>();
@@ -57,8 +59,7 @@ export function* buildM3uCatalogSnapshot(
     let processed = 0;
     for (const { seasons, episodeCount, ...series } of seriesCatalog) {
         const positions: number[] = [];
-        const seasonEntries: M3uCatalogSnapshot['series'][number]['seasonEntries'] =
-            [];
+        const seasonEntries: M3uSnapshotSeries['seasonEntries'] = [];
         for (const [season, episodes] of seasons) {
             const entries = [];
             for (const { channel, alternatives, ...episode } of episodes) {
@@ -78,7 +79,7 @@ export function* buildM3uCatalogSnapshot(
             }
             seasonEntries.push([season, entries]);
         }
-        snapshot.series.push({
+        seriesList.push({
             ...series,
             seasons: seasons.size,
             episodes: episodeCount,
