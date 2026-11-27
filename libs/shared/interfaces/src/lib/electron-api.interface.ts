@@ -805,6 +805,7 @@ export interface ElectronBridgeApi extends ExternalPlaybackEventSubscriptions {
     isM3uActiveOnlyEpgDisabled?: () => boolean;
     isXtreamLiveRefreshOnUseDisabled?: () => boolean;
     platform: string;
+    isLowEndHardware?: () => boolean;
     getAppUpdateStatus: () => Promise<ElectronBridgeAppUpdateStatus>;
     checkForAppUpdate: () => Promise<ElectronBridgeAppUpdateStatus>;
     downloadAppUpdate: () => Promise<ElectronBridgeAppUpdateStatus>;

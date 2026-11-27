@@ -36,6 +36,10 @@ export function reportsPlaybackFailures(
     );
 }
 
+export type LowEndMode = 'auto' | 'on' | 'off';
+
+export const LOW_END_MODES: readonly LowEndMode[] = ['auto', 'on', 'off'];
+
 export enum StartupBehavior {
     FirstView = 'first-view',
     RestoreLastView = 'restore-last-view',
@@ -198,6 +202,10 @@ export interface Settings {
      * they fall back to the playlist's own logos and titles.
      */
     m3uCatalogTabs?: boolean;
+    /** Light interface for weak machines; `auto` follows the hardware check. */
+    lowEndMode?: LowEndMode;
+    /** Set once the light mode has switched the player to VLC. */
+    lowEndPlayerMigrated?: boolean;
     optimizations?: {
         catalogSnapshot: boolean;
         priorityOpen: boolean;

@@ -6,6 +6,10 @@ import {
     PLAYBACK_SET_KEEP_AWAKE,
     PlayerContentInfo,
 } from '@iptvnator/shared/interfaces';
+import {
+    isLowEndHardware,
+    LOW_END_HARDWARE_CHANNEL,
+} from '../services/low-end-hardware';
 import { setPlaybackKeepAwake } from '../services/playback-keep-awake.service';
 import { waitForLoginShellPath } from '../startup/login-shell-path';
 import {
@@ -63,6 +67,12 @@ export default class PlayerEvents {
         return ipcMain;
     }
 }
+
+let lowEndHardware: boolean | undefined;
+ipcMain.on(LOW_END_HARDWARE_CHANNEL, (event) => {
+    lowEndHardware ??= isLowEndHardware();
+    event.returnValue = lowEndHardware;
+});
 
 ipcMain.handle(
     'GET_EXTERNAL_PLAYER_AVAILABILITY',

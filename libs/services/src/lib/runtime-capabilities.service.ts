@@ -122,6 +122,32 @@ export class RuntimeCapabilitiesService {
         );
     }
 
+    /** The desktop main process flags a weak machine; the PWA never does. */
+    get lowEndHardware(): boolean {
+        const probe = this.electronBridge?.isLowEndHardware;
+        if (typeof probe !== 'function') {
+            return false;
+        }
+        try {
+            return probe() === true;
+        } catch {
+            return false;
+        }
+    }
+
+    /** True only when the external player probe confirms VLC is installed. */
+    async isVlcInstalled(): Promise<boolean> {
+        const probe = this.electronBridge?.getExternalPlayerAvailability;
+        if (typeof probe !== 'function') {
+            return false;
+        }
+        try {
+            return (await probe())?.vlc === true;
+        } catch {
+            return false;
+        }
+    }
+
     get supportsM3uPriorityOpen(): boolean {
         return this.hasElectronMethod('dbGetM3uFavoritesSnapshot');
     }

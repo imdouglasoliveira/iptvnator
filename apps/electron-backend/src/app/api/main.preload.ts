@@ -9,6 +9,7 @@ import {
     EXTERNAL_PLAYBACK_ENDED,
 } from '@iptvnator/shared/interfaces';
 import { createAppMenuListener } from './app-menu-listener';
+import { preloadPlatform } from './preload-platform';
 import { preloadPlaylistReads } from './preload-playlist-reads';
 import type {
     ElectronBridgeFavoriteReorderUpdate,
@@ -473,7 +474,7 @@ const electronApi: ElectronBridgeApi = {
         isM3uActiveOnlyEpgDisabled(process.env),
     isXtreamLiveRefreshOnUseDisabled: () =>
         isXtreamLiveRefreshOnUseDisabled(process.env),
-    platform: process.platform,
+    ...preloadPlatform,
     getAppUpdateStatus: () => ipcRenderer.invoke(APP_UPDATE_GET_STATUS),
     checkForAppUpdate: () => ipcRenderer.invoke(APP_UPDATE_CHECK),
     downloadAppUpdate: () => ipcRenderer.invoke(APP_UPDATE_DOWNLOAD),

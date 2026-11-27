@@ -29,6 +29,7 @@ import {
     EpgSourceSettingsService,
     ParentalLockService,
     SettingsStore,
+    LowEndModeService,
     RuntimeCapabilitiesService,
 } from '@iptvnator/services';
 import { ParentalLockEnforcementService } from './services/parental-lock-enforcement.service';
@@ -125,6 +126,9 @@ describe('AppComponent', () => {
                 // (Xtream/Stalker stores, SQLite bridge) are out of scope here.
                 MockProvider(ParentalLockService, {
                     initialize: jest.fn().mockResolvedValue(undefined),
+                }),
+                MockProvider(LowEndModeService, {
+                    start: jest.fn().mockResolvedValue(undefined),
                 }),
                 MockProvider(ParentalLockEnforcementService, {
                     start: jest.fn(),

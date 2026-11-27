@@ -20,6 +20,40 @@ describe('settings form utils — strip country prefix', () => {
         ).toBe(false);
     });
 
+    it('defaults the light mode to auto and keeps an explicit choice', () => {
+        const form = createSettingsForm(new FormBuilder(), true);
+        expect(form.get('lowEndMode')?.value).toBe('auto');
+        form.patchValue({ lowEndMode: 'on' });
+        expect(
+            createSettingsFromFormValue(form, {} as Settings).lowEndMode
+        ).toBe('on');
+        form.patchValue({ lowEndMode: 'bogus' as never });
+        expect(
+            createSettingsFromFormValue(form, {} as Settings).lowEndMode
+        ).toBe('auto');
+    });
+
+    it('carries every optimization switch from the form', () => {
+        const form = createSettingsForm(new FormBuilder(), true);
+        expect(
+            createSettingsFromFormValue(form, {} as Settings).optimizations
+        ).toEqual({
+            catalogSnapshot: true,
+            priorityOpen: true,
+            conditionalRefresh: true,
+        });
+        form.patchValue({
+            optimizations: { catalogSnapshot: false, conditionalRefresh: false },
+        });
+        expect(
+            createSettingsFromFormValue(form, {} as Settings).optimizations
+        ).toEqual({
+            catalogSnapshot: false,
+            priorityOpen: true,
+            conditionalRefresh: false,
+        });
+    });
+
     it('defaults the form control to false', () => {
         const form = createSettingsForm(formBuilder, true);
 

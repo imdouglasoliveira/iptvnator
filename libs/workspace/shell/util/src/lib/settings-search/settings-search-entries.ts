@@ -72,6 +72,22 @@ export const SETTINGS_SEARCH_ENTRIES: readonly SettingsSearchEntry[] = [
         requires: ['m3u-priority-open'],
     },
     {
+        id: 'm3u-catalog-snapshot',
+        section: 'general',
+        labelKey: 'SETTINGS.M3U_CATALOG_SNAPSHOT',
+        descriptionKey: 'SETTINGS.M3U_CATALOG_SNAPSHOT_DESCRIPTION',
+        keywords: ['m3u', 'catalog', 'cache', 'loading', 'optimization'],
+        requires: ['m3u-priority-open'],
+    },
+    {
+        id: 'm3u-conditional-refresh',
+        section: 'general',
+        labelKey: 'SETTINGS.M3U_CONDITIONAL_REFRESH',
+        descriptionKey: 'SETTINGS.M3U_CONDITIONAL_REFRESH_DESCRIPTION',
+        keywords: ['m3u', 'refresh', 'update', 'unchanged', 'optimization'],
+        requires: ['m3u-priority-open'],
+    },
+    {
         id: 'portal-connectivity-guard',
         section: 'general',
         labelKey: 'SETTINGS.PORTAL_CONNECTIVITY_GUARD',
@@ -127,6 +143,13 @@ export const SETTINGS_SEARCH_ENTRIES: readonly SettingsSearchEntry[] = [
         labelKey: 'SETTINGS.COVER_TITLES',
         descriptionKey: 'SETTINGS.COVER_TITLES_DESCRIPTION',
         keywords: ['poster', 'cover', 'title', 'caption'],
+    },
+    {
+        id: 'low-end-mode',
+        section: 'appearance',
+        labelKey: 'SETTINGS.LOW_END_MODE',
+        descriptionKey: 'SETTINGS.LOW_END_MODE_DESCRIPTION',
+        keywords: ['light', 'low end', 'slow', 'weak', 'blur', 'animation', 'vlc'],
     },
     {
         id: 'android-external-player',

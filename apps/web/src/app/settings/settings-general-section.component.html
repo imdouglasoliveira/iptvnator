@@ -226,11 +226,29 @@
     </section>
 
     @if (supportsPriorityOpen && form().get('optimizations')) {
-        <section class="settings-section" formGroupName="optimizations">
+        <section class="settings-section">
             <div class="settings-section__header">
                 <h3>{{ 'SETTINGS.OPTIMIZATIONS' | translate }}</h3>
             </div>
-            <div class="settings-card">
+            <div class="settings-card" formGroupName="optimizations">
+                <div class="setting-item" data-setting-id="m3u-catalog-snapshot">
+                    <div class="setting-item__meta">
+                        <h4 id="m3u-catalog-snapshot-label">
+                            {{ 'SETTINGS.M3U_CATALOG_SNAPSHOT' | translate }}
+                        </h4>
+                        <p id="m3u-catalog-snapshot-description">
+                            {{ 'SETTINGS.M3U_CATALOG_SNAPSHOT_DESCRIPTION' | translate }}
+                        </p>
+                    </div>
+                    <div class="setting-item__control setting-item__toggle">
+                        <mat-slide-toggle
+                            formControlName="catalogSnapshot"
+                            aria-labelledby="m3u-catalog-snapshot-label"
+                            aria-describedby="m3u-catalog-snapshot-description"
+                            data-test-id="m3u-catalog-snapshot-toggle"
+                        ></mat-slide-toggle>
+                    </div>
+                </div>
                 <div class="setting-item" data-setting-id="m3u-priority-open">
                     <div class="setting-item__meta">
                         <h4 id="m3u-priority-open-label">
@@ -246,6 +264,24 @@
                             aria-labelledby="m3u-priority-open-label"
                             aria-describedby="m3u-priority-open-description"
                             data-test-id="m3u-priority-open-toggle"
+                        ></mat-slide-toggle>
+                    </div>
+                </div>
+                <div class="setting-item" data-setting-id="m3u-conditional-refresh">
+                    <div class="setting-item__meta">
+                        <h4 id="m3u-conditional-refresh-label">
+                            {{ 'SETTINGS.M3U_CONDITIONAL_REFRESH' | translate }}
+                        </h4>
+                        <p id="m3u-conditional-refresh-description">
+                            {{ 'SETTINGS.M3U_CONDITIONAL_REFRESH_DESCRIPTION' | translate }}
+                        </p>
+                    </div>
+                    <div class="setting-item__control setting-item__toggle">
+                        <mat-slide-toggle
+                            formControlName="conditionalRefresh"
+                            aria-labelledby="m3u-conditional-refresh-label"
+                            aria-describedby="m3u-conditional-refresh-description"
+                            data-test-id="m3u-conditional-refresh-toggle"
                         ></mat-slide-toggle>
                     </div>
                 </div>

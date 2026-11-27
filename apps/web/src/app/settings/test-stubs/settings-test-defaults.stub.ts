@@ -30,7 +30,12 @@ export const DEFAULT_SETTINGS = {
     vodAutoFailover: false,
     m3uVodDetails: true,
     m3uCatalogTabs: true,
-    optimizations: { priorityOpen: true },
+    lowEndMode: 'auto',
+    optimizations: {
+        catalogSnapshot: true,
+        priorityOpen: true,
+        conditionalRefresh: true,
+    },
     ageRatingCountry: 'auto',
     streamFormat: StreamFormat.AutoStreamFormat,
     openStreamOnDoubleClick: false,
