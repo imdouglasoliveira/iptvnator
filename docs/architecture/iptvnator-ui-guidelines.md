@@ -1351,6 +1351,11 @@ per-theme tokens in `apps/web/src/_settings-theme.scss`.
   and rows stack under 600px of pane width. Keep `data-setting-id` on every row: settings search and the
   command palette reveal rows by it, and the registry spec checks the index
   against the templates.
+- No page adds its own `<h1>` or page header. Form-heavy pages
+  (Connectivity) use the same rows: fields stack full width in a
+  `.setting-item--full-control` row with a `.setting-item__control--stack`
+  column, button rows use `.inline-actions`, and status lines sit in a
+  `.setting-item__sub` under the row they report on.
 - Controls: `.settings-select` is a 220px outlined select without a floating
   label (the row title names it; pass `aria-labelledby`); boolean settings
   are `mat-slide-toggle` switches; segmented choices use `.theme-switcher`,
@@ -1630,6 +1635,15 @@ rail and its channel header) take it through `list-header-action` in
 favorites and recent page header at 32px beside its segmented toggles. In a row of filter chips (the VOD sources popover) the
 picker is a chip with the same chevron, so the row keeps one height; the
 language filter there opens a radio menu instead of a native `<select>`.
+
+`pnpm run ui:kit-controls:validate` (CI) holds these roles in every runtime
+template: no raised, tonal or fab button, an outlined one only with
+`app-destructive-button` (both spellings: `mat-stroked-button` and
+`matButton="outlined"`, `mat-fab` and `matFab`), no `color` on a Material element (the mixins set
+the look, not an M3 palette role), no native `<select>`, and no `mat-select`
+outside a `mat-form-field`. A file that keeps a finding is listed in
+`ALLOWED` in `tools/nx/check-kit-controls.mjs` with its reason; an entry that
+no longer matches fails too.
 
 A single choice among a few options shown side by side is the kit's
 segmented control: a 1px-bordered track with 2px padding and a 10px radius,

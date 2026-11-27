@@ -10,6 +10,7 @@ import { PlaylistContextFacade } from '@iptvnator/playlist/shared/util';
 import { PORTAL_EXTERNAL_PLAYBACK } from '@iptvnator/portal/shared/util';
 import {
     DataService,
+    ParentalLockService,
     PlaylistsService,
     RuntimeCapabilitiesService,
     SettingsStore,
@@ -222,6 +223,76 @@ describe('VideoPlayerComponent — channel handoff', () => {
         handOver([sampleChannel, film], film);
 
         expect(storeMock.dispatch).toHaveBeenCalledWith(
+            ChannelActions.setActiveChannel({
+                channel: film,
+                startPlayback: true,
+            })
+        );
+    });
+
+    it('asks for the PIN before a handoff opens a row of a withheld group', async () => {
+        // Favorites and Recently viewed still list rows of locked groups;
+        // with MPV/VLC the handoff would launch the film before the
+        // enforcement could reset the active row.
+        player.set(VideoPlayer.MPV);
+        const lock = TestBed.inject(ParentalLockService);
+        const withheld = jest
+            .spyOn(lock, 'isM3uGroupLocked')
+            .mockReturnValue(true);
+        let answer: (allowed: boolean) => void = () => undefined;
+        const unlock = jest
+            .spyOn(lock, 'requestUnlock')
+            .mockReturnValue(
+                new Promise<boolean>((resolve) => (answer = resolve))
+            );
+        const isPlaybackOf = (channel: Channel) =>
+            ChannelActions.setActiveChannel({
+                channel,
+                startPlayback: true,
+            });
+
+        handOver([sampleChannel, film], film);
+        // The navigation that carries the handoff re-runs the effect while
+        // the prompt is open: one target asks only once.
+        handOver([sampleChannel, film], film);
+        answer(false);
+        await fixture.whenStable();
+
+        expect(unlock).toHaveBeenCalledTimes(1);
+        expect(storeMock.dispatch).not.toHaveBeenCalledWith(isPlaybackOf(film));
+
+        // The PIN is given: the group is no longer withheld and it opens.
+        unlock.mockImplementation(async () => {
+            withheld.mockReturnValue(false);
+            return true;
+        });
+        handOver([sampleChannel, film], film);
+        await fixture.whenStable();
+
+        expect(unlock).toHaveBeenCalledTimes(2);
+        expect(storeMock.dispatch).toHaveBeenCalledWith(isPlaybackOf(film));
+    });
+
+    it('drops a withheld handoff the viewer left before giving the PIN', async () => {
+        player.set(VideoPlayer.MPV);
+        const lock = TestBed.inject(ParentalLockService);
+        const withheld = jest
+            .spyOn(lock, 'isM3uGroupLocked')
+            .mockReturnValue(true);
+        let answer: (allowed: boolean) => void = () => undefined;
+        jest.spyOn(lock, 'requestUnlock').mockReturnValue(
+            new Promise<boolean>((resolve) => (answer = resolve))
+        );
+
+        handOver([sampleChannel, film], film);
+        // The viewer leaves the page, then enters the PIN elsewhere.
+        fixture.destroy();
+        withheld.mockReturnValue(false);
+        answer(true);
+        await Promise.resolve();
+        await new Promise((resolve) => setTimeout(resolve));
+
+        expect(storeMock.dispatch).not.toHaveBeenCalledWith(
             ChannelActions.setActiveChannel({
                 channel: film,
                 startPlayback: true,

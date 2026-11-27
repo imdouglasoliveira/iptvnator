@@ -210,6 +210,54 @@ describe('buildM3uSeriesCatalog', () => {
         expect(ids([...parts].reverse())).toEqual(ids(parts));
     });
 
+    it('keeps an unnumbered copy its id when unnumbered rows are reordered', () => {
+        // The same stream as an unnumbered row and as the extra of a
+        // numbered episode: the unnumbered copy's number is only its slot.
+        const at = (name: string, file: string) => ({
+            ...row(name),
+            url: `http://h.example/series/u/p/${file}.mp4`,
+        });
+        const shared = at('Lecture', 'shared');
+        const other = at('Lecture', 'other');
+        const numbered = [
+            at('Lecture S2 E5', 'five'),
+            at('Lecture S2 E5 BACKUP', 'shared'),
+        ];
+        const unnumberedIdOf = (rows: ReturnType<typeof at>[]) =>
+            buildM3uSeriesCatalog(rows, 'pl-1')[0]
+                .seasons.get(1)
+                ?.find((episode) => episode.channel.url === shared.url)?.id;
+
+        const before = unnumberedIdOf([shared, other, ...numbered]);
+        expect(before).toBeDefined();
+        expect(unnumberedIdOf([other, shared, ...numbered])).toBe(before);
+    });
+
+    it('keeps the coordinate id with its row when the URL tokens rotate', () => {
+        // Two parts of equal name length: a tie broken on the URL would
+        // flip when the provider rotates the token in the path, moving the
+        // coordinate's id (and its watched mark) to the other part.
+        const part = (name: string, token: string, file: string) => ({
+            ...row(name),
+            url: `http://h.example/series/${token}/p/${file}.mp4`,
+        });
+        const idsByName = (token1: string, token2: string) =>
+            new Map(
+                (
+                    buildM3uSeriesCatalog(
+                        [
+                            part('SHOW S1 E1 Part 1', token1, 'one'),
+                            part('SHOW S1 E1 Part 2', token2, 'two'),
+                        ],
+                        'pl-1'
+                    )[0].seasons.get(1) ?? []
+                ).map((episode) => [episode.channel.name, episode.id])
+            );
+
+        // Before: part 1's URL sorts first; after the rotation, part 2's.
+        expect(idsByName('b', 'c')).toEqual(idsByName('z', 'a'));
+    });
+
     it('lists one stream once when a yeared and a bare title merge', () => {
         // The same file under both spellings: whichever is read first, the
         // shorter name takes the coordinate and the other folds into it.
@@ -677,6 +725,36 @@ describe('buildM3uSeriesCatalog', () => {
 
         expect(after).toEqual(before);
         expect(new Set(Object.values(before)).size).toBe(2);
+    });
+
+    it('gives the same stream listed at two numbers an id per card', () => {
+        // A provider's fallback clip, listed as the extra of episodes 3 and
+        // 5: the detail page resolves a click by id, so one shared id would
+        // open, mark and resume the other card.
+        const fallback = (name: string) => ({
+            ...row(name),
+            url: 'http://h.example/series/u/p/fallback.mp4',
+        });
+        const episodes = (rows: ReturnType<typeof row>[]) =>
+            buildM3uSeriesCatalog(rows, 'pl-1')[0].seasons.get(1) ?? [];
+        // The longer names keep the clip an extra row at both numbers.
+        const rows = [
+            row('SHOW S1 E3'),
+            fallback('SHOW S1 E3 BACKUP'),
+            row('SHOW S1 E5'),
+            fallback('SHOW S1 E5 BACKUP'),
+        ];
+
+        const listed = episodes(rows);
+        expect(listed).toHaveLength(4);
+        expect(new Set(listed.map((episode) => episode.id)).size).toBe(4);
+
+        // Stable across a reorder of the playlist.
+        const idsOf = (list: typeof listed) =>
+            list
+                .map((e) => `${e.episodeNumber}:${e.channel.url}:${e.id}`)
+                .sort();
+        expect(idsOf(episodes([...rows].reverse()))).toEqual(idsOf(listed));
     });
 
     it('keeps a row whose name carries no marker at all', () => {

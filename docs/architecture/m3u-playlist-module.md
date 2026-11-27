@@ -2136,8 +2136,12 @@ coordinate holds dozens of rows.
   hidden channel leaves the sidebar, numbering and zapping while a film left
   live only keeps the old behaviour. Path evidence first: `/live/` is live,
   `/series/` an episode, the Xtream `/movie/` segment a film whatever the
-  container. DASH (`.mpd`) is never a film: it is live unless `/series/`
-  makes it an episode, which the series page plays inline. The folder
+  container — unless the name carries a strong episode code (`S01E02`,
+  `1x02`, a number-first `5.BÖLÜM`, `Staffel 2 Folge 3`): panels upload
+  whole shows as VOD, and those rows become episodes. A leading marker
+  (`BÖLÜM 2`, Turkish for "Part 2") stays a film. DASH (`.mpd`) is never a
+  film: it is live unless `/series/` makes it an episode, which the series
+  page plays inline. The folder
   names `/movies/` and `/vod/` count only for a file, not for a streaming
   container (`.m3u8`, `.m3u`, `.ts`). A container
   extension with no path evidence leaves the live list only when the row
@@ -2197,7 +2201,8 @@ coordinate holds dozens of rows.
   film and series groups too. The series layer aggregates EVERY episode
   row (`allEpisodes`) and withholds afterwards (`withholdM3uSeriesGroups`):
   placement and id minting see the whole series, so locking or unlocking a
-  group never moves an episode id or its watch history.
+  group never moves an episode id or its watch history. A series poster
+  taken from a withheld row is replaced by a shown row's, or dropped.
 - The Series page plays from its own state and launches MPV/VLC itself, so
   the app-wide enforcement (which watches the store's active channel) and
   the channel player's history effect never see its episodes.
@@ -2210,7 +2215,10 @@ coordinate holds dozens of rows.
   channel player and the Series page use.
 - An episode with DRM — `drm`, or `#KODIPROP` lines kept only in `raw` by
   older imports — plays inline under every player setting, like DASH: MPV
-  and VLC cannot receive the keys. `m3uPlaybackKey` reads the same effective
+  and VLC cannot receive the keys. Such an episode gets the engine the
+  channel player uses for DASH (`m3uEpisodePlayerOverride`: ArtPlayer when
+  saved, the HTML5 player otherwise), since MPV/VLC have no inline engine
+  and Video.js no Shaka path. `m3uPlaybackKey` reads the same effective
   DRM when it decides whether a repeated URL is the same stream.
 - The catalog group rails leave out the playlist's `hiddenGroupTitles`, as
   the Groups view does. Search still spans the whole section, like the
@@ -2227,7 +2235,11 @@ coordinate holds dozens of rows.
   URL. A handed-over film or episode has no row in the split list to
   double-click, so the consumer requests playback for it
   (`handoffAction`); live rows and the Favorites/Recent views keep a plain
-  selection.
+  selection. A target in a group the lock withholds asks for the PIN first
+  and opens only once it is no longer withheld, if it is still the last
+  handoff and the page was not left: Favorites and Recently
+  viewed still list such rows, and a playback request would launch MPV/VLC
+  before the enforcement reset the active row.
 - Every host that hands the channel list a split or partial list also
   passes `managementChannels` (the sidebar and the fullscreen channel
   panel): group management lists every group of the playlist, the Groups
@@ -2238,7 +2250,9 @@ coordinate holds dozens of rows.
 - Films are favourited from the M3U movie detail; films and episodes from
   their Recently viewed cards. A dashboard Recent/Favorites click on an
   M3U film or episode is resolved by the collection page, which hands the
-  row to the playlist's `all` route as above.
+  row to the playlist's `all` route as above. The row with the target's
+  exact stream decides (`findPendingNonLiveOpen`); only a title match
+  leaves a live namesake to the live tab's own auto-open.
 - Series episode ids are derived from `series key × season × episode`, never
   from the URL: providers rotate tokens through the path on refresh, so a
   URL-keyed id would silently drop every watched flag on the next auto
@@ -2251,14 +2265,17 @@ coordinate holds dozens of rows.
   URL the rotating tokens (directories, query) do not touch. Unnumbered
   rows of one series that share a file name are keyed on their whole URL:
   a rotated token then drops the mark instead of moving it to another row.
+  The same stream listed at two numbers (a fallback clip as the extra of
+  several episodes) adds its coordinates, so each card keeps its own id.
   `remintM3uEpisodeIds` is the only place an episode id is derived; it
   hashes the series key once (`createM3uIdHasher`) and continues it per
   episode.
 - No episode row with its own URL is hidden behind another
   (`m3u-series-placement.util.ts`). One row at a season×episode holds the
   coordinate and the id derived from it, chosen independently of row order
-  (`holdsCoordinateBefore`: the shorter name, then the smaller playback
-  key), so a refresh that reorders "Part 1" and "Part 2" leaves each its
+  (`holdsCoordinateBefore`: the shorter name, then the name, the file name
+  and only then the playback key, whose URL tokens rotate), so a refresh
+  that reorders "Part 1" and "Part 2" leaves each its
   watched mark and resume point, and a variant added later ("… FHD")
   normally leaves the episode its id. The other rows there with another URL
   (a second quality, a "Part 2", a trailer, a show whose title merely
