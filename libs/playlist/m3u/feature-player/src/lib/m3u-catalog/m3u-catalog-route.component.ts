@@ -37,6 +37,13 @@ import {
     toM3uCatalogCard,
     toM3uSeriesCard,
 } from './m3u-catalog-card.util';
+import { M3uCatalogFavoriteIdsService } from './m3u-catalog-favorite-ids.service';
+import {
+    M3U_FAVORITES_GROUP_ID,
+    initialCatalogGroup,
+    m3uFavoriteCards,
+    withFavoritesGroup,
+} from './m3u-catalog-favorites-group.util';
 
 /** How many cards are rendered before the first scroll append. */
 const INITIAL_WINDOW = 60;
@@ -75,6 +82,7 @@ interface CatalogGroup {
         PortalEmptyStateComponent,
         TranslatePipe,
     ],
+    providers: [M3uCatalogFavoriteIdsService],
     templateUrl: './m3u-catalog-route.component.html',
     styleUrls: ['./m3u-catalog-route.component.scss'],
     changeDetection: ChangeDetectionStrategy.OnPush,
@@ -85,6 +93,7 @@ export class M3uCatalogRouteComponent {
     private readonly catalog = inject(M3uCatalogIndexService);
     private readonly seriesCatalog = inject(M3uSeriesCatalogService);
     private readonly settingsStore = inject(SettingsStore);
+    private readonly favoriteIds = inject(M3uCatalogFavoriteIdsService);
     private readonly playlist =
         inject(Store).selectSignal(selectActivePlaylist);
 
@@ -187,14 +196,26 @@ export class M3uCatalogRouteComponent {
         return [...counts].map(([title, count]) => ({ title, count }));
     });
 
-    protected readonly categoryItems = computed(() =>
-        this.groups().map((group) => ({
+    protected readonly categoryItems = computed(() => {
+        const items = this.groups().map((group) => ({
             id: group.title,
             // Rows with no `group-title` are an ordinary group, not missing
             // data: name it as the channel list does.
             name: group.title || this.translate.instant('CHANNELS.UNGROUPED'),
             count: group.count,
-        }))
+        }));
+        return this.favoriteIds.supported
+            ? withFavoritesGroup(
+                  items,
+                  this.translate.instant('PORTALS.FAVORITES'),
+                  this.favoriteCards().length
+              )
+            : items;
+    });
+
+    /** The section's cards the playlist's favorites table holds. */
+    private readonly favoriteCards = computed(() =>
+        m3uFavoriteCards(this.allCards(), this.favoriteIds.ids())
     );
 
     /**
@@ -270,6 +291,9 @@ export class M3uCatalogRouteComponent {
         }
 
         const selected = this.selectedGroup();
+        if (selected === M3U_FAVORITES_GROUP_ID) {
+            return this.favoriteCards();
+        }
         const lookup = this.groupOfCard();
         return this.allCards().filter(
             (card) => lookup.get(card.id) === selected
@@ -289,6 +313,21 @@ export class M3uCatalogRouteComponent {
     /** Empty and finished loading; a load in flight is not an empty section. */
     protected readonly showEmptyState = computed(
         () => this.isEmpty() && !this.loading()
+    );
+
+    /** The "Favoritos" group is open and nothing in this section is favorited. */
+    protected readonly showFavoritesEmpty = computed(
+        () =>
+            this.selectedGroup() === M3U_FAVORITES_GROUP_ID &&
+            !this.searchTerm().trim() &&
+            this.favoriteCards().length === 0 &&
+            !this.loading()
+    );
+
+    protected readonly favoritesEmptyTitleKey = computed(() =>
+        this.isSeries()
+            ? 'CHANNELS.CATALOG.NO_FAVORITE_SERIES'
+            : 'CHANNELS.CATALOG.NO_FAVORITE_MOVIES'
     );
 
     protected readonly emptyTitleKey = computed(() =>
@@ -317,16 +356,34 @@ export class M3uCatalogRouteComponent {
     });
 
     constructor() {
-        // Selecting the first group keeps the grid populated on arrival; the
-        // portals do the same rather than opening on an empty pane.
+        effect(() => {
+            const playlistId = this.playlist()?._id;
+            const type = this.isSeries() ? 'series' : 'movie';
+            untracked(() => void this.favoriteIds.load(playlistId, type));
+        });
+
+        // Selecting a group keeps the grid populated on arrival; the portals
+        // do the same rather than opening on an empty pane. "Favoritos" wins
+        // only when it has items, so the ids are awaited first.
         effect(() => {
             const groups = this.groups();
             const selected = this.selectedGroup();
-            if (
-                groups.length > 0 &&
-                !groups.some((group) => group.title === selected)
-            ) {
-                this.selectedGroup.set(groups[0].title);
+            if (!this.favoriteIds.ready()) {
+                return;
+            }
+            const favorites = this.favoriteIds.supported;
+            const known =
+                selected === M3U_FAVORITES_GROUP_ID
+                    ? favorites
+                    : groups.some((group) => group.title === selected);
+            if (groups.length > 0 && !known) {
+                this.selectedGroup.set(
+                    initialCatalogGroup(
+                        groups.map((group) => group.title),
+                        favorites,
+                        untracked(this.favoriteCards).length
+                    )
+                );
             }
         });
     }

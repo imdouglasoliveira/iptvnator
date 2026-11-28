@@ -14,7 +14,11 @@ import {
 } from '@angular/core';
 import { Store } from '@ngrx/store';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
-import { FavoritesActions, selectFavorites } from '@iptvnator/m3u-state';
+import {
+    FavoritesActions,
+    selectActivePlaylist,
+    selectFavorites,
+} from '@iptvnator/m3u-state';
 import type { PlaybackFallbackRequest } from '@iptvnator/playback/util';
 import {
     tmdbBackdropUrl,
@@ -42,6 +46,8 @@ import {
 } from '@iptvnator/ui/components';
 import { formatDurationLabel } from '@iptvnator/portal/shared/util';
 import { PortalInlinePlayerComponent } from '@iptvnator/ui/playback';
+import { m3uMovieStableId } from '@iptvnator/shared/m3u-utils/catalog';
+import { M3uCatalogFavoriteToggleService } from '../m3u-catalog/m3u-catalog-favorite-toggle.service';
 import {
     M3uVodMetadataService,
     m3uVodEntryKey,
@@ -64,7 +70,7 @@ import {
  */
 @Component({
     selector: 'app-m3u-vod-detail',
-    providers: [M3uVodMetadataService],
+    providers: [M3uVodMetadataService, M3uCatalogFavoriteToggleService],
     imports: [
         AgeRatingChipComponent,
         CastCrewRowComponent,
@@ -87,6 +93,7 @@ export class M3uVodDetailComponent {
     protected readonly favoriteIcon = favoriteIcon;
     private readonly metadata = inject(M3uVodMetadataService);
     private readonly store = inject(Store);
+    private readonly catalogFavorite = inject(M3uCatalogFavoriteToggleService);
     private readonly translate = inject(TranslateService);
     /** Read by the worded labels below, so a language switch re-words them. */
     private readonly languageTick = injectTranslationTick();
@@ -125,6 +132,17 @@ export class M3uVodDetailComponent {
             untracked(() => {
                 this.playerDismissed.set(false);
                 this.metadata.load(channel);
+            });
+        });
+        effect(() => {
+            const url = this.channel().url;
+            const playlistId = this.activePlaylist()?._id ?? '';
+            untracked(() => {
+                void this.catalogFavorite.load(
+                    playlistId,
+                    'movie',
+                    m3uMovieStableId(url)
+                );
             });
         });
     }
@@ -232,14 +250,31 @@ export class M3uVodDetailComponent {
      * Favourites are keyed by stream URL, as that star keys them.
      */
     private readonly favorites = this.store.selectSignal(selectFavorites);
+    private readonly activePlaylist =
+        this.store.selectSignal(selectActivePlaylist);
     readonly isFavorite = computed(() =>
-        this.favorites().includes(this.channel().url)
+        this.catalogFavorite.supported
+            ? this.catalogFavorite.active()
+            : this.favorites().includes(this.channel().url)
     );
 
     toggleFavorite(): void {
-        this.store.dispatch(
-            FavoritesActions.updateFavorites({ channel: this.channel() })
-        );
+        if (!this.catalogFavorite.supported) {
+            this.store.dispatch(
+                FavoritesActions.updateFavorites({ channel: this.channel() })
+            );
+            return;
+        }
+        const channel = this.channel();
+        void this.catalogFavorite.toggle({
+            playlistId: this.activePlaylist()?._id ?? '',
+            type: 'movie',
+            stableId: m3uMovieStableId(channel.url),
+            title: this.title(),
+            posterUrl: this.posterUrl() ?? null,
+            backdropUrl: this.backdropUrl() ?? null,
+            url: channel.url,
+        });
     }
 
     closeInlinePlayback(): void {

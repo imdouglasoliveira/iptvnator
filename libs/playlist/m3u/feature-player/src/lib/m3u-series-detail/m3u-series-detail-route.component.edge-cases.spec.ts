@@ -12,6 +12,7 @@ import { PORTAL_PLAYER } from '@iptvnator/portal/shared/util';
 import { Channel } from '@iptvnator/shared/interfaces';
 import { buildM3uSeriesCatalog } from '@iptvnator/shared/m3u-utils/series';
 import type { M3uSeriesDetailRouteComponent as ComponentType } from './m3u-series-detail-route.component';
+import { M3uCatalogFavoriteToggleService } from '../m3u-catalog/m3u-catalog-favorite-toggle.service';
 import { M3uEpisodeAccessService } from './m3u-episode-access.service';
 
 // The shared player barrel reaches video.js, whose CJS bundle cannot be
@@ -47,6 +48,7 @@ interface Page {
     seriesId(): number;
     episodeCount(): number;
     seasons(): Record<string, { id: string }[]>;
+    onFavoriteToggled(): void;
     onEpisodeClicked(episode: unknown): void;
     onTimeUpdate(update: { currentTime: number; duration: number }): void;
     onExternalFallbackRequested(request: unknown): void;
@@ -94,6 +96,13 @@ describe('M3uSeriesDetailRouteComponent edge cases', () => {
         savePlaybackPosition: jest.fn().mockResolvedValue(undefined),
     };
 
+    const favorite = {
+        supported: true,
+        active: signal(false),
+        load: jest.fn().mockResolvedValue(undefined),
+        toggle: jest.fn().mockResolvedValue(undefined),
+    };
+
     const settle = () => new Promise((resolve) => setTimeout(resolve));
 
     async function render(): Promise<{
@@ -134,6 +143,9 @@ describe('M3uSeriesDetailRouteComponent edge cases', () => {
             set: { imports: [], template: '' },
         });
         TestBed.overrideProvider(M3uEpisodeAccessService, { useValue: access });
+        TestBed.overrideProvider(M3uCatalogFavoriteToggleService, {
+            useValue: favorite,
+        });
 
         const fixture = TestBed.createComponent(M3uSeriesDetailRouteComponent);
         fixture.detectChanges();
@@ -147,6 +159,8 @@ describe('M3uSeriesDetailRouteComponent edge cases', () => {
         params.next({ get: () => String(SHOW.id) });
         activePlaylist.set({ _id: 'pl-1' });
         seriesById.set(new Map(CATALOG.map((s) => [s.id, s])));
+        favorite.load.mockClear();
+        favorite.toggle.mockClear();
         access.isWithheld.mockReset().mockReturnValue(false);
         access.requestAccess.mockReset().mockResolvedValue(true);
         access.recordWhenPlayed.mockReset();
@@ -344,5 +358,26 @@ describe('M3uSeriesDetailRouteComponent edge cases', () => {
         } finally {
             warn.mockRestore();
         }
+    });
+
+    it('reads the heart state of the open series from its playlist', async () => {
+        await render();
+
+        expect(favorite.load).toHaveBeenCalledWith('pl-1', 'series', SHOW.id);
+    });
+
+    it('saves the series with its stable id and title when the heart is pressed', async () => {
+        const { page } = await render();
+
+        page.onFavoriteToggled();
+
+        expect(favorite.toggle).toHaveBeenCalledWith({
+            playlistId: 'pl-1',
+            type: 'series',
+            stableId: SHOW.id,
+            title: 'SHOW',
+            posterUrl: null,
+            backdropUrl: null,
+        });
     });
 });

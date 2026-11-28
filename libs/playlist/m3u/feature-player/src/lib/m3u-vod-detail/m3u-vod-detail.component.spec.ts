@@ -3,7 +3,12 @@ import { Component, contentChild, input, output, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 import { Store } from '@ngrx/store';
-import { FavoritesActions } from '@iptvnator/m3u-state';
+import {
+    FavoritesActions,
+    selectFavorites,
+} from '@iptvnator/m3u-state';
+import { m3uMovieStableId } from '@iptvnator/shared/m3u-utils/catalog';
+import { M3uCatalogFavoriteToggleService } from '../m3u-catalog/m3u-catalog-favorite-toggle.service';
 import { TmdbEnrichmentService } from '@iptvnator/services';
 import { Channel, ResolvedPortalPlayback } from '@iptvnator/shared/interfaces';
 import {
@@ -108,7 +113,9 @@ describe('M3uVodDetailComponent', () => {
     const favorites = signal<string[]>([]);
     const storeMock = {
         dispatch: jest.fn(),
-        selectSignal: jest.fn(() => favorites),
+        selectSignal: jest.fn((selector: unknown) =>
+            selector === selectFavorites ? favorites : signal({ _id: 'pl-1' })
+        ),
     };
 
     beforeAll(async () => {
@@ -447,6 +454,46 @@ describe('M3uVodDetailComponent', () => {
         );
 
         favorites.set([film.url]);
+        fixture.detectChanges();
+        expect(toggle().getAttribute('aria-pressed')).toBe('true');
+    });
+
+    it('saves the film through the favorites table when the bridge exists', async () => {
+        const film = channel();
+        const catalogFavorite = {
+            supported: true,
+            active: signal(false),
+            load: jest.fn().mockResolvedValue(undefined),
+            toggle: jest.fn().mockResolvedValue(undefined),
+        };
+        TestBed.overrideProvider(M3uCatalogFavoriteToggleService, {
+            useValue: catalogFavorite,
+        });
+        await create({ channel: film, inlinePlayerAvailable: false });
+        const toggle = (): HTMLButtonElement =>
+            fixture.nativeElement.querySelector(
+                '[data-testid="m3u-vod-favorite-toggle"]'
+            );
+        const stableId = m3uMovieStableId(film.url);
+
+        expect(catalogFavorite.load).toHaveBeenCalledWith(
+            'pl-1',
+            'movie',
+            stableId
+        );
+        toggle().click();
+
+        expect(catalogFavorite.toggle).toHaveBeenCalledWith(
+            expect.objectContaining({
+                playlistId: 'pl-1',
+                type: 'movie',
+                stableId,
+                url: film.url,
+            })
+        );
+        expect(storeMock.dispatch).not.toHaveBeenCalled();
+
+        catalogFavorite.active.set(true);
         fixture.detectChanges();
         expect(toggle().getAttribute('aria-pressed')).toBe('true');
     });

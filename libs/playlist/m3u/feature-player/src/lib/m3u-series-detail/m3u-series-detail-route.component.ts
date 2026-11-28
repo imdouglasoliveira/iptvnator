@@ -23,12 +23,14 @@ import { M3uSeriesCatalogService } from '@iptvnator/m3u-state/series-catalog';
 import { Store } from '@ngrx/store';
 import {
     DetailActionsTemplateDirective,
+    DetailIconButtonComponent,
     DetailMetaTemplateDirective,
     PortalDetailShellComponent,
     SeasonContainerComponent,
     SeasonContainerPlaybackToggleRequest,
     SeasonContainerSeriesPlaybackToggleRequest,
     VodMoreMenuComponent,
+    favoriteIcon,
 } from '@iptvnator/ui/components';
 import {
     PortalInlinePlayerComponent,
@@ -52,6 +54,7 @@ import {
     M3uSeriesExternalAutoplay,
 } from './m3u-series-external-autoplay';
 import { M3uSeriesExternalPositions } from './m3u-series-external-positions';
+import { M3uCatalogFavoriteToggleService } from '../m3u-catalog/m3u-catalog-favorite-toggle.service';
 import { buildM3uPlaybackPayload } from '../m3u-playback-payload.util';
 import { readStoredM3uVolume } from '../m3u-stored-volume.util';
 import { M3uEpisodeAccessService } from './m3u-episode-access.service';
@@ -69,6 +72,7 @@ import { M3uSeriesPositionsService } from './m3u-series-positions.service';
     selector: 'app-m3u-series-detail-route',
     imports: [
         DetailActionsTemplateDirective,
+        DetailIconButtonComponent,
         DetailMetaTemplateDirective,
         PortalDetailShellComponent,
         PortalInlinePlayerComponent,
@@ -78,6 +82,7 @@ import { M3uSeriesPositionsService } from './m3u-series-positions.service';
     ],
     templateUrl: './m3u-series-detail-route.component.html',
     providers: [
+        M3uCatalogFavoriteToggleService,
         M3uEpisodeAccessService,
         M3uSeriesAutoplayService,
         M3uSeriesExternalAutoplay,
@@ -99,6 +104,8 @@ export class M3uSeriesDetailRouteComponent {
     private readonly settingsStore = inject(SettingsStore);
     protected readonly autoplay = inject(M3uSeriesAutoplayService);
     protected readonly menu = inject(M3uSeriesMenuService);
+    protected readonly favorite = inject(M3uCatalogFavoriteToggleService);
+    protected readonly favoriteIcon = favoriteIcon;
     private readonly seasonContainer =
         viewChild<SeasonContainerComponent>('seasonContainer');
 
@@ -239,6 +246,14 @@ export class M3uSeriesDetailRouteComponent {
             closePlayer: () => this.onPlayerClosed(),
         });
 
+        effect(() => {
+            const playlistId = this.playlistId();
+            const seriesId = this.seriesId();
+            untracked(() => {
+                void this.favorite.load(playlistId, 'series', seriesId);
+            });
+        });
+
         // Catalog rebuilds must not re-read positions or release the progress throttle.
         effect(() => {
             const playlistId = this.playlistId();
@@ -277,6 +292,17 @@ export class M3uSeriesDetailRouteComponent {
                     this.onPlayerClosed();
                 }
             });
+        });
+    }
+
+    protected onFavoriteToggled(): void {
+        void this.favorite.toggle({
+            playlistId: this.playlistId(),
+            type: 'series',
+            stableId: this.seriesId(),
+            title: this.seriesTitle(),
+            posterUrl: this.posterUrl() ?? null,
+            backdropUrl: this.backdropUrl() ?? null,
         });
     }
 

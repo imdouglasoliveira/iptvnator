@@ -1276,7 +1276,10 @@
             "NO_SERIES": "Nenhuma série nesta lista de reprodução",
             "EMPTY_HINT": "Esta lista de reprodução contém apenas canais ao vivo.",
             "EMPTY_HINT_MOVIES": "Os filmes desta lista de reprodução estão em Filmes.",
-            "EMPTY_HINT_SERIES": "As séries desta lista de reprodução estão em Séries."
+            "EMPTY_HINT_SERIES": "As séries desta lista de reprodução estão em Séries.",
+            "NO_FAVORITE_SERIES": "Nenhuma série favorita",
+            "NO_FAVORITE_MOVIES": "Nenhum filme favorito",
+            "FAVORITES_HINT": "Use o coração na página de um título para adicioná-lo aqui."
         }
     },
     "TOP_MENU": {

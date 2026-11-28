@@ -4,12 +4,19 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { Store } from '@ngrx/store';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { MockPipe } from 'ng-mocks';
-import { BehaviorSubject } from 'rxjs';
+import { BehaviorSubject, Subject, of } from 'rxjs';
 import { M3uCatalogIndexService } from '@iptvnator/m3u-state/catalog-index';
 import { M3uSeriesCatalogService } from '@iptvnator/m3u-state/series-catalog';
-import { SettingsStore } from '@iptvnator/services';
+import {
+    DatabaseService,
+    RuntimeCapabilitiesService,
+    SettingsStore,
+} from '@iptvnator/services';
 import { Channel } from '@iptvnator/shared/interfaces';
-import { buildM3uCatalogIndex } from '@iptvnator/shared/m3u-utils/catalog';
+import {
+    buildM3uCatalogIndex,
+    m3uMovieStableId,
+} from '@iptvnator/shared/m3u-utils/catalog';
 import { buildM3uSeriesCatalog } from '@iptvnator/shared/m3u-utils/series';
 import type { M3uCatalogRouteComponent as M3uCatalogRouteComponentType } from './m3u-catalog-route.component';
 
@@ -66,6 +73,8 @@ describe('M3uCatalogRouteComponent', () => {
     const hiddenGroupTitles = signal<string[]>([]);
     const playlistKnown = signal(true);
     const navigate = jest.fn();
+    const favoritesSupported = signal(false);
+    const readFavoriteIds = jest.fn();
 
     const params = (q?: string) => ({ get: () => q ?? null });
 
@@ -116,12 +125,32 @@ describe('M3uCatalogRouteComponent', () => {
                     },
                 },
                 {
+                    provide: RuntimeCapabilitiesService,
+                    useValue: {
+                        get supportsM3uCatalogFavorites() {
+                            return favoritesSupported();
+                        },
+                    },
+                },
+                {
+                    provide: DatabaseService,
+                    useValue: { getM3uCatalogFavoriteIds: readFavoriteIds },
+                },
+                {
                     provide: SettingsStore,
                     useValue: { stripCountryPrefix: () => false },
                 },
                 {
                     provide: TranslateService,
-                    useValue: { instant: (key: string) => key },
+                    // The grid's own empty state, shown while the ids are
+                    // still on their way, runs the real pipe.
+                    useValue: {
+                        instant: (key: string) => key,
+                        get: (key: string) => of(key),
+                        onTranslationChange: new Subject(),
+                        onLangChange: new Subject(),
+                        onDefaultLangChange: new Subject(),
+                    },
                 },
             ],
         }).overrideComponent(M3uCatalogRouteComponent, {
@@ -145,6 +174,8 @@ describe('M3uCatalogRouteComponent', () => {
         queryParams.next(params());
         dispatch.mockReset();
         navigate.mockReset();
+        favoritesSupported.set(false);
+        readFavoriteIds.mockReset().mockResolvedValue([]);
     });
 
     it('lists only the groups of its own kind', async () => {
@@ -604,5 +635,117 @@ describe('M3uCatalogRouteComponent', () => {
 
         expect(dispatch).not.toHaveBeenCalled();
         expect(navigate).not.toHaveBeenCalled();
+    });
+
+    describe('Favoritos group', () => {
+        interface Page {
+            categoryItems(): { id: string; name: string; count: number }[];
+            selectedGroup(): string | null;
+            cards(): { id: string }[];
+            onGroupSelected(item: { id: string }): void;
+        }
+        const seriesId = () =>
+            buildM3uSeriesCatalog(
+                buildM3uCatalogIndex([EPISODE]).byKind.episode,
+                'pl-1'
+            )[0].id;
+
+        async function renderPage(kind: 'movie' | 'episode') {
+            favoritesSupported.set(true);
+            const fixture = await render(kind);
+            return {
+                fixture,
+                page: fixture.componentInstance as unknown as Page,
+            };
+        }
+
+        it('lists Favoritos first, with the count of favorited movies', async () => {
+            channels.set([SANDLINE, GRIDLOCK]);
+            readFavoriteIds.mockResolvedValue([
+                m3uMovieStableId(GRIDLOCK.url),
+            ]);
+            const { page } = await renderPage('movie');
+
+            expect(readFavoriteIds).toHaveBeenCalledWith({
+                playlistId: 'pl-1',
+                type: 'movie',
+            });
+            expect(page.categoryItems().map((item) => item.id)).toEqual([
+                '__favorites__',
+                'Films',
+                'Classics',
+            ]);
+            expect(page.categoryItems()[0]).toEqual({
+                id: '__favorites__',
+                name: 'PORTALS.FAVORITES',
+                count: 1,
+            });
+        });
+
+        it('opens on Favoritos when it has items and filters the grid by them', async () => {
+            channels.set([SANDLINE, GRIDLOCK]);
+            readFavoriteIds.mockResolvedValue([
+                m3uMovieStableId(GRIDLOCK.url),
+            ]);
+            const { fixture, page } = await renderPage('movie');
+            fixture.detectChanges();
+
+            expect(page.selectedGroup()).toBe('__favorites__');
+            expect(page.cards().map((card) => card.id)).toEqual([
+                GRIDLOCK.id || GRIDLOCK.url,
+            ]);
+        });
+
+        it('opens on the first provider group when nothing is favorited', async () => {
+            channels.set([SANDLINE, GRIDLOCK]);
+            const { fixture, page } = await renderPage('movie');
+            fixture.detectChanges();
+
+            expect(page.selectedGroup()).toBe('Films');
+            expect(page.categoryItems()[0].count).toBe(0);
+        });
+
+        it('filters the series grid by the favorited series', async () => {
+            channels.set([EPISODE]);
+            readFavoriteIds.mockResolvedValue([seriesId()]);
+            const { fixture, page } = await renderPage('episode');
+            fixture.detectChanges();
+
+            expect(readFavoriteIds).toHaveBeenCalledWith({
+                playlistId: 'pl-1',
+                type: 'series',
+            });
+            expect(page.categoryItems()[0].count).toBe(1);
+            expect(page.selectedGroup()).toBe('__favorites__');
+            expect(page.cards().map((card) => card.id)).toEqual([
+                `series:${seriesId()}`,
+            ]);
+        });
+
+        it('shows the empty state with the heart hint for an empty Favoritos', async () => {
+            channels.set([EPISODE]);
+            const { fixture, page } = await renderPage('episode');
+
+            page.onGroupSelected({ id: '__favorites__' });
+            fixture.detectChanges();
+
+            const text = fixture.nativeElement.textContent as string;
+            expect(text).toContain('CHANNELS.CATALOG.NO_FAVORITE_SERIES');
+            expect(text).toContain('CHANNELS.CATALOG.FAVORITES_HINT');
+            expect(
+                fixture.nativeElement.querySelector('app-grid-list')
+            ).toBeNull();
+        });
+
+        it('leaves Favoritos out when the runtime cannot store favorites', async () => {
+            channels.set([SANDLINE]);
+            const fixture = await render('movie');
+            const page = fixture.componentInstance as unknown as Page;
+
+            expect(readFavoriteIds).not.toHaveBeenCalled();
+            expect(page.categoryItems().map((item) => item.id)).toEqual([
+                'Films',
+            ]);
+        });
     });
 });
