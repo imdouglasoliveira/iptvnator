@@ -161,9 +161,7 @@ describe('UnifiedCollectionPageComponent', () => {
         removeRecentItemsBatch: jest.fn(),
         clearRecentItems: jest.fn(),
     };
-    const dialogService = {
-        openConfirmDialog: jest.fn(),
-    };
+    const dialogService = { openConfirmDialog: jest.fn() };
     const snackBar = { open: jest.fn().mockResolvedValue(null) };
     const workspaceViewCommands = {
         registerCommand: jest.fn(),

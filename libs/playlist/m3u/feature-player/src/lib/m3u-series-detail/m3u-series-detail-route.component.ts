@@ -55,6 +55,7 @@ import {
 } from './m3u-series-external-autoplay';
 import { M3uSeriesExternalPositions } from './m3u-series-external-positions';
 import { M3uCatalogFavoriteToggleService } from '../m3u-catalog/m3u-catalog-favorite-toggle.service';
+import { M3uCatalogViewMemory } from '../m3u-catalog/m3u-catalog-view-memory';
 import { buildM3uPlaybackPayload } from '../m3u-playback-payload.util';
 import { readStoredM3uVolume } from '../m3u-stored-volume.util';
 import { M3uEpisodeAccessService } from './m3u-episode-access.service';
@@ -101,6 +102,7 @@ export class M3uSeriesDetailRouteComponent {
     private readonly positions = inject(M3uSeriesPositionsService);
     private readonly metadata = inject(M3uSeriesMetadataService);
     private readonly access = inject(M3uEpisodeAccessService);
+    private readonly viewMemory = inject(M3uCatalogViewMemory);
     private readonly settingsStore = inject(SettingsStore);
     protected readonly autoplay = inject(M3uSeriesAutoplayService);
     protected readonly menu = inject(M3uSeriesMenuService);
@@ -405,8 +407,10 @@ export class M3uSeriesDetailRouteComponent {
 
     protected onBack(): void {
         // Navigate from the playlist route to avoid appending a second series segment.
+        const search = this.viewMemory.recall(this.playlistId(), 'episode')?.search;
         void this.router.navigate(['series'], {
             relativeTo: this.route.parent,
+            queryParams: search ? { q: search } : undefined,
         });
     }
 }

@@ -284,15 +284,15 @@ describe('UnifiedCollectionPageComponent M3U film and episode handoff', () => {
     afterEach(() => window.history.replaceState({}, document.title));
 
     it.each([
-        ['film', FILM, FILM_URL, 'row-1'],
-        ['episode', EPISODE, EPISODE_URL, 'row-7'],
+        ['film', FILM, FILM_URL, 'row-1', ['vod', 'play']],
+        ['episode', EPISODE, EPISODE_URL, 'row-7', ['series']],
     ])(
-        'opens a dashboard-selected M3U %s in its playlist and settles the handoff',
-        async (_kind, item, url, channelId) => {
+        'opens a dashboard-selected M3U %s in its own section and settles the handoff',
+        async (_kind, item, url, channelId, section) => {
             await render([LIVE, item], target(url, item.name));
 
             expect(router.navigate).toHaveBeenCalledWith(
-                ['/workspace', 'playlists', 'pl-1', 'all'],
+                ['/workspace', 'playlists', 'pl-1', ...section],
                 {
                     state: {
                         openM3uChannelUrl: url,

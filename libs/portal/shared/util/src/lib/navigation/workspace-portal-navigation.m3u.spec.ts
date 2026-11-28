@@ -16,21 +16,20 @@ const item = (
     }) as UnifiedCollectionItem;
 
 describe('getUnifiedCollectionNavigation for M3U', () => {
-    it.each(['movie', 'series', 'live'] as const)(
-        'opens a %s row in its playlist',
-        (contentType) => {
-            // One branch for every kind: the player decides what to show
-            // once the row is selected.
-            expect(
-                getUnifiedCollectionNavigation(item({ contentType }))
-            ).toEqual({
-                link: ['/workspace', 'playlists', 'pl-1', 'all'],
-                state: {
-                    openM3uChannelUrl: 'http://h.example/movie/1.mkv',
-                },
-            });
-        }
-    );
+    it.each([
+        ['movie', ['vod', 'play']],
+        ['series', ['series']],
+        ['live', ['all']],
+    ] as const)('opens a %s row in its own section', (contentType, section) => {
+        // A film or an episode never lands in the full channel list: that
+        // list is live-first and loses the section the viewer came from.
+        expect(getUnifiedCollectionNavigation(item({ contentType }))).toEqual({
+            link: ['/workspace', 'playlists', 'pl-1', ...section],
+            state: {
+                openM3uChannelUrl: 'http://h.example/movie/1.mkv',
+            },
+        });
+    });
 
     it('names the exact row when the item knows its channel id', () => {
         // Two rows can share a stream URL; by URL alone the player opens

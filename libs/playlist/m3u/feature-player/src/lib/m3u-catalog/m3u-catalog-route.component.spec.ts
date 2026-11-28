@@ -18,6 +18,10 @@ import {
     m3uMovieStableId,
 } from '@iptvnator/shared/m3u-utils/catalog';
 import { buildM3uSeriesCatalog } from '@iptvnator/shared/m3u-utils/series';
+import {
+    M3uCatalogViewMemory,
+    type M3uCatalogView,
+} from './m3u-catalog-view-memory';
 import type { M3uCatalogRouteComponent as M3uCatalogRouteComponentType } from './m3u-catalog-route.component';
 
 // The shared portal-UI barrel reaches video.js (unified collection ->
@@ -73,6 +77,8 @@ describe('M3uCatalogRouteComponent', () => {
     const hiddenGroupTitles = signal<string[]>([]);
     const playlistKnown = signal(true);
     const navigate = jest.fn();
+    let navigationState: Record<string, unknown> | undefined;
+    let remembered: M3uCatalogView | undefined;
     const favoritesSupported = signal(false);
     const readFavoriteIds = jest.fn();
 
@@ -97,11 +103,32 @@ describe('M3uCatalogRouteComponent', () => {
                                 : undefined,
                     },
                 },
-                { provide: Router, useValue: { navigate } },
+                {
+                    provide: Router,
+                    useValue: {
+                        navigate,
+                        currentNavigation: () => ({
+                            extras: { state: navigationState },
+                        }),
+                    },
+                },
+                {
+                    provide: M3uCatalogViewMemory,
+                    useFactory: () => {
+                        const memory = new M3uCatalogViewMemory();
+                        if (remembered) {
+                            memory.remember('pl-1', kind, remembered);
+                        }
+                        return memory;
+                    },
+                },
                 {
                     provide: ActivatedRoute,
                     useValue: {
-                        snapshot: { data: { kind } },
+                        snapshot: {
+                            data: { kind },
+                            paramMap: { get: () => 'pl-1' },
+                        },
                         queryParamMap: queryParams,
                     },
                 },
@@ -174,6 +201,8 @@ describe('M3uCatalogRouteComponent', () => {
         queryParams.next(params());
         dispatch.mockReset();
         navigate.mockReset();
+        navigationState = undefined;
+        remembered = undefined;
         favoritesSupported.set(false);
         readFavoriteIds.mockReset().mockResolvedValue([]);
     });
@@ -318,10 +347,8 @@ describe('M3uCatalogRouteComponent', () => {
         expect(component.isEmpty()).toBe(true);
     });
 
-    it('hands an activated card to the player as navigation state', async () => {
-        // Not a dispatch: the `all` route provides a fresh session that
-        // reloads the playlist and resets the active channel, so anything
-        // dispatched before navigating is discarded.
+    it('opens an activated film under its own section, as navigation state', async () => {
+        // Not a dispatch: the route session resets the active channel.
         channels.set([SANDLINE]);
         const fixture = await render('movie');
         const component = fixture.componentInstance as unknown as {
@@ -333,7 +360,7 @@ describe('M3uCatalogRouteComponent', () => {
 
         expect(dispatch).not.toHaveBeenCalled();
         expect(navigate).toHaveBeenCalledWith(
-            ['../all'],
+            ['play'],
             expect.objectContaining({
                 state: {
                     openM3uChannelUrl: SANDLINE.url,
@@ -341,6 +368,116 @@ describe('M3uCatalogRouteComponent', () => {
                 },
             })
         );
+        expect(navigate).not.toHaveBeenCalledWith(
+            ['../all'],
+            expect.anything()
+        );
+    });
+
+    describe('returning from a detail page', () => {
+        const CLASSICS_VIEW: M3uCatalogView = {
+            group: 'Classics',
+            search: '',
+            windowSize: 120,
+            scrollTop: 640,
+        };
+
+        it('remembers the group, search and scroll when a film opens', async () => {
+            channels.set([SANDLINE, GRIDLOCK]);
+            queryParams.next(params('gri'));
+            const fixture = await render('movie');
+            const pane: HTMLElement =
+                fixture.nativeElement.querySelector('.catalog__content');
+            const component = fixture.componentInstance as unknown as {
+                onGroupSelected(item: { id: string }): void;
+                onCardActivated(card: { id: string }): void;
+            };
+            component.onGroupSelected({ id: 'Classics' });
+            pane.scrollTop = 480;
+
+            component.onCardActivated({ id: GRIDLOCK.url });
+
+            expect(
+                TestBed.inject(M3uCatalogViewMemory).recall('pl-1', 'movie')
+            ).toEqual({
+                group: 'Classics',
+                search: 'gri',
+                windowSize: 60,
+                scrollTop: 480,
+            });
+        });
+
+        it('reopens on the group the viewer left, not the first one', async () => {
+            channels.set([SANDLINE, GRIDLOCK]);
+            remembered = CLASSICS_VIEW;
+            const fixture = await render('movie');
+            const component = fixture.componentInstance as unknown as {
+                selectedGroup(): string | null;
+                cards(): { name: string }[];
+            };
+
+            expect(component.selectedGroup()).toBe('Classics');
+            expect(component.cards().map((card) => card.name)).toEqual([
+                'Gridlock',
+            ]);
+        });
+
+        it('puts the grid back at the scroll position it was left at', async () => {
+            const frames: FrameRequestCallback[] = [];
+            const spy = jest
+                .spyOn(window, 'requestAnimationFrame')
+                .mockImplementation((callback) => frames.push(callback));
+            try {
+                channels.set([SANDLINE, GRIDLOCK]);
+                remembered = CLASSICS_VIEW;
+                const fixture = await render('movie');
+                const pane: HTMLElement =
+                    fixture.nativeElement.querySelector('.catalog__content');
+
+                while (frames.length > 0) {
+                    frames.shift()?.(0);
+                }
+
+                expect(pane.scrollTop).toBe(640);
+            } finally {
+                spy.mockRestore();
+            }
+        });
+
+        it('falls back to the first group when the remembered one is gone', async () => {
+            channels.set([SANDLINE, GRIDLOCK]);
+            remembered = { ...CLASSICS_VIEW, group: 'Removed' };
+            const fixture = await render('movie');
+            const component = fixture.componentInstance as unknown as {
+                selectedGroup(): string | null;
+            };
+
+            expect(component.selectedGroup()).toBe('Films');
+        });
+
+        it('opens the series of an episode named by navigation state', async () => {
+            channels.set([EPISODE]);
+            navigationState = {
+                openM3uChannelUrl: EPISODE.url,
+                openM3uChannelId: EPISODE.id,
+            };
+            const fixture = await render('episode');
+            const component = fixture.componentInstance as unknown as {
+                cards(): { seriesId?: number }[];
+            };
+
+            expect(navigate).toHaveBeenCalledWith(
+                ['..', 'series', component.cards()[0].seriesId],
+                expect.objectContaining({ replaceUrl: true })
+            );
+        });
+
+        it('stays on the grid when navigation state names no episode', async () => {
+            channels.set([EPISODE]);
+            await render('episode');
+
+            expect(navigate).not.toHaveBeenCalled();
+        });
     });
 
     it('names the clicked row when two films share one URL', async () => {
@@ -361,7 +498,7 @@ describe('M3uCatalogRouteComponent', () => {
         component.onCardActivated({ id: 'row-2' });
 
         expect(navigate).toHaveBeenCalledWith(
-            ['../all'],
+            ['play'],
             expect.objectContaining({
                 state: {
                     openM3uChannelUrl: SANDLINE.url,
