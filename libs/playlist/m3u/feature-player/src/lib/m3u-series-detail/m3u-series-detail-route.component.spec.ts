@@ -30,6 +30,7 @@ import {
     buildM3uSeriesCatalog,
     withholdM3uSeriesGroups,
 } from '@iptvnator/shared/m3u-utils/series';
+import { M3uCatalogViewMemory } from '../m3u-catalog/m3u-catalog-view-memory';
 import type {
     SeriesEpisodeMetadata,
     SeriesPlaybackNavigation,
@@ -1213,6 +1214,26 @@ describe('M3uSeriesDetailRouteComponent', () => {
         expect(navigate).toHaveBeenCalledWith(
             ['series'],
             expect.objectContaining({ relativeTo: expect.anything() })
+        );
+    });
+
+    it('brings the section search back with the series list', async () => {
+        const fixture = await render();
+        TestBed.inject(M3uCatalogViewMemory).remember('pl-1', 'episode', {
+            group: 'Shows',
+            search: 'hol',
+            windowSize: 60,
+            scrollTop: 300,
+        });
+        const component = fixture.componentInstance as unknown as {
+            onBack(): void;
+        };
+
+        component.onBack();
+
+        expect(navigate).toHaveBeenCalledWith(
+            ['series'],
+            expect.objectContaining({ queryParams: { q: 'hol' } })
         );
     });
 

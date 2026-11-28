@@ -13,6 +13,7 @@ import {
     UnifiedCollectionItem,
 } from '../collection/unified-collection-item.interface';
 import { COLLECTION_VIEW_STATE_KEY } from './collection-view-state';
+import { buildM3uCollectionLink } from './m3u-collection-section-link';
 export {
     buildCollectionViewState,
     COLLECTION_VIEW_STATE_KEY,
@@ -457,14 +458,7 @@ export function getUnifiedCollectionNavigation(
     }
 
     if (item.sourceType === 'm3u') {
-        // Every M3U kind opens the same way: the playlist's own list, with
-        // the row named in navigation state. The player then decides what
-        // to show — the VOD detail for a film, the live layout for a
-        // channel — so one branch covers live, movie and series alike.
-        //
-        // Without this a favourited film or episode is a dead click: the
-        // portal branches above reject M3U, and the caller falls through
-        // to null.
+        // A film or series opens in its own section, a live row in the full list.
         const streamUrl = (item.streamUrl ?? '').trim();
         if (!streamUrl) {
             return null;
@@ -473,12 +467,10 @@ export function getUnifiedCollectionNavigation(
         // The id names the exact row: two rows can share a stream URL, and
         // by URL alone the player opens the first of them.
         return {
-            link: ['/workspace', 'playlists', item.playlistId, 'all'],
+            link: buildM3uCollectionLink(item.playlistId, item.contentType),
             state: {
                 openM3uChannelUrl: streamUrl,
-                ...(item.channelId
-                    ? { openM3uChannelId: item.channelId }
-                    : {}),
+                ...(item.channelId ? { openM3uChannelId: item.channelId } : {}),
             },
         };
     }

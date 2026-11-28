@@ -37,6 +37,11 @@ export function createM3uWorkspaceRoutes(): Route[] {
                     loadComponent: loadCatalogRoute,
                     data: { kind: 'movie' },
                 },
+                // A film opens here, inside Movies: detail or inline player.
+                {
+                    path: 'vod/play',
+                    component: VideoPlayerComponent,
+                },
                 {
                     path: 'series',
                     loadComponent: loadCatalogRoute,

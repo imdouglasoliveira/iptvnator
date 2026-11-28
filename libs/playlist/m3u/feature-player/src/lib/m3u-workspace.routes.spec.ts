@@ -130,6 +130,22 @@ describe('createM3uWorkspaceRoutes', () => {
         }
     });
 
+    it('opens a film under the Movies section, not the full channel list', async () => {
+        const harness = await RouterTestingHarness.create();
+        const player = await harness.navigateByUrl(
+            '/workspace/playlists/pl-1/vod/play',
+            RouteStubComponent
+        );
+
+        expect(TestBed.inject(Router).url).toBe(
+            '/workspace/playlists/pl-1/vod/play'
+        );
+        expect(player.route.snapshot.params).toEqual(
+            expect.objectContaining({ id: 'pl-1' })
+        );
+        expect(player.route.snapshot.params['view']).toBeUndefined();
+    });
+
     it('redirects the bare playlist route to all', async () => {
         const harness = await RouterTestingHarness.create();
         await harness.navigateByUrl('/workspace/playlists/pl-1');

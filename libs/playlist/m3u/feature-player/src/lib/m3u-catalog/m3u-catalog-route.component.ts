@@ -44,6 +44,8 @@ import {
     m3uFavoriteCards,
     withFavoritesGroup,
 } from './m3u-catalog-favorites-group.util';
+import { M3uCatalogViewMemory } from './m3u-catalog-view-memory';
+import { findM3uSeriesOfEpisode } from './m3u-series-of-episode.util';
 
 /** How many cards are rendered before the first scroll append. */
 const INITIAL_WINDOW = 60;
@@ -114,6 +116,20 @@ export class M3uCatalogRouteComponent {
 
     protected readonly isSeries = computed(() => this.kind() === 'episode');
 
+    private readonly memory = inject(M3uCatalogViewMemory);
+    private readonly playlistRouteId =
+        this.route.snapshot.paramMap?.get('id') ?? '';
+
+    /** The view left for a detail page, until the grid is back to apply it. */
+    private readonly restore = signal(
+        this.memory.recall(this.playlistRouteId, this.kind())
+    );
+
+    /** An episode named by navigation state: its series page opens instead. */
+    private readonly episodeHandoff = signal(
+        this.kind() === 'episode' ? this.readEpisodeHandoff() : null
+    );
+
     /**
      * A load in flight is not an empty section: the rows are on their way,
      * so the grid shows its skeleton rather than "no movies".
@@ -130,7 +146,9 @@ export class M3uCatalogRouteComponent {
         { initialValue: '' }
     );
 
-    protected readonly selectedGroup = signal<string | null>(null);
+    protected readonly selectedGroup = signal<string | null>(
+        this.restore()?.group ?? null
+    );
 
     /**
      * Names the visible set: the playlist, the section, the group and the
@@ -164,7 +182,7 @@ export class M3uCatalogRouteComponent {
     private readonly scrollReset = effect(() => {
         this.visibleSetKey();
         const pane = untracked(this.contentPane)?.nativeElement;
-        if (pane) {
+        if (pane && !untracked(this.restore)) {
             pane.scrollTop = 0;
         }
     });
@@ -357,6 +375,61 @@ export class M3uCatalogRouteComponent {
 
     constructor() {
         effect(() => {
+            const handoff = this.episodeHandoff();
+            const series = this.seriesCatalog.series();
+            if (!handoff || this.loading() || series.length === 0) {
+                return;
+            }
+            untracked(() => {
+                this.episodeHandoff.set(null);
+                const match = findM3uSeriesOfEpisode(
+                    series,
+                    handoff.url,
+                    handoff.id
+                );
+                if (match) {
+                    void this.router.navigate(['..', 'series', match.id], {
+                        relativeTo: this.route,
+                        replaceUrl: true,
+                    });
+                }
+            });
+        });
+
+        // Applies the remembered window and scroll once its group is on screen.
+        effect(() => {
+            const view = this.restore();
+            const selected = this.selectedGroup();
+            if (
+                !view ||
+                this.loading() ||
+                !this.favoriteIds.ready() ||
+                this.allCards().length === 0
+            ) {
+                return;
+            }
+            untracked(() => {
+                this.restore.set(undefined);
+                const known =
+                    selected === M3U_FAVORITES_GROUP_ID ||
+                    this.groups().some((group) => group.title === selected);
+                if (selected !== view.group || !known) {
+                    return;
+                }
+                this.windowSize.set(view.windowSize);
+                // Two frames: one to render the window, one to scroll it.
+                requestAnimationFrame(() =>
+                    requestAnimationFrame(() => {
+                        const pane = this.contentPane()?.nativeElement;
+                        if (pane) {
+                            pane.scrollTop = view.scrollTop;
+                        }
+                    })
+                );
+            });
+        });
+
+        effect(() => {
             const playlistId = this.playlist()?._id;
             const type = this.isSeries() ? 'series' : 'movie';
             untracked(() => void this.favoriteIds.load(playlistId, type));
@@ -390,6 +463,25 @@ export class M3uCatalogRouteComponent {
 
     protected onGroupSelected(item: { id?: string | number }): void {
         this.selectedGroup.set(String(item.id ?? ''));
+        this.rememberView(0);
+    }
+
+    private rememberView(scrollTop: number): void {
+        this.memory.remember(this.playlistRouteId, this.kind(), {
+            group: this.selectedGroup(),
+            search: this.searchTerm(),
+            windowSize: this.windowSize(),
+            scrollTop,
+        });
+    }
+
+    private readEpisodeHandoff(): { url: string; id: string } | null {
+        const state = this.router.currentNavigation?.()?.extras?.state;
+        const url = state?.[OPEN_M3U_CHANNEL_URL_STATE_KEY];
+        const id = state?.[OPEN_M3U_CHANNEL_ID_STATE_KEY];
+        return typeof url === 'string' && url
+            ? { url, id: typeof id === 'string' ? id : '' }
+            : null;
     }
 
     protected onLoadMore(): void {
@@ -398,11 +490,14 @@ export class M3uCatalogRouteComponent {
 
     /**
      * A series card opens its detail page; a movie card hands the row to the
-     * existing player route, which already decides between the movie detail
-     * shell and inline playback. Nothing new is introduced here: the catalog
-     * is a way in, not a second playback path.
+     * player under this same section, which decides between the movie detail
+     * shell and inline playback. The view is remembered first so coming back
+     * restores the group, the search and the scroll position.
      */
     protected onCardActivated(card: Record<string, unknown>): void {
+        this.rememberView(
+            untracked(this.contentPane)?.nativeElement.scrollTop ?? 0
+        );
         const seriesId = card['seriesId'];
         if (typeof seriesId === 'number') {
             void this.router.navigate(['..', 'series', seriesId], {
@@ -420,15 +515,9 @@ export class M3uCatalogRouteComponent {
             return;
         }
 
-        // Handed over as navigation state rather than dispatched here: the
-        // `all` route provides a fresh route session that reloads the
-        // playlist and resets the active channel, so a dispatch made before
-        // navigating is discarded and the player opens with no selection.
-        // The player already knows how to consume this key — it is the same
-        // path global search uses.
-        void this.router.navigate(['../all'], {
+        // State, not a dispatch: the route session resets the active channel.
+        void this.router.navigate(['play'], {
             relativeTo: this.route,
-            // The id picks this row out of any others sharing its URL.
             state: {
                 [OPEN_M3U_CHANNEL_URL_STATE_KEY]: channel.url,
                 [OPEN_M3U_CHANNEL_ID_STATE_KEY]: channel.id,
