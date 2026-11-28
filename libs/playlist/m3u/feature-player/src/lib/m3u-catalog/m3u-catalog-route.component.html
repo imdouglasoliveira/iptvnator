@@ -23,13 +23,21 @@
             [infiniteItemCount]="cards().length"
             (infiniteLoadMore)="onLoadMore()"
         >
-            <app-grid-list
-                [items]="cards()"
-                [searchTerm]="searchTerm()"
-                [type]="kind() === 'movie' ? 'vod' : 'series'"
-                [isLoading]="loading()"
-                (itemClicked)="onCardActivated($event)"
-            />
+            @if (showFavoritesEmpty()) {
+                <app-portal-empty-state
+                    icon="favorite"
+                    [message]="favoritesEmptyTitleKey() | translate"
+                    [hint]="'CHANNELS.CATALOG.FAVORITES_HINT' | translate"
+                />
+            } @else {
+                <app-grid-list
+                    [items]="cards()"
+                    [searchTerm]="searchTerm()"
+                    [type]="kind() === 'movie' ? 'vod' : 'series'"
+                    [isLoading]="loading()"
+                    (itemClicked)="onCardActivated($event)"
+                />
+            }
         </section>
     </div>
 }

@@ -1276,7 +1276,10 @@
             "NO_SERIES": "No series in this playlist",
             "EMPTY_HINT": "This playlist only contains live channels.",
             "EMPTY_HINT_MOVIES": "This playlist's movies are listed under Movies.",
-            "EMPTY_HINT_SERIES": "This playlist's series are listed under Series."
+            "EMPTY_HINT_SERIES": "This playlist's series are listed under Series.",
+            "NO_FAVORITE_SERIES": "No favorite series",
+            "NO_FAVORITE_MOVIES": "No favorite movies",
+            "FAVORITES_HINT": "Use the heart on a title's page to add it here."
         }
     },
     "TOP_MENU": {

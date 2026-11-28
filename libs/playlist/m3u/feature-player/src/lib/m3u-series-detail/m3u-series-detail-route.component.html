@@ -32,6 +32,22 @@
     </ng-container>
 
     <ng-template appDetailActions>
+        @if (favorite.supported) {
+            <app-detail-icon-button
+                [label]="
+                    (favorite.active()
+                        ? 'PORTALS.REMOVE_FROM_FAVORITES'
+                        : 'PORTALS.ADD_TO_FAVORITES'
+                    ) | translate
+                "
+                [icon]="favoriteIcon(favorite.active())"
+                tone="favorite"
+                [active]="favorite.active()"
+                [pressedState]="favorite.active()"
+                testId="m3u-series-favorite-toggle"
+                (pressed)="onFavoriteToggled()"
+            />
+        }
         <!-- Only watched rows live in the menu (see M3uSeriesMenuService). -->
         @if (menu.watchControls) {
             <app-vod-more-menu
