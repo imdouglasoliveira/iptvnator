@@ -1,6 +1,7 @@
 import { eq, sql } from 'drizzle-orm';
 import * as schema from '@iptvnator/shared/database/schema';
 import {
+    m3uCatalogFavoritesMarkKey,
     XTREAM_DATABASE_PERFORMANCE_PHASE,
     type XtreamContentType,
 } from '@iptvnator/shared/interfaces';
@@ -202,6 +203,9 @@ async function deleteCollectedPlaylistRows(
             .run();
         deleteHistoryRecovery(tx, playlistId);
         deleteExplicitCategoryVisibility(tx, playlistId);
+        tx.delete(schema.appState)
+            .where(eq(schema.appState.key, m3uCatalogFavoritesMarkKey(playlistId)))
+            .run();
     });
 
     // Progress after the commit must not checkpoint: a cancel arriving now

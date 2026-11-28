@@ -601,6 +601,8 @@ export interface ElectronBridgeXtreamFavorite extends Omit<
 export interface ElectronBridgeGlobalFavoriteItem extends ElectronBridgeXtreamFavorite {
     playlist_id: string;
     playlist_name: string;
+    /** Type of the owning playlist, so the renderer can tell M3U rows from Xtream. */
+    playlist_type?: ElectronBridgePlaylistType;
     added_at: string;
 }
 
@@ -1111,6 +1113,14 @@ export interface ElectronBridgeApi extends ExternalPlaybackEventSubscriptions {
     dbMutateM3uActivity?: (
         request: M3uActivityMutationRequest
     ) => Promise<M3uActivityMutationResult>;
+    /** Saves or removes an M3U series or movie in the favorites table and the playlist JSON. */
+    dbSetM3uCatalogFavorite?: (
+        request: import('./m3u-catalog-favorite.interface').M3uCatalogFavoriteSetRequest
+    ) => Promise<import('./m3u-catalog-favorite.interface').M3uCatalogFavoriteSetResult>;
+    /** Stable ids of the playlist's favorites of one catalog type. */
+    dbGetM3uCatalogFavoriteIds?: (
+        request: import('./m3u-catalog-favorite.interface').M3uCatalogFavoriteIdsRequest
+    ) => Promise<number[]>;
     dbMigrateAppPlaylists: (
         playlists: Playlist[]
     ) => Promise<{ success: boolean; count: number }>;

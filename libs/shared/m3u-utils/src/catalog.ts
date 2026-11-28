@@ -12,3 +12,4 @@ export * from './lib/m3u-catalog-snapshot';
 export * from './lib/m3u-content-kind.util';
 export * from './lib/m3u-episode-code.util';
 export * from './lib/m3u-catalog-withhold.util';
+export * from './lib/m3u-movie-stable-id.util';

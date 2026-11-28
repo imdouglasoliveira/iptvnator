@@ -6,6 +6,7 @@ import {
 import { eq, sql } from 'drizzle-orm';
 import {
     isHiddenStalkerCategories,
+    M3U_CATALOG_FAVORITES_MARK_PREFIX,
     normalizeXtreamContentTypes,
     parseXtreamHistoryRecovery,
     XTREAM_HISTORY_RECOVERY_PREFIX,
@@ -369,5 +370,10 @@ export async function deleteAllPlaylists(
 
     deleteHistoryRecovery(db);
     deleteExplicitCategoryVisibility(db);
+    await db
+        .delete(schema.appState)
+        .where(
+            sql`substr(${schema.appState.key}, 1, ${M3U_CATALOG_FAVORITES_MARK_PREFIX.length}) = ${M3U_CATALOG_FAVORITES_MARK_PREFIX}`
+        );
     return { success: true };
 }

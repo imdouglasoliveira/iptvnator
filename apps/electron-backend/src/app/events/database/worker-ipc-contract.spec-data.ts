@@ -21,6 +21,13 @@ const m3uActivityRequest: M3uActivityMutationRequest = {
         present: true,
     },
 };
+const catalogFavoriteSet = {
+    playlistId,
+    type: 'series' as const,
+    stableId: 42,
+    title: 'Synthetic Series',
+    favorite: true,
+};
 const playlistUpdates = { name: 'Updated playlist' };
 const categories = [{ category_id: '10', category_name: 'Live' }];
 export const streams = [{ stream_id: 42, name: 'Channel' }];
@@ -437,6 +444,16 @@ export const workerIpcContractCases: WorkerIpcContractCase[] = [
         operation: 'DB_GET_ALL_GLOBAL_FAVORITES',
         args: [],
         payload: {},
+    },
+    {
+        operation: 'DB_M3U_CATALOG_FAVORITE_SET',
+        args: [catalogFavoriteSet],
+        payload: catalogFavoriteSet,
+    },
+    {
+        operation: 'DB_M3U_CATALOG_FAVORITE_IDS',
+        args: [{ playlistId, type: 'movie' }],
+        payload: { playlistId, type: 'movie' },
     },
     {
         operation: 'DB_REORDER_GLOBAL_FAVORITES',

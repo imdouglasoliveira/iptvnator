@@ -35,6 +35,7 @@ export * from './lib/ipc-commands';
 export * from './lib/language.enum';
 export * from './lib/m3u-favorite-channel.interface';
 export * from './lib/m3u-activity-mutation';
+export * from './lib/m3u-catalog-favorite.interface';
 export * from './lib/parental-lock.util';
 export * from './lib/parental-lock-pin.util';
 export * from './lib/parental-lock-pin-throttle.util';

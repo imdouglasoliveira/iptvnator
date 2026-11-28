@@ -879,6 +879,39 @@ No callback crosses IPC.
   `playlists.service.m3u-activity.spec.ts` (zero whole-document calls per tap
   and per favorite toggle/reorder).
 
+## M3U Catalog Favorites
+
+A series or movie of an M3U catalog is saved as a row of `favorites`
+(`playlist_id` of the M3U source, `type` `series`/`movie`, `xtream_id` = stable
+id, `content_id` NULL, title and poster as snapshot). No schema change: the
+unique identity `(playlist_id, type, xtream_id)` makes a repeated write one row.
+
+- `DB_M3U_CATALOG_FAVORITE_SET` upserts or deletes the row and, in the same
+  transaction, applies the same change to `playlists.favorites` with the
+  compare-and-swap of the activity partial write: a movie adds or removes its
+  URL (removal drops every URL with the same stable id), a series adds or
+  removes the key `m3u-series:<id>`. The catalog payload and `items_revision`
+  stay untouched, so the catalog snapshot remains valid; the favorites snapshot
+  ignores the series keys. `DB_M3U_CATALOG_FAVORITE_IDS` lists the stable ids of
+  one type, newest first.
+- Stable ids: `m3uMovieStableId(url)` (stream id of `/movie/<u>/<p>/<id>.<ext>`,
+  else the 48-bit hash of the URL without query and fragment) and
+  `hashM3uId(series.key)` for a series. Two entries with the same movie id are
+  one favorite.
+- One-time copy: the movie URLs already favorited in the JSON become rows
+  (title and logo from the payload; live channels and episodes are skipped).
+  The JSON keeps every URL. The mark `app_state` `m3u-catalog-favorites-v1:<playlistId>`
+  makes it run once per playlist; it runs on `DB_M3U_CATALOG_FAVORITE_SET`/`_IDS`
+  for that playlist and, for every pending playlist, on `DB_GET_ALL_GLOBAL_FAVORITES`.
+  A playlist whose payload is not stored yet is left unmarked. Deleting the
+  playlist (one or all) deletes the mark.
+- `getAllGlobalFavorites` rows carry `playlist_type`, so the renderer tells M3U
+  rows from Xtream ones.
+- Owner: `apps/electron-backend/src/app/database/operations/m3u-catalog-favorites.operations.ts`;
+  contract in `libs/shared/interfaces/src/lib/m3u-catalog-favorite.interface.ts`.
+  Without the bridge methods (PWA) `RuntimeCapabilitiesService.supportsM3uCatalogFavorites`
+  is false and the heart keeps using the JSON through `FavoritesActions`.
+
 ## M3U Catalog Snapshots
 
 Large M3U playlists persist a derived catalog snapshot in SQLite so reopening a

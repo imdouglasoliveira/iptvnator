@@ -100,7 +100,7 @@ export function applyM3uFavoritesCommand(
     return [...ordered, ...current.filter((id) => !placed.has(id))];
 }
 
-function parseStoredFavorites(raw: string | null): string[] | null {
+export function parseStoredFavorites(raw: string | null): string[] | null {
     const parsed = parseStoredHistory(raw);
     return parsed && parsed.every((item) => typeof item === 'string')
         ? (parsed as unknown as string[])

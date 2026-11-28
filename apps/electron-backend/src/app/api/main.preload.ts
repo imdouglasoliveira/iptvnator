@@ -8,6 +8,10 @@ import {
     HOSTED_DEVICE_CONTROL,
     EXTERNAL_PLAYBACK_ENDED,
 } from '@iptvnator/shared/interfaces';
+import type {
+    M3uCatalogFavoriteIdsRequest,
+    M3uCatalogFavoriteSetRequest,
+} from '@iptvnator/shared/interfaces';
 import { createAppMenuListener } from './app-menu-listener';
 import { preloadPlatform } from './preload-platform';
 import { preloadPlaylistReads } from './preload-playlist-reads';
@@ -1097,6 +1101,10 @@ const electronApi: ElectronBridgeApi = {
     dbGetGlobalFavorites: () => ipcRenderer.invoke('DB_GET_GLOBAL_FAVORITES'),
     dbGetAllGlobalFavorites: () =>
         ipcRenderer.invoke('DB_GET_ALL_GLOBAL_FAVORITES'),
+    dbSetM3uCatalogFavorite: (request: M3uCatalogFavoriteSetRequest) =>
+        ipcRenderer.invoke('DB_M3U_CATALOG_FAVORITE_SET', request),
+    dbGetM3uCatalogFavoriteIds: (request: M3uCatalogFavoriteIdsRequest) =>
+        ipcRenderer.invoke('DB_M3U_CATALOG_FAVORITE_IDS', request),
     dbReorderGlobalFavorites: (
         updates: ElectronBridgeFavoriteReorderUpdate[]
     ) => ipcRenderer.invoke('DB_REORDER_GLOBAL_FAVORITES', updates),

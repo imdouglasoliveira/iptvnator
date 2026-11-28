@@ -10,10 +10,17 @@ import type {
     ElectronBridgeFavoriteReorderUpdate,
     XtreamFavoriteRemovalRef,
     M3uActivityMutationRequest,
+    M3uCatalogFavoriteIdsRequest,
+    M3uCatalogFavoriteSetRequest,
 } from '@iptvnator/shared/interfaces';
 import { migrateAppPlaylists } from '../database/operations/playlist-migration.operations';
 import { decodeAppPlaylistWritePayload } from '../database/operations/app-playlist-json-write';
 import { readStandaloneSources } from '../database/operations/standalone-sources.operations';
+import {
+    copyAllM3uCatalogFavoritesFromJson,
+    getM3uCatalogFavoriteIds,
+    setM3uCatalogFavorite,
+} from '../database/operations/m3u-catalog-favorites.operations';
 import { getM3uFavoritesSnapshot } from '../database/operations/m3u-favorites-snapshot.operations';
 import {
     afterM3uDocumentWrite,
@@ -1178,7 +1185,20 @@ async function executeRequest(
             return getGlobalFavorites(db);
 
         case 'DB_GET_ALL_GLOBAL_FAVORITES':
+            copyAllM3uCatalogFavoritesFromJson(db);
             return getAllGlobalFavorites(db);
+
+        case 'DB_M3U_CATALOG_FAVORITE_SET':
+            return setM3uCatalogFavorite(
+                db,
+                message.payload as M3uCatalogFavoriteSetRequest
+            );
+
+        case 'DB_M3U_CATALOG_FAVORITE_IDS':
+            return getM3uCatalogFavoriteIds(
+                db,
+                message.payload as M3uCatalogFavoriteIdsRequest
+            );
 
         case 'DB_REORDER_GLOBAL_FAVORITES': {
             const payload = message.payload as {

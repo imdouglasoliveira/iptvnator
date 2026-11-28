@@ -1,5 +1,9 @@
 import type {
+    ElectronBridgePlaylistType,
     ElectronBridgeXtreamFavorite,
+    M3uCatalogFavoriteIdsRequest,
+    M3uCatalogFavoriteSetRequest,
+    M3uCatalogFavoriteSetResult,
     XtreamFavoriteRemovalRef,
 } from '@iptvnator/shared/interfaces';
 /**
@@ -114,6 +118,7 @@ export type XtreamFavorite = ElectronBridgeXtreamFavorite;
 export interface GlobalFavoriteItem extends XtreamFavorite {
     playlist_id: string;
     playlist_name: string;
+    playlist_type?: ElectronBridgePlaylistType;
     added_at: string;
 }
 
@@ -832,6 +837,30 @@ export class DatabaseService {
             return items || [];
         } catch (error) {
             console.error('Error getting all global favorites:', error);
+            return [];
+        }
+    }
+
+    /** Saves or removes an M3U series or movie; throws when the bridge cannot store it. */
+    async setM3uCatalogFavorite(
+        request: M3uCatalogFavoriteSetRequest
+    ): Promise<M3uCatalogFavoriteSetResult> {
+        const set = window.electron?.dbSetM3uCatalogFavorite;
+        if (typeof set !== 'function') {
+            throw new Error('M3U catalog favorite storage is unavailable');
+        }
+        return set(request);
+    }
+
+    async getM3uCatalogFavoriteIds(
+        request: M3uCatalogFavoriteIdsRequest
+    ): Promise<number[]> {
+        const read = window.electron?.dbGetM3uCatalogFavoriteIds;
+        if (typeof read !== 'function') return [];
+        try {
+            return (await read(request)) ?? [];
+        } catch (error) {
+            console.error('Error getting M3U catalog favorite ids:', error);
             return [];
         }
     }

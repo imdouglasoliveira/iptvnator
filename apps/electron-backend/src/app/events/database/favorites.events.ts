@@ -2,6 +2,8 @@ import type { FavoriteLocalRequest } from '@iptvnator/shared/interfaces/favorite
 import { readSourceServerConfig } from '../../services/source-server-config';
 import type {
     ElectronBridgeFavoriteReorderUpdate,
+    M3uCatalogFavoriteIdsRequest,
+    M3uCatalogFavoriteSetRequest,
     XtreamFavoriteRemovalRef,
 } from '@iptvnator/shared/interfaces';
 /**
@@ -43,6 +45,15 @@ handleWorkerRequest('DB_GET_FAVORITES', (playlistId: string) => ({
 
 handleWorkerRequest('DB_GET_GLOBAL_FAVORITES', () => ({}));
 handleWorkerRequest('DB_GET_ALL_GLOBAL_FAVORITES', () => ({}));
+
+handleWorkerRequest(
+    'DB_M3U_CATALOG_FAVORITE_SET',
+    (request: M3uCatalogFavoriteSetRequest) => request
+);
+handleWorkerRequest(
+    'DB_M3U_CATALOG_FAVORITE_IDS',
+    (request: M3uCatalogFavoriteIdsRequest) => request
+);
 
 handleWorkerRequest(
     'DB_REORDER_GLOBAL_FAVORITES',

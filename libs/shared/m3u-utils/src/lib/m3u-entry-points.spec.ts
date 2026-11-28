@@ -19,6 +19,7 @@ describe('m3u-utils secondary entry points', () => {
         expect(typeof catalog.buildM3uCatalogIndex).toBe('function');
         expect(typeof catalog.hasStrongEpisodeCode).toBe('function');
         expect(typeof catalog.withholdM3uCatalogGroups).toBe('function');
+        expect(typeof catalog.m3uMovieStableId).toBe('function');
     });
 
     it('exposes the series layer', () => {

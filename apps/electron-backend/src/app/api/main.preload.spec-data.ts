@@ -19,6 +19,13 @@ type PreloadInvokeCase = {
 };
 
 const playlistId = 'playlist-1';
+const catalogFavoriteSet = {
+    playlistId,
+    type: 'series',
+    stableId: 42,
+    title: 'Synthetic Series',
+    favorite: true,
+};
 export const operationId = 'operation-1';
 const epgUrls = ['https://example.com/guide.xml'];
 const trustOptions = {
@@ -191,6 +198,18 @@ export const dbPreloadCases: PreloadInvokeCase[] = [
             { serverUrl: 'http://panel.example', username: 'u', password: 'p' },
             'Europe/London',
         ],
+    },
+    {
+        method: 'dbSetM3uCatalogFavorite',
+        args: [catalogFavoriteSet],
+        channel: 'DB_M3U_CATALOG_FAVORITE_SET',
+        forwardedArgs: [catalogFavoriteSet],
+    },
+    {
+        method: 'dbGetM3uCatalogFavoriteIds',
+        args: [{ playlistId, type: 'series' }],
+        channel: 'DB_M3U_CATALOG_FAVORITE_IDS',
+        forwardedArgs: [{ playlistId, type: 'series' }],
     },
     {
         method: 'dbMutateM3uActivity',

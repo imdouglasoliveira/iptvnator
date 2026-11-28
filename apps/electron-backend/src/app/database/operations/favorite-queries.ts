@@ -45,6 +45,7 @@ export function selectFavoriteRows(
                 tv_archive_duration: schema.content.tvArchiveDuration,
                 playlist_id: schema.playlists.id,
                 playlist_name: schema.playlists.name,
+                playlist_type: schema.playlists.type,
                 added_at: schema.favorites.addedAt,
                 position: schema.favorites.position,
                 catalog_status: favoriteCatalogStatus(),

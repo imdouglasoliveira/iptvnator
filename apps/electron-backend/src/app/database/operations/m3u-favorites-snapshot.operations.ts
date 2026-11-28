@@ -9,7 +9,10 @@ import {
 } from '@iptvnator/shared/database/schema';
 import type { Channel, M3uFavoriteChannel } from '@iptvnator/shared/interfaces';
 import { M3U_PRIORITY_OPEN_KILL_SWITCH } from '@iptvnator/shared/interfaces/ipc-commands';
-import { M3U_CLASSIFIER_VERSION } from '@iptvnator/shared/m3u-utils/catalog';
+import {
+    isM3uSeriesFavoriteKey,
+    M3U_CLASSIFIER_VERSION,
+} from '@iptvnator/shared/m3u-utils/catalog';
 import { redactSensitiveData } from '@iptvnator/shared/logging';
 import type { AppDatabase } from '../database.types';
 
@@ -61,7 +64,12 @@ export function getM3uFavoritesSnapshot(
 function favoriteIds(raw: string | null): string[] {
     const value = parseJsonValue<unknown>(raw, []);
     return Array.isArray(value)
-        ? value.filter((id): id is string => typeof id === 'string' && id.trim().length > 0)
+        ? value.filter(
+              (id): id is string =>
+                  typeof id === 'string' &&
+                  id.trim().length > 0 &&
+                  !isM3uSeriesFavoriteKey(id)
+          )
         : [];
 }
 
@@ -193,7 +201,7 @@ export function updateM3uFavoritesSnapshot(
     }
 }
 
-function readFavoriteCandidates(
+export function readFavoriteCandidates(
     db: Pick<AppDatabase, 'all'>,
     playlistId: string,
     ids: string[]

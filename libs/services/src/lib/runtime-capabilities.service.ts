@@ -148,6 +148,14 @@ export class RuntimeCapabilitiesService {
         }
     }
 
+    /** Without both methods (PWA) the heart keeps writing the playlist JSON through `FavoritesActions`. */
+    get supportsM3uCatalogFavorites(): boolean {
+        return (
+            this.hasElectronMethod('dbSetM3uCatalogFavorite') &&
+            this.hasElectronMethod('dbGetM3uCatalogFavoriteIds')
+        );
+    }
+
     get supportsM3uPriorityOpen(): boolean {
         return this.hasElectronMethod('dbGetM3uFavoritesSnapshot');
     }
