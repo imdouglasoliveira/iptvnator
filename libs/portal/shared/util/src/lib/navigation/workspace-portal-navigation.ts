@@ -13,6 +13,7 @@ import {
     UnifiedCollectionItem,
 } from '../collection/unified-collection-item.interface';
 import { COLLECTION_VIEW_STATE_KEY } from './collection-view-state';
+import { m3uCatalogFavoriteTarget } from './m3u-catalog-favorite-navigation';
 export {
     buildCollectionViewState,
     COLLECTION_VIEW_STATE_KEY,
@@ -466,9 +467,7 @@ export function getUnifiedCollectionNavigation(
         // portal branches above reject M3U, and the caller falls through
         // to null.
         const streamUrl = (item.streamUrl ?? '').trim();
-        if (!streamUrl) {
-            return null;
-        }
+        if (!streamUrl) return m3uCatalogFavoriteTarget(item);
 
         // The id names the exact row: two rows can share a stream URL, and
         // by URL alone the player opens the first of them.

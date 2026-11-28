@@ -907,6 +907,12 @@ unique identity `(playlist_id, type, xtream_id)` makes a repeated write one row.
   playlist (one or all) deletes the mark.
 - `getAllGlobalFavorites` rows carry `playlist_type`, so the renderer tells M3U
   rows from Xtream ones.
+- Parental lock: M3U rows own no category, so the worker keeps them in the
+  global favorites while the lock is active (`unlockedFavoriteCondition`) and
+  the renderer withholds the ones whose group is locked
+  (`libs/portal/shared/data-access/src/lib/collection/m3u-catalog-favorites-parental.ts`:
+  movie by the group of its entry, series by its primary group; fail closed when
+  the playlist entries cannot be read).
 - Owner: `apps/electron-backend/src/app/database/operations/m3u-catalog-favorites.operations.ts`;
   contract in `libs/shared/interfaces/src/lib/m3u-catalog-favorite.interface.ts`.
   Without the bridge methods (PWA) `RuntimeCapabilitiesService.supportsM3uCatalogFavorites`

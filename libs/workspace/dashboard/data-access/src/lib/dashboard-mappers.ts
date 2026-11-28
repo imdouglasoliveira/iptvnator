@@ -77,7 +77,7 @@ export function mapDbFavoriteToItem(
         poster_url: item.poster_url,
         backdrop_url: item.backdrop_url ?? undefined,
         ...readContentTmdbIdentity(item),
-        source: 'xtream',
+        source: item.playlist_type?.startsWith('m3u') ? 'm3u' : 'xtream',
     };
 }
 

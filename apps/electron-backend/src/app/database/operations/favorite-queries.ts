@@ -1,13 +1,20 @@
-import { and, asc, desc, eq, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, or, sql, type SQL } from 'drizzle-orm';
 import * as schema from '@iptvnator/shared/database/schema';
 import type { AppDatabase } from '../database.types';
 import { unlockedCategoryCondition } from '../parental-lock-state';
+import { m3uPlaylistType } from './m3u-favorites-snapshot.operations';
 import {
     favoriteCatalogStatus,
     favoriteSnapshotMatchesContent,
     favoriteImportStateKey,
     resolvedFavoriteContentId,
 } from './favorite-catalog';
+
+/** M3U rows own no category, so the lock filters them in the renderer by group. */
+export function unlockedFavoriteCondition(): SQL | undefined {
+    const unlocked = unlockedCategoryCondition();
+    return unlocked ? or(unlocked, m3uPlaylistType) : undefined;
+}
 
 /** Nullable catalog joins preserve the saved title and artwork when an item disappears. */
 export function selectFavoriteRows(
@@ -76,7 +83,7 @@ export function selectFavoriteRows(
                     playlistId === undefined
                         ? undefined
                         : eq(schema.favorites.playlistId, playlistId),
-                    includeLocked ? undefined : unlockedCategoryCondition()
+                    includeLocked ? undefined : unlockedFavoriteCondition()
                 )
             )
             .orderBy(

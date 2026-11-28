@@ -9,6 +9,7 @@ export interface XtreamFavoriteRow {
     readonly catalog_status?: XtreamFavoriteCatalogStatus;
     readonly playlist_id: string;
     readonly playlist_name: string;
+    readonly playlist_type?: string;
     readonly xtream_id: number;
     readonly title: string;
     readonly type: string;

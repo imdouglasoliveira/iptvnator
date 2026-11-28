@@ -65,6 +65,8 @@ export interface UnifiedCollectionItem {
     /** Durable favorite identity, usable even after its catalog row is gone. */
     favoriteId?: number;
     catalogStatus?: XtreamFavoriteCatalogStatus;
+    /** Stable id of an M3U series or movie saved in the favorites table. */
+    m3uCatalogId?: number;
     /** Catalog loading is disabled; saved playback remains permitted. */
     catalogDisabled?: boolean;
     /** Identity of this saved row, even when a provider reuses its typed ID. */

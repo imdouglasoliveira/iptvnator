@@ -14,6 +14,7 @@ import {
     getGlobalFavoriteNavigation,
     getRecentItemNavigation,
     isPortalPlaybackWatched,
+    m3uCatalogDashboardTarget,
     WorkspaceNavigationTarget,
     type SeriesResumeTarget,
 } from '@iptvnator/portal/shared/util';
@@ -168,14 +169,18 @@ function buildRecentSeriesIdentityTarget(
     };
 }
 
+function favoriteNavigation(item: PortalFavoriteItem) {
+    return m3uCatalogDashboardTarget(item) ?? getGlobalFavoriteNavigation(item);
+}
+
 export function getGlobalFavoriteLink(item: PortalFavoriteItem): string[] {
-    return getGlobalFavoriteNavigation(item).link;
+    return favoriteNavigation(item).link;
 }
 
 export function getGlobalFavoriteNavigationState(
     item: PortalFavoriteItem
 ): WorkspaceNavigationTarget['state'] {
-    return getGlobalFavoriteNavigation(item).state;
+    return favoriteNavigation(item).state;
 }
 
 export function getRecentlyAddedLink(item: PortalAddedItem): string[] {
