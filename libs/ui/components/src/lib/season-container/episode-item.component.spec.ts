@@ -79,6 +79,26 @@ describe('EpisodeItemComponent', () => {
         expect(label()).toBe('XTREAM.PLAY_EPISODE');
     });
 
+    it('shows a numbered label when the episode has no title', () => {
+        const title = () => q('.episode-item__title')?.textContent?.trim();
+        fixture.componentRef.setInput('episode', {
+            ...episode(),
+            title: '',
+        });
+        fixture.detectChanges();
+
+        // The pipe is untranslated here, so the key proves which label is used.
+        expect(title()).toBe('PORTALS.DETAIL.EPISODE_NUMBER');
+    });
+
+    it('shows the provider title when there is one', () => {
+        fixture.detectChanges();
+
+        expect(q('.episode-item__title')?.textContent?.trim()).toBe(
+            'Episode 3'
+        );
+    });
+
     it('shows the bar and the time left for a started episode', () => {
         fixture.componentRef.setInput('position', position(900));
         fixture.detectChanges();

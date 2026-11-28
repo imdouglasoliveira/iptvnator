@@ -73,7 +73,13 @@
 
 <div class="episode-item__text">
     <div class="episode-item__title-row">
-        <h4 class="episode-item__title">{{ item.title }}</h4>
+        <h4 class="episode-item__title">
+            {{
+                item.title ||
+                    ('PORTALS.DETAIL.EPISODE_NUMBER'
+                        | translate: { episode: item.episode_num })
+            }}
+        </h4>
         @if (timeLabel() || airDate()) {
             <small class="episode-item__meta">
                 @if (timeLabel(); as time) {

@@ -75,5 +75,8 @@ export interface M3uSeriesAccumulator<T> {
 
 /** A catalog row that may carry artwork, which the series poster reads. */
 export type M3uArtworkBearing = M3uCatalogEntry & {
-    readonly tvg?: { readonly logo?: string | null } | null;
+    readonly tvg?: {
+        readonly logo?: string | null;
+        readonly name?: string | null;
+    } | null;
 };

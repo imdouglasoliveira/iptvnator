@@ -498,6 +498,33 @@ describe('buildM3uSeriesCatalog', () => {
         ]);
     });
 
+    it('names a marker-only row after its tvg-name, not its group', () => {
+        // A provider writes the show in tvg-name and only the code in the
+        // name; the group is a category label shared by many shows.
+        const tvg = (name: string, tvgName: string, group: string) => ({
+            ...row(name, group),
+            tvg: { logo: undefined, name: tvgName },
+        });
+        const series = buildM3uSeriesCatalog(
+            [
+                tvg('S01E01', 'Moonwell S01E01', 'SERIES | DRAMA'),
+                tvg('S01E02', 'Moonwell S01E02', 'SERIES | DRAMA'),
+                tvg('5.BÖLÜM', 'Dry Canyon', 'SERIES | DRAMA'),
+            ],
+            'pl-1'
+        );
+
+        expect(series.map((entry) => entry.title).sort()).toEqual([
+            'Dry Canyon',
+            'Moonwell',
+        ]);
+        const moonwell = series.find((entry) => entry.title === 'Moonwell');
+        expect(
+            moonwell?.seasons.get(1)?.map((e) => e.episodeNumber)
+        ).toEqual([1, 2]);
+        expect(moonwell?.primaryGroup).toBe('SERIES | DRAMA');
+    });
+
     it('files marker-only rows under the show their group names', () => {
         // A folder-to-M3U playlist writes the show in group-title and only
         // the code in the name. Keyed on the name, every show's "S01E01"
@@ -528,6 +555,26 @@ describe('buildM3uSeriesCatalog', () => {
         const episodes = harbor?.seasons.get(1) ?? [];
         expect(episodes.map((e) => e.episodeNumber)).toEqual([1, 2]);
         expect(episodes.some((e) => e.unnumbered)).toBe(false);
+    });
+
+    it('falls back to the group when tvg-name is itself only a marker', () => {
+        const only = buildM3uSeriesCatalog(
+            [
+                {
+                    ...row('S01E01', 'SERIES | DRAMA'),
+                    tvg: { logo: undefined, name: 'S01E01' },
+                },
+            ],
+            'pl-1'
+        );
+
+        expect(only[0].title).toBe('DRAMA');
+    });
+
+    it('files a marker-only row alone when neither tvg-name nor group names a show', () => {
+        const only = buildM3uSeriesCatalog([row('S01E01', '--')], 'pl-1');
+
+        expect(only.map((entry) => entry.title)).toEqual(['S01E01']);
     });
 
     it('reads the title, not the episode, from a name ending in a number', () => {

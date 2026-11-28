@@ -96,4 +96,23 @@ describe('M3U series episode adapter', () => {
             'Notes From the Basement'
         );
     });
+
+    it.each([
+        'SHOW S01E01 1080p TR',
+        'SHOW 1x01 [FHD] Dublado',
+        'SHOW S01 E01 - WEB-DL x265 PT-BR',
+    ])('drops a tail that only describes the file: %s', (name) => {
+        const adapted = toXtreamEpisode(firstEpisode(series([name])));
+
+        expect(adapted.title).toBe('');
+        expect(adapted.episode_num).toBe(1);
+    });
+
+    it('keeps a tail that is a title even when it is short', () => {
+        const adapted = toXtreamEpisode(
+            firstEpisode(series(['SHOW S01E01 - Go 1080p']))
+        );
+
+        expect(adapted.title).toBe('Go 1080p');
+    });
 });
