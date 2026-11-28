@@ -56,6 +56,11 @@ jest.unstable_mockModule('videojs-quality-selector-hls', () => ({}));
 describe('VideoPlayerComponent — channel handoff', () => {
     let VideoPlayerComponent: typeof import('./video-player.component').VideoPlayerComponent;
     let fixture: ComponentFixture<VideoPlayerComponentInstance>;
+    // Films and episodes hand over on `vod/play`, where the player opens them.
+    const routeSnapshot: {
+        queryParams: Record<string, string>;
+        data: Record<string, unknown>;
+    } = { queryParams: {}, data: {} };
 
     beforeAll(async () => {
         ({ VideoPlayerComponent } = await import('./video-player.component'));
@@ -71,6 +76,8 @@ describe('VideoPlayerComponent — channel handoff', () => {
         storeMock.dispatch.mockClear();
         channelsPlaylistId.set('playlist-1');
         routerMock.currentNavigation.mockReturnValue(null);
+        routerMock.navigate.mockClear();
+        routeSnapshot.data = { moviePlayer: true };
 
         await TestBed.configureTestingModule({
             imports: [VideoPlayerComponent],
@@ -81,9 +88,7 @@ describe('VideoPlayerComponent — channel handoff', () => {
                     useValue: {
                         params: of({ id: playlistId(), view: 'all' }),
                         queryParams: of({}),
-                        snapshot: {
-                            queryParams: {},
-                        },
+                        snapshot: routeSnapshot,
                     },
                 },
                 { provide: Router, useValue: routerMock },
@@ -339,5 +344,62 @@ describe('VideoPlayerComponent — channel handoff', () => {
         } finally {
             window.history.replaceState(previousState, '');
         }
+    });
+    describe('global search hit on the live view', () => {
+        beforeEach(() => {
+            fixture.destroy();
+            routeSnapshot.data = {};
+            fixture = TestBed.createComponent(VideoPlayerComponent);
+            fixture.detectChanges();
+        });
+
+        const isSelection = expect.objectContaining({
+            type: ChannelActions.setActiveChannel.type,
+        });
+
+        it('opens a film in Movies instead of the live view', () => {
+            handOver([sampleChannel, film], film);
+
+            expect(routerMock.navigate).toHaveBeenCalledWith(
+                ['..', 'vod', 'play'],
+                expect.objectContaining({
+                    replaceUrl: true,
+                    state: {
+                        openM3uChannelUrl: film.url,
+                        openM3uChannelId: film.id,
+                    },
+                })
+            );
+            expect(storeMock.dispatch).not.toHaveBeenCalledWith(isSelection);
+        });
+
+        it('opens an episode through Series', () => {
+            const episode = {
+                ...sampleChannel,
+                id: 'episode-1',
+                name: 'Sample Show S01E02',
+                url: 'http://localhost/series/u/p/2.mkv',
+            } as Channel;
+
+            handOver([sampleChannel, episode], episode);
+
+            expect(routerMock.navigate).toHaveBeenCalledWith(
+                ['..', 'series'],
+                expect.objectContaining({ replaceUrl: true })
+            );
+            expect(storeMock.dispatch).not.toHaveBeenCalledWith(isSelection);
+        });
+
+        it('keeps a live channel in the live view', () => {
+            handOver([sampleChannel, film], sampleChannel);
+
+            expect(routerMock.navigate).not.toHaveBeenCalledWith(
+                expect.arrayContaining(['..']),
+                expect.anything()
+            );
+            expect(storeMock.dispatch).toHaveBeenCalledWith(
+                ChannelActions.setActiveChannel({ channel: sampleChannel })
+            );
+        });
     });
 });

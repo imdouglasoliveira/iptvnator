@@ -33,6 +33,24 @@ export function isM3uMovieRow(
 }
 
 /**
+ * The section a global search hit belongs to once films and episodes have
+ * their own: a film opens in Movies (`vod/play`), an episode on its series
+ * page (through `series`). Null keeps the hit in the live view.
+ */
+export function m3uCatalogSectionOf(
+    channel: Channel,
+    splitsCatalog: boolean
+): string[] | null {
+    if (!splitsCatalog) {
+        return null;
+    }
+    if (classifyM3uEntry(channel) === 'episode') {
+        return ['series'];
+    }
+    return isM3uMovieRow(channel, true) ? ['vod', 'play'] : null;
+}
+
+/**
  * The action that opens a row handed over through navigation state.
  *
  * A live channel is only selected: it has a row in the list the handoff

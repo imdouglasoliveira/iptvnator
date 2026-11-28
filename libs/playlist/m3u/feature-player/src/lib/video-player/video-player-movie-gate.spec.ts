@@ -72,6 +72,10 @@ describe('VideoPlayerComponent — M3U movie recognition gate', () => {
     const stripCountryPrefix = signal(false);
     const m3uVodDetails = signal<boolean | undefined>(true);
     const tmdbEnabled = signal(true);
+    const routeSnapshot: {
+        queryParams: Record<string, string>;
+        data: Record<string, unknown>;
+    } = { queryParams: {}, data: {} };
 
     const storeMock = {
         dispatch: jest.fn(),
@@ -143,6 +147,7 @@ describe('VideoPlayerComponent — M3U movie recognition gate', () => {
         syncStoreState(null);
         m3uVodDetails.set(true);
         tmdbEnabled.set(true);
+        routeSnapshot.data = {};
 
         await TestBed.configureTestingModule({
             imports: [VideoPlayerComponent],
@@ -152,9 +157,7 @@ describe('VideoPlayerComponent — M3U movie recognition gate', () => {
                     useValue: {
                         params: of({ id: playlistId(), view: 'all' }),
                         queryParams: of({}),
-                        snapshot: {
-                            queryParams: {},
-                        },
+                        snapshot: routeSnapshot,
                     },
                 },
                 {
@@ -299,6 +302,56 @@ describe('VideoPlayerComponent — M3U movie recognition gate', () => {
         fixture.detectChanges();
 
         expect(component.showMovieDetail()).toBe(false);
+    });
+
+    describe('opened from Movies (vod/play)', () => {
+        function createOnMoviePlayRoute(): void {
+            fixture.destroy();
+            routeSnapshot.data = { moviePlayer: true };
+            fixture = TestBed.createComponent(VideoPlayerComponent);
+            component = fixture.componentInstance;
+        }
+
+        it('shows the movie detail, favourite toggle included, without TMDB', () => {
+            tmdbEnabled.set(false);
+            createOnMoviePlayRoute();
+            syncStoreState(movieChannel);
+            fixture.detectChanges();
+
+            expect(component.showMovieDetail()).toBe(true);
+            expect(
+                fixture.nativeElement.querySelector('app-m3u-vod-detail')
+            ).not.toBeNull();
+        });
+
+        it('hides the live channel rail instead of listing all channels', () => {
+            createOnMoviePlayRoute();
+            syncStoreState(movieChannel);
+            fixture.detectChanges();
+
+            const sidebar: HTMLElement =
+                fixture.nativeElement.querySelector('.sidebar');
+            expect(sidebar.classList).toContain('sidebar--guide-hidden');
+            expect(sidebar.hasAttribute('inert')).toBe(true);
+        });
+
+        it('still honours the movie detail setting', () => {
+            m3uVodDetails.set(false);
+            createOnMoviePlayRoute();
+            syncStoreState(movieChannel);
+            fixture.detectChanges();
+
+            expect(component.showMovieDetail()).toBe(false);
+        });
+    });
+
+    it('keeps the live rail visible outside vod/play', () => {
+        syncStoreState(liveChannel);
+        fixture.detectChanges();
+
+        const sidebar: HTMLElement =
+            fixture.nativeElement.querySelector('.sidebar');
+        expect(sidebar.classList).not.toContain('sidebar--guide-hidden');
     });
 
     it('treats a missing toggle value as enabled (default on)', () => {

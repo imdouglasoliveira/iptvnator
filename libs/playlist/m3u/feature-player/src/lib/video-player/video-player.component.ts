@@ -149,7 +149,11 @@ import {
 import { buildM3uPlaybackPayload } from '../m3u-playback-payload.util';
 import { M3uRecentlyViewedRecorder } from '../m3u-recently-viewed.recorder';
 import { isM3uCollectionView } from './m3u-collection-view.util';
-import { handoffAction, isM3uMovieRow } from './m3u-movie-row.util';
+import {
+    handoffAction,
+    isM3uMovieRow,
+    m3uCatalogSectionOf,
+} from './m3u-movie-row.util';
 import { readStoredM3uVolume } from '../m3u-stored-volume.util';
 import {
     findM3uChannelOpenTarget,
@@ -225,6 +229,13 @@ export class VideoPlayerComponent
     implements OnInit, OnDestroy, FullscreenChannelPanelHost
 {
     private readonly activatedRoute = inject(ActivatedRoute);
+    /**
+     * `vod/play`: a film opened from Movies. It always gets the movie detail
+     * (favourite toggle included, with or without TMDB) and the live rail
+     * stays hidden, because the rail lists channels, not the film's section.
+     */
+    readonly isMoviePlayRoute =
+        this.activatedRoute.snapshot?.data?.['moviePlayer'] === true;
     private readonly hostElement = inject(ElementRef<HTMLElement>);
     private readonly dataService = inject(DataService);
     private readonly historyGate = inject(PlaybackHistoryGate);
@@ -424,7 +435,7 @@ export class VideoPlayerComponent
     private opensMovieDetail(channel: Channel): boolean {
         return (
             this.settingsStore.m3uVodDetails?.() !== false &&
-            this.tmdbEnrichment.isEnabled() &&
+            (this.isMoviePlayRoute || this.tmdbEnrichment.isEnabled()) &&
             isM3uMovieRow(channel, this.catalogIndex.splitsCatalog())
         );
     }
@@ -974,6 +985,27 @@ export class VideoPlayerComponent
                 targetId
             );
             if (!matchedChannel) {
+                return;
+            }
+
+            // A film or episode found by the global search opens in its own
+            // section, as it does from Movies and Series.
+            const section =
+                canOpenGlobalSearchTarget && !this.isMoviePlayRoute
+                    ? m3uCatalogSectionOf(
+                          matchedChannel,
+                          this.catalogIndex.splitsCatalog()
+                      )
+                    : null;
+            if (section) {
+                void this.router.navigate(['..', ...section], {
+                    relativeTo: this.activatedRoute,
+                    replaceUrl: true,
+                    state: {
+                        openM3uChannelUrl: matchedChannel.url,
+                        openM3uChannelId: matchedChannel.id,
+                    },
+                });
                 return;
             }
 
