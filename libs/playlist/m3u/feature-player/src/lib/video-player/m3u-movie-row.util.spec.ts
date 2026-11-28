@@ -1,7 +1,11 @@
 import { ChannelActions } from '@iptvnator/m3u-state';
 import { Channel } from '@iptvnator/shared/interfaces';
 import { classifyM3uEntry } from '@iptvnator/shared/m3u-utils/catalog';
-import { handoffAction, isM3uMovieRow } from './m3u-movie-row.util';
+import {
+    handoffAction,
+    isM3uMovieRow,
+    m3uCatalogSectionOf,
+} from './m3u-movie-row.util';
 
 const row = (url: string, name: string) => ({ url, name }) as Channel;
 
@@ -95,5 +99,21 @@ describe('handoffAction', () => {
         expect(handoffAction(live, 'all', split)).toEqual(select(live));
         expect(handoffAction(film, 'all', unsplit)).toEqual(select(film));
         expect(handoffAction(film, 'recent', split)).toEqual(select(film));
+    });
+});
+
+describe('m3uCatalogSectionOf', () => {
+    const film = row('http://h.example/movie/u/p/7.mkv', 'Sandline (2019)');
+    const live = row('http://h.example/live/u/p/1.m3u8', 'KANAL ORNEK 1');
+
+    it('sends a film to Movies and an episode to Series', () => {
+        expect(m3uCatalogSectionOf(film, true)).toEqual(['vod', 'play']);
+        expect(m3uCatalogSectionOf(SERIAL, true)).toEqual(['series']);
+    });
+
+    it('keeps a live channel, or any row without the split, in place', () => {
+        expect(m3uCatalogSectionOf(live, true)).toBeNull();
+        expect(m3uCatalogSectionOf(film, false)).toBeNull();
+        expect(m3uCatalogSectionOf(SERIAL, false)).toBeNull();
     });
 });

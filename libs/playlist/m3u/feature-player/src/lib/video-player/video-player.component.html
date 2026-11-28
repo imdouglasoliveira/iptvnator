@@ -8,8 +8,8 @@
 <div
     class="sidebar"
     [class.sidebar-collapsed]="isSidebarCollapsed()"
-    [class.sidebar--guide-hidden]="guideOpen()"
-    [attr.inert]="guideOpen() ? '' : null"
+    [class.sidebar--guide-hidden]="guideOpen() || isMoviePlayRoute"
+    [attr.inert]="guideOpen() || isMoviePlayRoute ? '' : null"
     appResizable
     [minWidth]="sidebarMinWidth"
     [maxWidth]="sidebarMaxWidth"
@@ -54,7 +54,7 @@
     [class.is-guide]="guideOpen()"
     [class.is-guide-collapsed]="guideOpen() && guideDockCollapsed()"
 >
-    @if (isSidebarCollapsed() && !guideOpen()) {
+    @if (isSidebarCollapsed() && !guideOpen() && !isMoviePlayRoute) {
         <button
             mat-icon-button
             type="button"
@@ -252,7 +252,7 @@
                 </div>
             </div>
         }
-    } @else if (isSidebarCollapsed()) {
+    } @else if (isSidebarCollapsed() && !isMoviePlayRoute) {
         <app-channel-list-hidden-state (restore)="toggleSidebar()" />
     } @else {
         <app-portal-empty-state
