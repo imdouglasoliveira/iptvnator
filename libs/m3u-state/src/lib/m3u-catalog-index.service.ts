@@ -26,6 +26,10 @@ import {
     selectPlaylistState,
 } from './selectors';
 import {
+    readRememberedM3uSections,
+    rememberM3uSections,
+} from './m3u-catalog-sections.memory';
+import {
     M3uCatalogSectionFlags,
     M3uCatalogSectionsSource,
     m3uCatalogSource,
@@ -178,11 +182,21 @@ export class M3uCatalogIndexService implements M3uCatalogSectionsSource {
             const { movie, episode } =
                 this.currentSnapshot()?.counts ?? this.storedIndex().counts;
             const sections = { movies: movie > 0, series: episode > 0 };
-            this.knownSections.set(playlistId, sections);
+            const previous = this.knownSections.get(playlistId);
+            if (
+                previous?.movies !== sections.movies ||
+                previous?.series !== sections.series
+            ) {
+                this.knownSections.set(playlistId, sections);
+                rememberM3uSections(playlistId, sections);
+            }
             return sections;
         }
 
-        return this.knownSections.get(playlistId) ?? null;
+        return (
+            this.knownSections.get(playlistId) ??
+            readRememberedM3uSections(playlistId)
+        );
     }
 
     /** Index of whatever the store holds, current or not. */
