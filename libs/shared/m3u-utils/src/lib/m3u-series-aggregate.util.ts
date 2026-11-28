@@ -71,7 +71,7 @@ export function* buildM3uSeriesCatalogInBatches<T extends M3uArtworkBearing>(
     let processed = 0;
     for (const channel of episodes) {
         if (++processed % 2048 === 0) yield;
-        let parsed = parseRow(channel.name, channel.group?.title);
+        let parsed = parseRow(channel);
         const memoKey = `${parsed.standalone ? 's' : 'n'}\u0000${parsed.seriesTitle}`;
         let identity = identities.get(memoKey);
         if (!identity) {
@@ -228,21 +228,20 @@ function standaloneKeys(title: string): { base: string; trailingYear: null } {
  * If the parser later learns the spelling, such rows collapse into their
  * real series on the next load.
  *
- * A name that is nothing but a marker ("S01E01") comes from a playlist that
- * writes the show in `group-title`, so the group names its series. Keyed on
- * the name instead, every show's "S01E01" would share one series whose rows
- * nothing tells apart. Only a group with no identifying title leaves such a
- * row standalone.
+ * A name that is nothing but a marker ("S01E01") names its series, in order,
+ * from the row's `tvg-name` (providers write "<Show> S01E01" there next to a
+ * bare code in the name), then from `group-title` (a folder-to-M3U playlist
+ * writes the show there; only a group with no identifying title is skipped),
+ * and otherwise the row stays standalone under its own name.
  */
 function parseRow(
-    name: string | null | undefined,
-    group: string | null | undefined
+    channel: M3uArtworkBearing
 ): M3uEpisodeParse & { standalone?: boolean; unnumbered?: boolean } {
+    const name = channel.name;
     const parsed =
         parseM3uEpisode(name) ??
-        (group && normalizeTitleKeys(splitM3uNameTag(group).title).base
-            ? parseM3uEpisode(name, group)
-            : null);
+        parseWithTvgTitle(name, channel.tvg?.name) ??
+        parseWithGroupTitle(name, channel.group?.title);
     if (parsed) {
         return parsed;
     }
@@ -256,6 +255,36 @@ function parseRow(
         unnumbered: true,
         ...(hasEpisodeMarker(name) ? { standalone: true } : {}),
     };
+}
+
+/** The show named by `tvg-name`, with its own marker removed. */
+function parseWithTvgTitle(
+    name: string | null | undefined,
+    tvgName: string | null | undefined
+): M3uEpisodeParse | null {
+    const raw = (tvgName ?? '').trim();
+    if (!raw) {
+        return null;
+    }
+    const title = parseM3uEpisode(raw)?.seriesTitle ?? raw;
+    // A `tvg-name` that is only a marker, or that has one the parser cannot
+    // read, names no show.
+    if (
+        hasEpisodeMarker(title) ||
+        !normalizeTitleKeys(splitM3uNameTag(title).title).base
+    ) {
+        return null;
+    }
+    return parseM3uEpisode(name, title);
+}
+
+function parseWithGroupTitle(
+    name: string | null | undefined,
+    group: string | null | undefined
+): M3uEpisodeParse | null {
+    return group && normalizeTitleKeys(splitM3uNameTag(group).title).base
+        ? parseM3uEpisode(name, group)
+        : null;
 }
 
 function recordGroup<T>(series: M3uSeriesAccumulator<T>, title: string): void {

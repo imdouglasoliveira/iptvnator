@@ -3,6 +3,7 @@ import {
     M3uSeries,
     M3uSeriesEpisode,
 } from '@iptvnator/shared/m3u-utils/series';
+import { m3uEpisodeDisplayTitle } from './m3u-episode-title.util';
 
 /**
  * Converts an aggregated M3U series into the shape the shared season
@@ -60,13 +61,12 @@ export function toSeasonRecord(series: M3uSeries<Channel>): M3uSeasonRecord {
 }
 
 /**
- * Only the title the provider actually wrote after the marker. The shared
- * episode card already prefixes the number, so synthesising one here would
- * render it twice ("59. E59"); an empty title lets the card show the number
- * alone.
+ * Only the title the provider actually wrote after the marker, without file
+ * descriptors such as "1080p TR". The shared episode card shows "Episode N"
+ * itself when the title is empty, so nothing is synthesised here.
  */
 function episodeTitle(episode: M3uSeriesEpisode<Channel>): string {
-    return episode.title ?? '';
+    return m3uEpisodeDisplayTitle(episode.title);
 }
 
 function containerExtension(url: string): string {

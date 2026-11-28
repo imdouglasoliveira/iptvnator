@@ -47,7 +47,7 @@ export interface M3uCatalogIndex<T> {
 
 const KINDS: readonly M3uContentKind[] = ['live', 'movie', 'episode', 'radio'];
 
-export const M3U_CLASSIFIER_VERSION = 1;
+export const M3U_CLASSIFIER_VERSION = 2;
 
 /**
  * Builds the index in one pass.
